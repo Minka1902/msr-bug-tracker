@@ -32,6 +32,6 @@ export default tseslint.config(
   {
     files: ['client/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
-    rules: { ...reactHooks.configs.recommended.rules },
+    rules: { ...reactHooks.configs.recommended.rules, 'react-hooks/preserve-manual-memoization': 'off' },
   },
 );

@@ -11,6 +11,7 @@ const UNIQUE_MESSAGES: Record<string, string> = {
   project_roles_name_idx: 'A role with this name already exists',
   project_members_pkey: 'That person is already a member',
   users_email_key: 'An account with this email already exists',
+  task_relations_source_id_target_id_type_key: 'Those tasks are already linked',
 };
 
 export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {

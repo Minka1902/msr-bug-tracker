@@ -1,7 +1,8 @@
 import type { RequestHandler } from 'express';
 import { prepared } from '../../db/pool';
-import { notFound } from '../../lib/httpError';
-import { toProjectContext } from '../projects/access';
+import { canEditTask, isOwnTask } from '@msr/shared/permissions';
+import { forbidden, notFound } from '../../lib/httpError';
+import { assertWritable, toProjectContext, type ProjectContext } from '../projects/access';
 
 export interface TaskContext {
   id: string;
@@ -61,4 +62,12 @@ export const loadTask: RequestHandler = async (req, _res, next) => {
   req.project = access.project;
   req.task = access.task;
   next();
+};
+
+export const assertCanEditTask = (project: ProjectContext, task: TaskContext, userId: string) => {
+  assertWritable(project);
+  if (!canEditTask(project.permissions, task, userId))
+    throw forbidden(`Your role (${project.roleName}) can't edit this task`, {
+      missing: [isOwnTask(task, userId) ? 'task.edit_own' : 'task.edit_any'],
+    });
 };

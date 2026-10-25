@@ -52,6 +52,11 @@ const detectType = async (file: Express.Multer.File) => {
   return null;
 };
 
+const decodeName = (name: string) => {
+  const decoded = Buffer.from(name, 'latin1').toString('utf8');
+  return decoded.includes('\uFFFD') ? name : decoded;
+};
+
 export const discardTemp = (files: Express.Multer.File[] = []) =>
   Promise.all(files.map((file) => fs.rm(file.path, { force: true })));
 
@@ -73,7 +78,7 @@ export const storeUploads = async (
         mime: type.mime,
         ext: type.ext,
         size: file.size,
-        name: file.originalname.slice(0, 255),
+        name: decodeName(file.originalname).slice(0, 255),
       });
     }
     return stored;

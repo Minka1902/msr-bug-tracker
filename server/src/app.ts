@@ -13,6 +13,10 @@ import { createAuthRouter } from './modules/auth/routes';
 import { createDevRouter } from './modules/dev/routes';
 import { createProjectsRouter } from './modules/projects/routes';
 import { createTasksRouter } from './modules/tasks/routes';
+import { createAttachmentsRouter } from './modules/attachments/routes';
+import { createChecklistRouter } from './modules/checklist/routes';
+import { createCommentsRouter } from './modules/comments/routes';
+import { createRelationsRouter } from './modules/relations/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 interface AppOptions {
@@ -56,6 +60,10 @@ export const createApp = ({ rateLimit = true }: AppOptions = {}) => {
   api.use(requireAuth);
   api.use(createUsersRouter());
   api.use('/projects', createProjectsRouter());
+  api.use(createAttachmentsRouter());
+  api.use(createCommentsRouter());
+  api.use(createChecklistRouter());
+  api.use(createRelationsRouter());
   api.use('/tasks', createTasksRouter());
   api.use(() => {
     throw notFound();
