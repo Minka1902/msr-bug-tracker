@@ -77,15 +77,10 @@ export const useChangeEmail = () => {
   });
 };
 
-export const useUploadAvatar = () => {
+export const useRemoveAvatar = () => {
   const setMe = useSetMe();
   return useMutation({
-    mutationFn: (file: File | null) => {
-      if (!file) return api<{ user: CurrentUser }>('/me/avatar', { method: 'DELETE' });
-      const form = new FormData();
-      form.append('avatar', file);
-      return api<{ user: CurrentUser }>('/me/avatar', { method: 'POST', body: form });
-    },
+    mutationFn: () => api<{ user: CurrentUser }>('/me/avatar', { method: 'DELETE' }),
     onSuccess: setMe,
   });
 };
