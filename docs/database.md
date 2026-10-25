@@ -33,6 +33,9 @@ erDiagram
   tasks ||--o{ attachments : has
   tasks ||--o{ task_relations : links
   tasks ||--o{ task_activity : logs
+  projects ||--o{ task_activity : "feed"
+  task_comments ||--o{ attachments : "comment_id"
+  users ||--o| demo_sets : "owner_id"
 ```
 
 ## Tables
@@ -116,11 +119,53 @@ PK `(project_id, user_id)`. `role_id` uses `ON DELETE RESTRICT`, so deleting a r
 
 Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | todo | in_progress | done`). `position` is a fractional-index string with `COLLATE "C"`, so byte order equals sort order. Status names are unique per workflow and label names are unique per project, both case-insensitive.
 
-### `tasks` and children — migration 003
+### `tasks` — migration 003
 
-`tasks` holds every work item: tasks, bugs, features, improvements and subtasks (`parent_id`). Bug-only fields are plain columns, so a task is read in one row with no joins. Denormalized counters avoid aggregate joins when rendering board cards. `search_vector` is a generated `tsvector` (title weighted A, description B) with a GIN index, and titles also have a trigram GIN index.
+`tasks` holds every work item: tasks, bugs, features, improvements and subtasks (`parent_id`). Bug-only fields are plain columns, so a task reads in one row with no joins.
 
-Child tables: `task_aliases` (old identifiers of moved tasks), `task_labels`, `task_checklist_items`, `task_comments` (one level of replies via `parent_id`), `attachments` (`task_id` NULL while a file is pending for a task not yet created), `task_relations` (canonical ordering, unique per type), and `task_activity` (bigserial; `task_id` is `SET NULL` on delete so project feeds keep a "deleted" entry).
+| Column                                                                                                                                      | Type                                         | Notes                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| `project_id`, `number`                                                                                                                      | uuid FK (cascade), int                       | Unique together. The identifier is `KEY-number`                            |
+| `parent_id`                                                                                                                                 | uuid FK → tasks (cascade), null              | Subtasks. Indexed when non-null                                            |
+| `type`                                                                                                                                      | enum `task \| bug \| feature \| improvement` | `bug` uses the bug workflow; everything else uses the task workflow        |
+| `title`                                                                                                                                     | text, 1–300 chars                            | Trigram GIN index for fuzzy search                                         |
+| `description`                                                                                                                               | text (markdown)                              | The first 20 000 characters feed `search_vector`                           |
+| `status_id`                                                                                                                                 | uuid FK → project_statuses                   | Its category drives `completed_at`                                         |
+| `priority`                                                                                                                                  | enum `urgent \| high \| medium \| low`       | Enum order is the sort order                                               |
+| `severity`, `reproducibility`                                                                                                               | enums, null                                  | Bug fields                                                                 |
+| `assignee_id`, `reporter_id`                                                                                                                | uuid FK → users (set null)                   | Single assignee                                                            |
+| `start_date`, `due_date`                                                                                                                    | date                                         | `CHECK start_date <= due_date`. Overdue is computed in the user's timezone |
+| `completed_at`                                                                                                                              | timestamptz, null                            | Set when entering a done-category status, cleared when leaving one         |
+| `is_blocked`, `blocked_reason`                                                                                                              | bool, text                                   |                                                                            |
+| `position`                                                                                                                                  | text `COLLATE "C"`                           | Fractional index within a status column                                    |
+| `steps_to_reproduce`, `expected_behavior`, `actual_behavior`, `env_os`, `env_browser`, `env_app_version`, `found_in_version`, `fix_version` | text, default `''`                           | Bug details                                                                |
+| `comment_count`, `attachment_count`, `checklist_total`, `checklist_done`, `subtask_total`, `subtask_done`                                   | int                                          | Denormalized counters for board cards                                      |
+| `search_vector`                                                                                                                             | generated tsvector                           | `simple` config; title weighted A, description B. GIN index                |
+
+**Indexes on `tasks`:**
+
+| Index                     | Columns                                    |
+| ------------------------- | ------------------------------------------ |
+| `tasks_board_idx`         | `(project_id, status_id, position)`        |
+| `tasks_assignee_open_idx` | `(assignee_id) WHERE completed_at IS NULL` |
+| `tasks_due_idx`           | `(project_id, due_date)`                   |
+| `tasks_updated_idx`       | `(project_id, updated_at DESC)`            |
+| `tasks_parent_idx`        | `(parent_id)`, partial                     |
+| `tasks_status_idx`        | `(status_id)`                              |
+| `tasks_search_idx`        | GIN on `search_vector`                     |
+| `tasks_title_trgm_idx`    | GIN trigram on `title`                     |
+
+### Task children — migration 003
+
+| Table                  | Key columns                                                                                                                     | Notes                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `task_aliases`         | PK `(project_id, number)` → `task_id`                                                                                           | Old identifiers of moved tasks. Resolution checks live numbers first                                                                                                                    |
+| `task_labels`          | PK `(task_id, label_id)`                                                                                                        | Index on `label_id` for label filters                                                                                                                                                   |
+| `task_checklist_items` | `task_id`, `text` (1–500), `is_done`, `position`                                                                                | Ordered by `(task_id, position)`                                                                                                                                                        |
+| `task_comments`        | `task_id`, `author_id` (set null), `parent_id` (one reply level), `body` (1–20 000), `edited_at`                                | Indexed `(task_id, created_at)`                                                                                                                                                         |
+| `attachments`          | `task_id` (null while pending), `comment_id`, `uploader_id`, unique `storage_key`, `name`, `mime`, `size`                       | Partial index on pending uploads by uploader. Purged after 24h if never linked                                                                                                          |
+| `task_relations`       | `source_id`, `target_id`, `type` (`relates \| duplicates \| blocks`), unique `(source, target, type)`, `CHECK source <> target` | `relates` is stored in canonical id order                                                                                                                                               |
+| `task_activity`        | bigserial, `project_id`, `task_id` (set null), `actor_id`, `action`, `field`, `old_value`/`new_value` jsonb                     | Indexed `(project_id, created_at DESC)` for feeds and `(task_id, created_at)` for a task's history. A deleted task keeps its feed entries, with its identifier and title in `new_value` |
 
 ### `demo_sets` — migration 004
 
@@ -139,15 +184,15 @@ One row per user who has generated demo data: `owner_id` (PK, FK → users, casc
 
 ## Key query patterns
 
-| Need           | Pattern                                                                                                                                                                               |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Board ordering | Fractional string keys in `tasks.position` (`fractional-indexing`, `COLLATE "C"`). A drag updates one row and never reindexes.                                                        |
-| Board load     | One query with `row_number() OVER (PARTITION BY status_id ORDER BY position)`, capped at 100 cards per column, plus per-column totals.                                                |
-| Project stats  | One aggregate query per request, using `count(*) FILTER (WHERE category = 'done')` and similar for total, completed, active and overdue, joined to `project_statuses` for categories. |
-| Overdue        | `due_date < (now() AT TIME ZONE $tz)::date AND category <> 'done'`, where `$tz` is the user's stored timezone.                                                                        |
-| Search         | Exact `KEY-123` match first; otherwise `search_vector @@ to_tsquery('simple', 'a & b:*')` combined with trigram `similarity(title, q)`. Projects and tasks come back in one query.    |
-| Activity       | A PATCH diffs the old and new rows and writes all changes with one multi-row `INSERT`.                                                                                                |
-| Bulk edits     | `UPDATE … WHERE id = ANY($1)`, with activity written by `INSERT … SELECT`.                                                                                                            |
+| Need           | Pattern                                                                                                                                                                                                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Board ordering | Fractional string keys in `tasks.position` (`fractional-indexing`, `COLLATE "C"`). A drag updates one row and never reindexes.                                                                                                                                          |
+| Board load     | One query with `row_number() OVER (PARTITION BY status_id ORDER BY position)`, capped at 100 cards per column, plus per-column totals.                                                                                                                                  |
+| Project stats  | One aggregate query per request, using `count(*) FILTER (WHERE category = 'done')` and similar for total, completed, active and overdue, joined to `project_statuses` for categories.                                                                                   |
+| Overdue        | `due_date < (now() AT TIME ZONE $tz)::date AND category <> 'done'`, where `$tz` is the user's stored timezone.                                                                                                                                                          |
+| Search         | Two queries in parallel (projects, tasks), both scoped to the caller's memberships. Exact `KEY-123` match first; then prefix `to_tsquery('simple', 'a & b:*')`, escaped `ILIKE`, or trigram `q <% title` (word similarity ≥ 0.5, set on the pool). Ranked by `ts_rank`. |
+| Activity       | A PATCH diffs the old and new rows and writes all changes with one multi-row `INSERT`.                                                                                                                                                                                  |
+| Bulk edits     | `UPDATE … WHERE id = ANY($1)`, with activity written by `INSERT … SELECT`.                                                                                                                                                                                              |
 
 ## Backups
 

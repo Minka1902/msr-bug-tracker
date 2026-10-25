@@ -15,22 +15,25 @@ Docs: [database](docs/database.md) · [server architecture](docs/server-architec
 
 ```bash
 cp .env.example .env
-docker compose up -d          # or use a local Postgres 16 and create msr_dev + msr_test
+docker compose up -d          # Postgres 16 with msr_dev + msr_test (or create both yourself)
 pnpm install
 pnpm db:migrate
+pnpm db:seed                  # optional: demo@msr.local / demo-password with demo data
 pnpm dev                      # API on :4000, app on http://localhost:5173
 ```
 
+Before the first `pnpm e2e`, install the browser once with `pnpm exec playwright install chromium`.
+
 ## Scripts
 
-| Command                                      | What it does                                              |
-| -------------------------------------------- | --------------------------------------------------------- |
-| `pnpm dev`                                   | API (tsx watch) and client (Vite) together                |
-| `pnpm build` / `pnpm start`                  | Production build, then serve the API and the built client |
-| `pnpm lint` / `pnpm typecheck` / `pnpm test` | ESLint, tsc, and Vitest in every package                  |
-| `pnpm e2e`                                   | Playwright end-to-end tests                               |
-| `pnpm db:migrate`                            | Apply pending SQL migrations                              |
-| `pnpm db:seed`                               | Create a `demo@msr.local` login filled with demo data     |
+| Command                                      | What it does                                                                                    |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                   | API (tsx watch) and client (Vite) together                                                      |
+| `pnpm build` / `pnpm start`                  | Production build, then serve the API and the built client                                       |
+| `pnpm lint` / `pnpm typecheck` / `pnpm test` | ESLint, tsc, and Vitest in every package                                                        |
+| `pnpm e2e`                                   | Playwright e2e: recreates `msr_e2e`, builds, serves on :4300, runs desktop + iPhone + axe specs |
+| `pnpm db:migrate`                            | Apply pending SQL migrations                                                                    |
+| `pnpm db:seed`                               | Create a `demo@msr.local` login filled with demo data                                           |
 
 ## Deploy to Render
 
