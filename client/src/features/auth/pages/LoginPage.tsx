@@ -8,6 +8,7 @@ import { Field } from '../../../components/ui/Field';
 import { Input } from '../../../components/ui/Input';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
+import { safeNextPath } from '../../../lib/safeNextPath';
 import { useLogin } from '../api';
 import { AuthLayout } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
@@ -15,7 +16,9 @@ import { PasswordInput } from '../components/PasswordInput';
 export function LoginPage() {
   const submit = (event: FormEvent) =>
     form.handleSubmit((values) =>
-      login.mutate(values, { onSuccess: () => navigate(params.get('next') ?? '/', { replace: true }) }),
+      login.mutate(values, {
+        onSuccess: () => navigate(safeNextPath(params.get('next')), { replace: true }),
+      }),
     )(event);
 
   const [params] = useSearchParams();

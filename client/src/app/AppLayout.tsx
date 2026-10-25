@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import type { CurrentUser } from '@msr/shared/types';
 import { AppShell } from '../components/layout/AppShell';
@@ -11,13 +11,17 @@ import { InstallHint } from '../features/pwa/InstallHint';
 import { OfflineBanner } from '../features/pwa/OfflineBanner';
 import { useProjects } from '../features/projects/api';
 import { CreateProjectModal } from '../features/projects/components/CreateProjectModal';
-import {
-  QuickCreateTaskModal,
-  type QuickCreateDefaults,
-} from '../features/tasks/components/QuickCreateTaskModal';
-import { TaskPeek } from '../features/tasks/components/TaskPeek';
-import { CommandPalette } from '../features/search/CommandPalette';
+import type { QuickCreateDefaults } from '../features/tasks/components/QuickCreateTaskModal';
 import { useHotkey } from '../hooks/useHotkey';
+import { lazyComponent } from '../lib/lazy';
+
+const QuickCreateTaskModal = lazyComponent(() =>
+  import('../features/tasks/components/QuickCreateTaskModal').then((m) => m.QuickCreateTaskModal),
+);
+const TaskPeek = lazyComponent(() => import('../features/tasks/components/TaskPeek').then((m) => m.TaskPeek));
+const CommandPalette = lazyComponent(() =>
+  import('../features/search/CommandPalette').then((m) => m.CommandPalette),
+);
 
 interface AppLayoutProps {
   user: CurrentUser;
@@ -74,20 +78,22 @@ export function AppLayout({ user, children }: AppLayoutProps) {
         {children}
       </AppShell>
       <CreateProjectModal open={creatingProject} onOpenChange={setCreatingProject} />
-      <QuickCreateTaskModal
-        key={quickCreate.version}
-        open={quickCreate.open}
-        defaults={quickCreate.defaults}
-        onOpenChange={(open) => setQuickCreate((current) => ({ ...current, open }))}
-      />
-      <TaskPeek />
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        onCreateTask={() => shell.openQuickCreate()}
-        onCreateProject={shell.openCreateProject}
-        onLogout={handleLogout}
-      />
+      <Suspense fallback={null}>
+        <QuickCreateTaskModal
+          key={quickCreate.version}
+          open={quickCreate.open}
+          defaults={quickCreate.defaults}
+          onOpenChange={(open) => setQuickCreate((current) => ({ ...current, open }))}
+        />
+        <TaskPeek />
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          onCreateTask={() => shell.openQuickCreate()}
+          onCreateProject={shell.openCreateProject}
+          onLogout={handleLogout}
+        />
+      </Suspense>
     </ShellContext>
   );
 }

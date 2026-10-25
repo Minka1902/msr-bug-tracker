@@ -4,32 +4,10 @@ import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
-import { ProjectLayout } from '../features/projects/pages/ProjectLayout';
-import { ProjectsPage } from '../features/projects/pages/ProjectsPage';
-import { DangerSettings } from '../features/projects/settings/DangerSettings';
-import { GeneralSettings } from '../features/projects/settings/GeneralSettings';
-import { LabelSettings } from '../features/projects/settings/LabelSettings';
-import { MemberSettings } from '../features/projects/settings/MemberSettings';
-import { ProjectSettingsLayout } from '../features/projects/settings/ProjectSettingsLayout';
-import { RoleSettings } from '../features/projects/settings/RoleSettings';
-import { WorkflowSettings } from '../features/projects/settings/WorkflowSettings';
-import { AccountSettings } from '../features/settings/pages/AccountSettings';
-import { DashboardPage } from '../features/insights/pages/DashboardPage';
-import { MyTasksPage } from '../features/insights/pages/MyTasksPage';
-import { ProjectActivityPage } from '../features/insights/pages/ProjectActivityPage';
-import { ProjectOverviewPage } from '../features/insights/pages/ProjectOverviewPage';
-import { BoardPage } from '../features/tasks/pages/BoardPage';
-import { BugsPage } from '../features/tasks/pages/BugsPage';
-import { IdentifierRedirect } from '../features/tasks/pages/IdentifierRedirect';
-import { ListPage } from '../features/tasks/pages/ListPage';
-import { TaskPage } from '../features/tasks/pages/TaskPage';
-import { AppearanceSettings } from '../features/settings/pages/AppearanceSettings';
-import { DemoDataSettings } from '../features/settings/pages/DemoDataSettings';
-import { InstallSettings } from '../features/settings/pages/InstallSettings';
-import { ProfileSettings } from '../features/settings/pages/ProfileSettings';
-import { SettingsPage } from '../features/settings/pages/SettingsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { RouteError } from '../pages/RouteError';
+import { lazyRoute } from '../lib/lazy';
+import { FullScreenLoader } from '../components/ui/FullScreenLoader';
 import { GuestOnly } from './GuestOnly';
 import { RequireAuth } from './RequireAuth';
 
@@ -37,7 +15,7 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
   ? [
       {
         path: '/dev/ui',
-        lazy: async () => ({ Component: (await import('../pages/dev/UiPreviewPage')).UiPreviewPage }),
+        lazy: lazyRoute(() => import('../pages/dev/UiPreviewPage').then((m) => m.UiPreviewPage)),
       },
     ]
   : [];
@@ -45,6 +23,7 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
 export const router = createBrowserRouter([
   {
     errorElement: <RouteError />,
+    hydrateFallbackElement: <FullScreenLoader />,
     children: [
       ...devRoutes,
       { path: '/verify-email', element: <VerifyEmailPage /> },
@@ -60,32 +39,112 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
-          { path: '/', element: <DashboardPage /> },
-          { path: '/my-tasks', element: <MyTasksPage /> },
-          { path: '/projects', element: <ProjectsPage /> },
-          { path: '/t/:identifier', element: <IdentifierRedirect /> },
+          {
+            path: '/',
+            lazy: lazyRoute(() =>
+              import('../features/insights/pages/DashboardPage').then((m) => m.DashboardPage),
+            ),
+          },
+          {
+            path: '/my-tasks',
+            lazy: lazyRoute(() =>
+              import('../features/insights/pages/MyTasksPage').then((m) => m.MyTasksPage),
+            ),
+          },
+          {
+            path: '/projects',
+            lazy: lazyRoute(() =>
+              import('../features/projects/pages/ProjectsPage').then((m) => m.ProjectsPage),
+            ),
+          },
+          {
+            path: '/t/:identifier',
+            lazy: lazyRoute(() =>
+              import('../features/tasks/pages/IdentifierRedirect').then((m) => m.IdentifierRedirect),
+            ),
+          },
           {
             path: '/p/:key',
-            element: <ProjectLayout />,
+            lazy: lazyRoute(() =>
+              import('../features/projects/pages/ProjectLayout').then((m) => m.ProjectLayout),
+            ),
             children: [
               { index: true, element: <Navigate to="board" replace /> },
-              { path: 'overview', element: <ProjectOverviewPage /> },
-              { path: 'board', element: <BoardPage /> },
-              { path: 'activity', element: <ProjectActivityPage /> },
-              { path: 'list', element: <ListPage /> },
-              { path: 'bugs', element: <BugsPage /> },
-              { path: ':number', element: <TaskPage /> },
+              {
+                path: 'overview',
+                lazy: lazyRoute(() =>
+                  import('../features/insights/pages/ProjectOverviewPage').then((m) => m.ProjectOverviewPage),
+                ),
+              },
+              {
+                path: 'board',
+                lazy: lazyRoute(() => import('../features/tasks/pages/BoardPage').then((m) => m.BoardPage)),
+              },
+              {
+                path: 'activity',
+                lazy: lazyRoute(() =>
+                  import('../features/insights/pages/ProjectActivityPage').then((m) => m.ProjectActivityPage),
+                ),
+              },
+              {
+                path: 'list',
+                lazy: lazyRoute(() => import('../features/tasks/pages/ListPage').then((m) => m.ListPage)),
+              },
+              {
+                path: 'bugs',
+                lazy: lazyRoute(() => import('../features/tasks/pages/BugsPage').then((m) => m.BugsPage)),
+              },
+              {
+                path: ':number',
+                lazy: lazyRoute(() => import('../features/tasks/pages/TaskPage').then((m) => m.TaskPage)),
+              },
               {
                 path: 'settings',
-                element: <ProjectSettingsLayout />,
+                lazy: lazyRoute(() =>
+                  import('../features/projects/settings/ProjectSettingsLayout').then(
+                    (m) => m.ProjectSettingsLayout,
+                  ),
+                ),
                 children: [
                   { index: true, element: <Navigate to="general" replace /> },
-                  { path: 'general', element: <GeneralSettings /> },
-                  { path: 'workflows', element: <WorkflowSettings /> },
-                  { path: 'labels', element: <LabelSettings /> },
-                  { path: 'members', element: <MemberSettings /> },
-                  { path: 'roles', element: <RoleSettings /> },
-                  { path: 'danger', element: <DangerSettings /> },
+                  {
+                    path: 'general',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/GeneralSettings').then((m) => m.GeneralSettings),
+                    ),
+                  },
+                  {
+                    path: 'workflows',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/WorkflowSettings').then(
+                        (m) => m.WorkflowSettings,
+                      ),
+                    ),
+                  },
+                  {
+                    path: 'labels',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/LabelSettings').then((m) => m.LabelSettings),
+                    ),
+                  },
+                  {
+                    path: 'members',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/MemberSettings').then((m) => m.MemberSettings),
+                    ),
+                  },
+                  {
+                    path: 'roles',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/RoleSettings').then((m) => m.RoleSettings),
+                    ),
+                  },
+                  {
+                    path: 'danger',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/DangerSettings').then((m) => m.DangerSettings),
+                    ),
+                  },
                 ],
               },
               { path: '*', element: <NotFoundPage /> },
@@ -93,14 +152,41 @@ export const router = createBrowserRouter([
           },
           {
             path: '/settings',
-            element: <SettingsPage />,
+            lazy: lazyRoute(() =>
+              import('../features/settings/pages/SettingsPage').then((m) => m.SettingsPage),
+            ),
             children: [
               { index: true, element: <Navigate to="profile" replace /> },
-              { path: 'profile', element: <ProfileSettings /> },
-              { path: 'account', element: <AccountSettings /> },
-              { path: 'appearance', element: <AppearanceSettings /> },
-              { path: 'demo', element: <DemoDataSettings /> },
-              { path: 'install', element: <InstallSettings /> },
+              {
+                path: 'profile',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/ProfileSettings').then((m) => m.ProfileSettings),
+                ),
+              },
+              {
+                path: 'account',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/AccountSettings').then((m) => m.AccountSettings),
+                ),
+              },
+              {
+                path: 'appearance',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/AppearanceSettings').then((m) => m.AppearanceSettings),
+                ),
+              },
+              {
+                path: 'demo',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/DemoDataSettings').then((m) => m.DemoDataSettings),
+                ),
+              },
+              {
+                path: 'install',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/InstallSettings').then((m) => m.InstallSettings),
+                ),
+              },
             ],
           },
           { path: '*', element: <NotFoundPage /> },

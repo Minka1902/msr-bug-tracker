@@ -43,6 +43,20 @@ interface RichTextEditorProps {
   'aria-label'?: string;
 }
 
+const SAFE_IMAGE_SRC = /^(\/(?!\/)|https?:|blob:|data:image\/(png|jpe?g|gif|webp);)/i;
+
+const SafeImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      src: {
+        default: null,
+        renderHTML: ({ src }) => ({ src: typeof src === 'string' && SAFE_IMAGE_SRC.test(src) ? src : null }),
+      },
+    };
+  },
+});
+
 const TOOLS: {
   label: string;
   icon: ReactNode;
@@ -171,7 +185,7 @@ export function RichTextEditor({
     extensions: [
       StarterKit.configure({ link: { openOnClick: !editable, autolink: true, defaultProtocol: 'https' } }),
       Markdown,
-      Image,
+      SafeImage,
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({ placeholder }),
@@ -185,7 +199,7 @@ export function RichTextEditor({
               role: 'textbox',
               'aria-multiline': 'true',
             }
-          : {}),
+          : { role: 'none' }),
       }),
       handlePaste: (view, event) => {
         const files = [...(event.clipboardData?.files ?? [])];
