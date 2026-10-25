@@ -1,9 +1,37 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: 'prompt',
+      injectRegister: false,
+      pwaAssets: { config: true, overrideManifestIcons: true, injectThemeColor: false },
+      manifest: {
+        id: '/',
+        name: 'MSR Tracker',
+        short_name: 'MSR',
+        description: 'Projects, tasks and bugs in one place.',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'any',
+        theme_color: '#4f56f0',
+        background_color: '#0a1023',
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
+        globIgnores: ['**/apple-splash-*'],
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [/^\/api\//],
+        cleanupOutdatedCaches: true,
+      },
+    }),
+  ],
   server: {
     port: 5173,
     proxy: { '/api': 'http://localhost:4000' },

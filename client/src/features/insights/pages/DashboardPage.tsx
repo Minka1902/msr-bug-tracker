@@ -87,7 +87,7 @@ export function DashboardPage() {
           />
         </Card>
       ) : (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex min-w-0 flex-col gap-5">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <StatCard
@@ -135,7 +135,7 @@ export function DashboardPage() {
                 ))}
               </div>
             </SectionCard>
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
               <SectionCard title="High-priority bugs" icon={<Bug />}>
                 {data.highPriorityBugs.length ? (
                   data.highPriorityBugs.map((task) => <TaskLine key={task.id} task={task} onOpen={open} />)

@@ -22,18 +22,23 @@ import { createSearchRouter } from './modules/search/routes';
 import { createDemoRouter } from './modules/demo/routes';
 import { createUsersRouter } from './modules/users/routes';
 
+const noCache = (res: express.Response) => {
+  res.setHeader('Cache-Control', 'no-cache');
+};
+
 interface AppOptions {
   rateLimit?: boolean;
   demoData?: boolean;
+  clientDist?: string;
 }
 
 export const createApp = ({
   rateLimit = config.rateLimit,
   demoData = config.ENABLE_DEMO_DATA,
+  clientDist = config.CLIENT_DIST && path.resolve(config.CLIENT_DIST),
 }: AppOptions = {}) => {
   const app = express();
   const api = express.Router();
-  const clientDist = config.CLIENT_DIST && path.resolve(config.CLIENT_DIST);
   const limits = createRateLimits(rateLimit);
 
   app.set('trust proxy', 1);
@@ -82,9 +87,13 @@ export const createApp = ({
   app.use('/api', api);
 
   if (clientDist && fs.existsSync(clientDist)) {
-    app.use(express.static(clientDist, { index: false, maxAge: '1y', immutable: true }));
+    app.use('/assets', express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true }));
+    app.use('/assets', (_req, res) => {
+      res.sendStatus(404);
+    });
+    app.use(express.static(clientDist, { index: false, cacheControl: false, setHeaders: noCache }));
     app.get('/{*splat}', (_req, res) => {
-      res.setHeader('Cache-Control', 'no-cache');
+      noCache(res);
       res.sendFile(path.join(clientDist, 'index.html'));
     });
   }

@@ -62,7 +62,7 @@ export function AppShell({ user, projects, actions, banners, children }: AppShel
         <div className="flex min-w-0 flex-1 flex-col bg-app md:overflow-hidden">
           <Topbar actions={actions} onOpenMenu={() => setMenuOpen(true)} />
           <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:overflow-y-auto md:px-6 md:pb-6 scrollbar-thin">
-            {banners && <div className="mb-4 flex flex-col gap-2">{banners}</div>}
+            {banners && <div className="mb-4 flex flex-col gap-2 empty:hidden">{banners}</div>}
             {children}
           </main>
         </div>

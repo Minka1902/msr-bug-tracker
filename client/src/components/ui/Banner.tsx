@@ -1,16 +1,19 @@
+import { X } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Tone } from '@msr/shared/enums';
 import { cn } from '../../lib/cn';
+import { IconButton } from './IconButton';
 
 interface BannerProps {
   tone?: Tone;
   icon?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
+  onDismiss?: () => void;
   className?: string;
 }
 
-export function Banner({ tone = 'info', icon, children, action, className }: BannerProps) {
+export function Banner({ tone = 'info', icon, children, action, onDismiss, className }: BannerProps) {
   return (
     <div
       role="status"
@@ -23,6 +26,16 @@ export function Banner({ tone = 'info', icon, children, action, className }: Ban
       {icon}
       <div className="min-w-0 flex-1">{children}</div>
       {action}
+      {onDismiss && (
+        <IconButton
+          icon={<X />}
+          label="Dismiss"
+          size="xs"
+          tooltip={false}
+          onClick={onDismiss}
+          className="-my-1"
+        />
+      )}
     </div>
   );
 }

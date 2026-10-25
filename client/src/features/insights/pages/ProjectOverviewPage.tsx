@@ -76,7 +76,7 @@ export function ProjectOverviewPage() {
         action={<span className="text-sm font-semibold tabular-nums">{data.stats.progress}%</span>}
       >
         <ProgressBar value={data.stats.progress} color={project.color} size="md" />
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {WORKFLOWS.map((workflow) => {
             const statuses = project.statuses.filter((status) => status.workflow === workflow);
             const counts = statuses.map(
@@ -117,7 +117,7 @@ export function ProjectOverviewPage() {
           })}
         </div>
       </SectionCard>
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <SectionCard title="By type" icon={<Shapes />}>
           <div className="flex flex-col gap-2">
             {TASK_TYPES.map((type) => (
@@ -149,7 +149,7 @@ export function ProjectOverviewPage() {
           )}
         </SectionCard>
       </div>
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <SectionCard title="High-priority bugs" icon={<Bug />}>
           {data.highPriorityBugs.length ? (
             data.highPriorityBugs.map((task) => <TaskLine key={task.id} task={task} onOpen={open} />)

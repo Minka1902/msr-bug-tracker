@@ -72,7 +72,7 @@ export function TaskDetail({ identifier, variant = 'peek', onClose, onNavigate }
     >
       <TaskDetailHeader task={task} project={project.data} onClose={onClose} onNavigate={onNavigate} />
       <div className="@container flex-1 overflow-y-auto scrollbar-thin">
-        <div className="grid gap-6 p-4 md:p-5 @2xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid grid-cols-1 gap-6 p-4 md:p-5 @2xl:grid-cols-[minmax(0,1fr)_260px]">
           <div className="flex min-w-0 flex-col gap-6">
             <InlineText
               multiline

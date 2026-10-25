@@ -25,6 +25,7 @@ import { ListPage } from '../features/tasks/pages/ListPage';
 import { TaskPage } from '../features/tasks/pages/TaskPage';
 import { AppearanceSettings } from '../features/settings/pages/AppearanceSettings';
 import { DemoDataSettings } from '../features/settings/pages/DemoDataSettings';
+import { InstallSettings } from '../features/settings/pages/InstallSettings';
 import { ProfileSettings } from '../features/settings/pages/ProfileSettings';
 import { SettingsPage } from '../features/settings/pages/SettingsPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
@@ -99,6 +100,7 @@ export const router = createBrowserRouter([
               { path: 'account', element: <AccountSettings /> },
               { path: 'appearance', element: <AppearanceSettings /> },
               { path: 'demo', element: <DemoDataSettings /> },
+              { path: 'install', element: <InstallSettings /> },
             ],
           },
           { path: '*', element: <NotFoundPage /> },

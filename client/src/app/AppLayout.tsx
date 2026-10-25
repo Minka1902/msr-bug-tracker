@@ -7,6 +7,8 @@ import { useLogout } from '../features/auth/api';
 import { VerifyEmailBanner } from '../features/auth/components/VerifyEmailBanner';
 import { useThemeSync } from '../features/auth/useThemeSync';
 import { ImpersonationBanner } from '../features/demo/ImpersonationBanner';
+import { InstallHint } from '../features/pwa/InstallHint';
+import { OfflineBanner } from '../features/pwa/OfflineBanner';
 import { useProjects } from '../features/projects/api';
 import { CreateProjectModal } from '../features/projects/components/CreateProjectModal';
 import {
@@ -58,11 +60,15 @@ export function AppLayout({ user, children }: AppLayoutProps) {
           onCreateProject: shell.openCreateProject,
         }}
         banners={
-          user.impersonator ? (
-            <ImpersonationBanner user={user} />
-          ) : (
-            !user.emailVerified && <VerifyEmailBanner email={user.email} />
-          )
+          <>
+            <OfflineBanner />
+            {user.impersonator ? (
+              <ImpersonationBanner user={user} />
+            ) : (
+              !user.emailVerified && <VerifyEmailBanner email={user.email} />
+            )}
+            <InstallHint />
+          </>
         }
       >
         {children}

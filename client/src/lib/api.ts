@@ -8,6 +8,8 @@ export class ApiError extends Error {
   }
 }
 
+const OFFLINE_MESSAGE = "You're offline or the server can't be reached";
+
 type Query = Record<string, string | number | boolean | null | undefined | (string | number)[]>;
 
 interface RequestOptions {
@@ -39,6 +41,9 @@ export const api = async <T = void>(
     credentials: 'same-origin',
     headers: body === undefined || isForm ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+  }).catch((error: unknown) => {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new ApiError(0, OFFLINE_MESSAGE);
   });
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => ({}));
@@ -48,3 +53,5 @@ export const api = async <T = void>(
 
 export const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Something went wrong';
+
+export const isNetworkError = (error: unknown) => error instanceof ApiError && error.status === 0;

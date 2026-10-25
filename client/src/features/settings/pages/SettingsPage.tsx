@@ -8,6 +8,7 @@ const TABS = [
   { to: '/settings/profile', label: 'Profile' },
   { to: '/settings/account', label: 'Account' },
   { to: '/settings/appearance', label: 'Appearance' },
+  { to: '/settings/install', label: 'Install app' },
 ];
 
 export function SettingsPage() {

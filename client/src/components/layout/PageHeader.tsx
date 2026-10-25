@@ -15,7 +15,7 @@ export function PageHeader({ title, description, icon, actions, children, classN
     <div className={cn('flex flex-col gap-4 pt-2 pb-5', className)}>
       <div className="flex flex-wrap items-center gap-3">
         {icon}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-[1_1_15rem]">
           <h1 className="truncate text-2xl font-bold md:text-[28px]">{title}</h1>
           {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
         </div>

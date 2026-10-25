@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { ConfirmProvider } from '../context/ConfirmProvider';
 import { ThemeProvider } from '../context/ThemeProvider';
+import { UpdatePrompt } from '../features/pwa/UpdatePrompt';
 import { queryClient } from './queryClient';
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -14,6 +15,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <ConfirmProvider>
             {children}
             <Toaster position="bottom-right" closeButton toastOptions={{ className: 'font-sans' }} />
+            <UpdatePrompt />
           </ConfirmProvider>
         </Tooltip.Provider>
       </ThemeProvider>
