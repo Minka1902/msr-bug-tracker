@@ -4,11 +4,15 @@ import { useTheme } from '../../hooks/useTheme';
 import { setSystemDark } from '../../test/setup';
 import { ThemeProvider } from '../ThemeProvider';
 
-let api: ReturnType<typeof useTheme>;
+const NEXT = { style: 'clean', mode: 'dark', nav: 'rail' } as const;
 
 function Probe() {
-  api = useTheme();
-  return <span data-testid="mode">{api.resolvedMode}</span>;
+  const { resolvedMode, setTheme } = useTheme();
+  return (
+    <button type="button" data-testid="mode" onClick={() => setTheme(NEXT)}>
+      {resolvedMode}
+    </button>
+  );
 }
 
 describe('ThemeProvider', () => {
@@ -36,7 +40,7 @@ describe('ThemeProvider', () => {
         <Probe />
       </ThemeProvider>,
     );
-    act(() => api.setTheme({ style: 'clean', mode: 'dark', nav: 'rail' }));
+    act(() => screen.getByTestId('mode').click());
     expect(document.documentElement.dataset).toMatchObject({ style: 'clean', mode: 'dark', nav: 'rail' });
     expect(JSON.parse(localStorage.getItem('msr-theme')!)).toEqual({ style: 'clean', mode: 'dark', nav: 'rail' });
     expect(onChange).toHaveBeenCalledWith({ style: 'clean', mode: 'dark', nav: 'rail' });
