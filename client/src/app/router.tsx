@@ -14,6 +14,11 @@ import { ProjectSettingsLayout } from '../features/projects/settings/ProjectSett
 import { RoleSettings } from '../features/projects/settings/RoleSettings';
 import { WorkflowSettings } from '../features/projects/settings/WorkflowSettings';
 import { AccountSettings } from '../features/settings/pages/AccountSettings';
+import { BoardPage } from '../features/tasks/pages/BoardPage';
+import { BugsPage } from '../features/tasks/pages/BugsPage';
+import { IdentifierRedirect } from '../features/tasks/pages/IdentifierRedirect';
+import { ListPage } from '../features/tasks/pages/ListPage';
+import { TaskPage } from '../features/tasks/pages/TaskPage';
 import { AppearanceSettings } from '../features/settings/pages/AppearanceSettings';
 import { ProfileSettings } from '../features/settings/pages/ProfileSettings';
 import { SettingsPage } from '../features/settings/pages/SettingsPage';
@@ -51,11 +56,16 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: <Navigate to="/projects" replace /> },
           { path: '/projects', element: <ProjectsPage /> },
+          { path: '/t/:identifier', element: <IdentifierRedirect /> },
           {
             path: '/p/:key',
             element: <ProjectLayout />,
             children: [
               { index: true, element: <Navigate to="board" replace /> },
+              { path: 'board', element: <BoardPage /> },
+              { path: 'list', element: <ListPage /> },
+              { path: 'bugs', element: <BugsPage /> },
+              { path: ':number', element: <TaskPage /> },
               {
                 path: 'settings',
                 element: <ProjectSettingsLayout />,

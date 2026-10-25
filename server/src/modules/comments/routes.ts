@@ -30,11 +30,9 @@ export const createCommentsRouter = () => {
     const access = await loadTaskAccess(req.params.taskId, req.user!.id);
     if (!access) throw notFound('Task not found');
     assertCanWrite(access.project, 'comment.create');
-    res
-      .status(201)
-      .json({
-        comment: await createComment(access.task.id, req.user!.id, createCommentSchema.parse(req.body)),
-      });
+    res.status(201).json({
+      comment: await createComment(access.task.id, req.user!.id, createCommentSchema.parse(req.body)),
+    });
   });
 
   router.patch('/comments/:id', async (req, res) => {

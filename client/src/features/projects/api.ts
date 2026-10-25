@@ -30,6 +30,7 @@ export const useProject = (key: string) =>
   useQuery({
     queryKey: projectKeys.detail(key),
     queryFn: () => api<{ project: ProjectDetail }>(`/projects/${key}`).then((data) => data.project),
+    enabled: !!key,
   });
 
 export const useKeyAvailability = (key: string, enabled: boolean) =>

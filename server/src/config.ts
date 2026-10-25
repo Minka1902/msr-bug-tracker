@@ -21,6 +21,10 @@ const schema = z.object({
     .default('true')
     .transform((value) => value === 'true'),
   CLIENT_DIST: z.string().optional(),
+  DISABLE_RATE_LIMIT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 try {
@@ -40,4 +44,5 @@ export const config = {
   uploadDir: path.resolve(env.UPLOAD_DIR),
   maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
   devMailbox: !env.SMTP_URL && env.NODE_ENV !== 'production',
+  rateLimit: env.NODE_ENV === 'production' || !env.DISABLE_RATE_LIMIT,
 };

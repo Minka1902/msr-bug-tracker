@@ -35,11 +35,9 @@ export const createRelationsRouter = () => {
       input.type,
       req.user!.id,
     );
-    res
-      .status(201)
-      .json({
-        relation: (await listRelations(source.task.id, req.user!.id)).find((relation) => relation.id === id),
-      });
+    res.status(201).json({
+      relation: (await listRelations(source.task.id, req.user!.id)).find((relation) => relation.id === id),
+    });
   });
 
   router.delete('/relations/:id', async (req, res) => {

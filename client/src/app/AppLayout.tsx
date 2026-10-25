@@ -8,6 +8,11 @@ import { VerifyEmailBanner } from '../features/auth/components/VerifyEmailBanner
 import { useThemeSync } from '../features/auth/useThemeSync';
 import { useProjects } from '../features/projects/api';
 import { CreateProjectModal } from '../features/projects/components/CreateProjectModal';
+import {
+  QuickCreateTaskModal,
+  type QuickCreateDefaults,
+} from '../features/tasks/components/QuickCreateTaskModal';
+import { TaskPeek } from '../features/tasks/components/TaskPeek';
 
 interface AppLayoutProps {
   user: CurrentUser;
@@ -22,11 +27,17 @@ export function AppLayout({ user, children }: AppLayoutProps) {
   const logout = useLogout();
   const projects = useProjects();
   const [creatingProject, setCreatingProject] = useState(false);
+  const [quickCreate, setQuickCreate] = useState<{
+    open: boolean;
+    defaults: QuickCreateDefaults;
+    version: number;
+  }>({ open: false, defaults: {}, version: 0 });
   useThemeSync(user);
 
   const shell: ShellContextValue = {
     openCreateProject: () => setCreatingProject(true),
-    openQuickCreate: () => undefined,
+    openQuickCreate: (defaults = {}) =>
+      setQuickCreate((current) => ({ open: true, defaults, version: current.version + 1 })),
     openSearch: () => undefined,
   };
 
@@ -46,6 +57,13 @@ export function AppLayout({ user, children }: AppLayoutProps) {
         {children}
       </AppShell>
       <CreateProjectModal open={creatingProject} onOpenChange={setCreatingProject} />
+      <QuickCreateTaskModal
+        key={quickCreate.version}
+        open={quickCreate.open}
+        defaults={quickCreate.defaults}
+        onOpenChange={(open) => setQuickCreate((current) => ({ ...current, open }))}
+      />
+      <TaskPeek />
     </ShellContext>
   );
 }

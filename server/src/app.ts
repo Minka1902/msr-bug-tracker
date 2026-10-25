@@ -23,7 +23,7 @@ interface AppOptions {
   rateLimit?: boolean;
 }
 
-export const createApp = ({ rateLimit = true }: AppOptions = {}) => {
+export const createApp = ({ rateLimit = config.rateLimit }: AppOptions = {}) => {
   const app = express();
   const api = express.Router();
   const clientDist = config.CLIENT_DIST && path.resolve(config.CLIENT_DIST);
