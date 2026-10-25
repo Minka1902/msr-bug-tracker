@@ -35,7 +35,7 @@ export const useTaskOptions = (project: Pick<ProjectDetail, 'statuses' | 'labels
       priority: PRIORITIES.map((value) => ({
         value,
         label: PRIORITY_META[value].label,
-        icon: <PriorityIcon priority={value} />,
+        icon: <PriorityIcon priority={value} decorative />,
       })),
       type: TASK_TYPES.map((value) => ({
         value,
@@ -57,7 +57,7 @@ export const useTaskOptions = (project: Pick<ProjectDetail, 'statuses' | 'labels
         label: member.name,
         description: member.email,
         keywords: [member.email],
-        icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" />,
+        icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" decorative />,
       })),
       label: project.labels.map((item) => ({ value: item.id, label: item.name, color: item.color })),
     };

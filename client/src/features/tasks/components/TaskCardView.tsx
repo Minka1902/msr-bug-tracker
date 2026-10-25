@@ -34,10 +34,10 @@ export function TaskCardView({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpen?.(task)}
-      onKeyDown={(event) => event.key === 'Enter' && onOpen?.(task)}
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onClick={onOpen && (() => onOpen(task))}
+      onKeyDown={onOpen && ((event) => event.key === 'Enter' && onOpen(task))}
       className={cn(
         'group flex cursor-pointer flex-col overflow-hidden rounded-[calc(var(--r-card)-4px)] border border-border/70 bg-surface-raised text-left shadow-card transition-[box-shadow,border-color,transform] outline-none hover:border-border-strong focus-visible:ring-2 focus-visible:ring-ring',
         dragging && 'rotate-2 shadow-pop',
@@ -59,7 +59,7 @@ export function TaskCardView({
             variant="plain"
             size="xs"
             tone={PRIORITY_META[task.priority].tone}
-            icon={<PriorityIcon priority={task.priority} />}
+            icon={<PriorityIcon priority={task.priority} decorative />}
             className="px-0 font-semibold"
           >
             {PRIORITY_META[task.priority].label}

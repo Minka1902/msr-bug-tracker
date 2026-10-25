@@ -47,6 +47,18 @@ interface TaskPropertyPickerProps {
   className?: string;
 }
 
+const FIELD_LABELS: Record<TaskField, string> = {
+  status: 'Status',
+  priority: 'Priority',
+  type: 'Type',
+  severity: 'Severity',
+  reproducibility: 'Reproducibility',
+  assignee: 'Assignee',
+  labels: 'Labels',
+  startDate: 'Start date',
+  dueDate: 'Due date',
+};
+
 const TRIGGER = {
   cell: 'h-8 max-w-full rounded-[calc(var(--r-control)-3px)] px-2 hover:bg-surface-muted',
   field: 'h-9 w-full rounded-control px-2.5 hover:bg-surface-muted',
@@ -67,10 +79,9 @@ export function TaskPropertyPicker({
       { onError: (error) => toast.error(errorMessage(error)) },
     );
 
-  const trigger = (content: ReactNode, label: string) => (
+  const trigger = (content: ReactNode) => (
     <button
       type="button"
-      aria-label={label}
       onClick={(event) => event.stopPropagation()}
       disabled={disabled}
       className={cn(
@@ -79,6 +90,7 @@ export function TaskPropertyPicker({
         className,
       )}
     >
+      <span className="sr-only">{`${FIELD_LABELS[field]} of ${task.identifier}: `}</span>
       {content}
     </button>
   );
@@ -122,7 +134,6 @@ export function TaskPropertyPicker({
                 ) : (
                   <span className="text-subtle">No date</span>
                 ),
-                field === 'dueDate' ? 'Due date' : 'Start date',
               )
             }
           />
@@ -158,7 +169,6 @@ export function TaskPropertyPicker({
                 Add labels
               </span>
             ),
-            'Labels',
           )
         }
       />
@@ -188,7 +198,7 @@ export function TaskPropertyPicker({
           trigger(
             task.assignee ? (
               <>
-                <Avatar name={task.assignee.name} src={task.assignee.avatarUrl} size="sm" />
+                <Avatar name={task.assignee.name} src={task.assignee.avatarUrl} size="sm" decorative />
                 <span className="truncate">{task.assignee.name}</span>
               </>
             ) : (
@@ -197,7 +207,6 @@ export function TaskPropertyPicker({
                 Unassigned
               </span>
             ),
-            'Assignee',
           )
         }
       />
@@ -224,7 +233,6 @@ export function TaskPropertyPicker({
               icon={<OptionDot color={status?.color} />}
               label={status?.name ?? '—'}
             />,
-            'Status',
           )
         }
       />
@@ -237,7 +245,7 @@ export function TaskPropertyPicker({
       options: options.priority,
       display: (
         <span className="flex items-center gap-2">
-          <PriorityIcon priority={task.priority} />
+          <PriorityIcon priority={task.priority} decorative />
           {PRIORITY_META[task.priority].label}
         </span>
       ),
@@ -280,7 +288,7 @@ export function TaskPropertyPicker({
       disabledReason={reason}
       options={config.options}
       onChange={(value) => save(config.patch(value as string))}
-      renderTrigger={() => trigger(config.display, field)}
+      renderTrigger={() => trigger(config.display)}
     />
   );
 }

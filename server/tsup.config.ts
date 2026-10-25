@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
@@ -9,4 +10,8 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   publicDir: false,
+  onSuccess: async () => {
+    await fs.cp('src/db/migrations', 'dist/migrations', { recursive: true });
+    await fs.cp('src/modules/demo/assets', 'dist/assets', { recursive: true });
+  },
 });

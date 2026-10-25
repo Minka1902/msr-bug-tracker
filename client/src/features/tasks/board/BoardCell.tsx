@@ -9,6 +9,7 @@ import { SortableTaskCard } from './SortableTaskCard';
 
 interface BoardCellProps {
   id: string;
+  label: string;
   projectKey: string;
   tasks: TaskCard[];
   hiddenCount?: number;
@@ -21,6 +22,7 @@ interface BoardCellProps {
 
 export function BoardCell({
   id,
+  label,
   projectKey,
   tasks,
   hiddenCount = 0,
@@ -35,6 +37,8 @@ export function BoardCell({
   return (
     <div
       ref={setNodeRef}
+      role="group"
+      aria-label={label}
       className={cn(
         'flex w-72 shrink-0 flex-col gap-2.5 rounded-card p-1 transition-colors max-md:w-[82vw] max-md:snap-start',
         isOver && 'bg-accent-soft/50',

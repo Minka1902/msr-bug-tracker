@@ -23,6 +23,7 @@ export interface AvatarProps extends VariantProps<typeof avatarVariants> {
   src?: string | null;
   className?: string;
   ring?: boolean;
+  decorative?: boolean;
 }
 
 const hueOf = (value: string) => [...value].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) % 360, 7);
@@ -35,11 +36,14 @@ const initialsOf = (name: string) =>
     .map((part) => part[0]!.toUpperCase())
     .join('') || '?';
 
-export function Avatar({ name, src, size, className, ring }: AvatarProps) {
+export function Avatar({ name, src, size, className, ring, decorative }: AvatarProps) {
   const style = { '--h': hueOf(name) } as CSSProperties;
 
   return (
     <span
+      role={decorative ? undefined : 'img'}
+      aria-label={decorative ? undefined : name}
+      aria-hidden={decorative || undefined}
       title={name}
       style={style}
       className={cn(

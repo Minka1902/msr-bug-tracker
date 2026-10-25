@@ -17,6 +17,7 @@ export interface ModalProps {
   className?: string;
   bodyClassName?: string;
   hideClose?: boolean;
+  role?: 'dialog' | 'alertdialog';
 }
 
 export function Modal({
@@ -30,12 +31,14 @@ export function Modal({
   className,
   bodyClassName,
   hideClose,
+  role = 'dialog',
 }: ModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay backdrop-blur-[2px]" />
         <Dialog.Content
+          role={role}
           className={cn(
             'fixed z-50 flex max-h-[min(90dvh,860px)] w-[calc(100vw-24px)] flex-col overflow-hidden rounded-card border border-border bg-surface-raised shadow-pop outline-none',
             'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',

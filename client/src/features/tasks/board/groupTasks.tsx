@@ -51,7 +51,7 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
     return PRIORITIES.map((priority) => ({
       key: priority,
       label: PRIORITY_META[priority].label,
-      icon: <PriorityIcon priority={priority} />,
+      icon: <PriorityIcon priority={priority} decorative />,
       tasks: byKey(priority),
       patch: { input: { priority }, optimistic: { priority } },
     }));
@@ -64,7 +64,7 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
         .map((member) => ({
           key: member.id,
           label: member.name,
-          icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" />,
+          icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" decorative />,
           tasks: byKey(member.id),
           patch: {
             input: { assigneeId: member.id },

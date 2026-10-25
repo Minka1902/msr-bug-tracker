@@ -85,7 +85,13 @@ export function MyTasksPage() {
         </Card>
       )}
       {groups.map((group) => (
-        <Card key={group.key} padding="sm" className="flex flex-col gap-1">
+        <Card
+          key={group.key}
+          role="region"
+          aria-label={group.label}
+          padding="sm"
+          className="flex flex-col gap-1"
+        >
           <div
             style={{ '--c': group.tone ?? 'var(--tone-neutral)' } as CSSProperties}
             className="flex items-center gap-2 px-2 pt-1 pb-2"

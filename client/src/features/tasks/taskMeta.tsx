@@ -12,13 +12,20 @@ export const TYPE_ICONS: Record<TaskType, LucideIcon> = {
 
 const PRIORITY_BARS: Record<Priority, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
 
-export function PriorityIcon({ priority, className }: { priority: Priority; className?: string }) {
+interface PriorityIconProps {
+  priority: Priority;
+  className?: string;
+  decorative?: boolean;
+}
+
+export function PriorityIcon({ priority, className, decorative }: PriorityIconProps) {
   const style = { '--c': `var(--tone-${PRIORITY_META[priority].tone})` } as CSSProperties;
 
   return (
     <span
-      role="img"
-      aria-label={`${PRIORITY_META[priority].label} priority`}
+      role={decorative ? undefined : 'img'}
+      aria-label={decorative ? undefined : `${PRIORITY_META[priority].label} priority`}
+      aria-hidden={decorative || undefined}
       style={style}
       className={cn('inline-flex h-3 items-end gap-px', className)}
     >

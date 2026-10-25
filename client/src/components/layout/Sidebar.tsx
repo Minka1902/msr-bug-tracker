@@ -35,7 +35,10 @@ export function Sidebar({ user, projects, actions, onCollapse, onNavigate }: Sid
           />
         )}
       </div>
-      <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-card px-2 pb-3 scrollbar-thin aurora:glass aurora:border aurora:border-white/50 aurora:shadow-card aurora:dark:border-white/5">
+      <nav
+        aria-label="Main"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-card px-2 pb-3 scrollbar-thin aurora:glass aurora:border aurora:border-white/50 aurora:shadow-card aurora:dark:border-white/5"
+      >
         <SectionLabel>Workspace</SectionLabel>
         <div className="flex flex-col gap-0.5">
           {WORKSPACE_NAV.map((item) => (

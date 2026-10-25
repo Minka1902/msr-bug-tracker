@@ -7,11 +7,13 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  type Announcements,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type UniqueIdentifier,
 } from '@dnd-kit/core';
-import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { arrayMove } from '@dnd-kit/sortable';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateKeyBetween } from 'fractional-indexing';
 import { ChevronDown, KanbanSquare } from 'lucide-react';
@@ -29,6 +31,7 @@ import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { fetchBoardColumn, taskKeys, useBoard, useUpdateTask } from '../api';
 import { TaskCardView } from '../components/TaskCardView';
 import { BoardCell } from './BoardCell';
+import { boardKeyboardCoordinates } from './boardKeyboardCoordinates';
 import { groupTasks, laneKeyOf, type GroupBy, type Lane } from './groupTasks';
 
 interface TaskBoardViewProps {
@@ -41,6 +44,11 @@ interface TaskBoardViewProps {
 
 type Containers = Record<string, string[]>;
 
+const KEYBOARD_CODES = { start: ['Space'], cancel: ['Escape'], end: ['Space', 'Enter'] };
+const SCREEN_READER_INSTRUCTIONS = {
+  draggable:
+    'Press Enter to open this task. To move it, press Space, use the arrow keys to change column or position, then press Space or Enter to drop it, or Escape to cancel.',
+};
 const SEPARATOR = '|';
 const containerId = (laneKey: string, statusId: string) => `${laneKey}${SEPARATOR}${statusId}`;
 const parseContainer = (id: string) => {
@@ -59,6 +67,33 @@ const positionBetween = (previous: string | null, next: string | null) => {
 export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: TaskBoardViewProps) {
   const findContainer = (containers: Containers, id: string) =>
     id in containers ? id : Object.keys(containers).find((key) => containers[key]!.includes(id));
+
+  const taskName = (id: UniqueIdentifier) => {
+    const task = taskById.get(String(id));
+    return task ? `${task.identifier}: ${task.title}` : 'Task';
+  };
+
+  const placeName = (id: UniqueIdentifier) => {
+    const container = findContainer(containers, String(id));
+    if (!container) return 'the board';
+    const { laneKey, statusId } = parseContainer(container);
+    const status = statuses.find((item) => item.id === statusId)?.name ?? 'a column';
+    const lane = groupBy === 'none' ? null : lanes.find((item) => item.key === laneKey)?.label;
+    return lane ? `${status}, ${lane}` : status;
+  };
+
+  const announcements: Announcements = {
+    onDragStart: ({ active }) => `Picked up ${taskName(active.id)}.`,
+    onDragOver: ({ active, over }) =>
+      over
+        ? `${taskName(active.id)} is over ${placeName(over.id)}.`
+        : `${taskName(active.id)} is not over a column.`,
+    onDragEnd: ({ active, over }) =>
+      over
+        ? `${taskName(active.id)} dropped in ${placeName(over.id)}.`
+        : `${taskName(active.id)} was not moved.`,
+    onDragCancel: ({ active }) => `Moving ${taskName(active.id)} was cancelled.`,
+  };
 
   const handleDragStart = ({ active }: DragStartEvent) => {
     setActiveId(String(active.id));
@@ -164,6 +199,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
         <BoardCell
           key={id}
           id={id}
+          label={groupBy === 'none' ? status.name : `${status.name}, ${lane.label}`}
           projectKey={project.key}
           tasks={(containers[id] ?? []).map((taskId) => taskById.get(taskId)!).filter(Boolean)}
           hiddenCount={groupBy === 'none' && column ? column.total - column.tasks.length : 0}
@@ -191,7 +227,10 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: boardKeyboardCoordinates,
+      keyboardCodes: KEYBOARD_CODES,
+    }),
   );
   const statuses = useMemo(
     () => project.statuses.filter((status) => status.workflow === workflow),
@@ -231,6 +270,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
+      accessibility={{ announcements, screenReaderInstructions: SCREEN_READER_INSTRUCTIONS }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

@@ -121,9 +121,11 @@ export function DemoDataSettings() {
           />
           <Field
             label="Seed"
+            htmlFor="demo-seed"
             hint="Optional. The same seed always produces the same data, which helps reproduce bugs."
           >
             <Input
+              id="demo-seed"
               inputMode="numeric"
               value={seed}
               onChange={(event) => setSeed(event.target.value.replace(/\D/g, ''))}
@@ -161,7 +163,7 @@ export function DemoDataSettings() {
             <div className="flex flex-col divide-y divide-border">
               {status.data.teammates.map((mate) => (
                 <div key={mate.id} className="flex items-center gap-3 py-2.5">
-                  <Avatar name={mate.name} size="md" />
+                  <Avatar name={mate.name} size="md" decorative />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{mate.name}</p>
                     <p className="truncate text-xs text-muted">{mate.email}</p>
@@ -171,6 +173,7 @@ export function DemoDataSettings() {
                     size="sm"
                     variant="secondary"
                     leftIcon={<Eye />}
+                    aria-label={`View as ${mate.name}`}
                     loading={impersonate.isPending && impersonate.variables === mate.id}
                     onClick={() => viewAs(mate.id)}
                   >

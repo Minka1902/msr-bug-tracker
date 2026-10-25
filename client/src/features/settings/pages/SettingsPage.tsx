@@ -24,7 +24,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col">
       <PageHeader title="Settings" description="Manage your profile, account and how the app looks.">
-        <TabLinks items={tabs} />
+        <TabLinks label="Settings" items={tabs} />
       </PageHeader>
       <Outlet />
     </div>

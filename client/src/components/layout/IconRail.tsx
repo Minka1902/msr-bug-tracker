@@ -16,7 +16,10 @@ interface IconRailProps {
 
 export function IconRail({ user, actions, onTogglePanel, panelOpen }: IconRailProps) {
   return (
-    <aside className="flex h-full w-16 shrink-0 flex-col items-center gap-2 border-r border-border bg-surface py-3 aurora:glass aurora:border-white/40 aurora:dark:border-white/5">
+    <nav
+      aria-label="Main"
+      className="flex h-full w-16 shrink-0 flex-col items-center gap-2 border-r border-border bg-surface py-3 aurora:glass aurora:border-white/40 aurora:dark:border-white/5"
+    >
       <Logo compact className="mb-3" />
       {onTogglePanel && !panelOpen && (
         <IconButton
@@ -54,6 +57,6 @@ export function IconRail({ user, actions, onTogglePanel, panelOpen }: IconRailPr
           { label: 'Log out', icon: <LogOut />, onSelect: actions.onLogout },
         ]}
       />
-    </aside>
+    </nav>
   );
 }

@@ -110,7 +110,7 @@ export function MemberSettings() {
         <div className="flex flex-col divide-y divide-border">
           {project.memberList.map((member) => (
             <div key={member.id} className="flex flex-wrap items-center gap-3 py-2.5">
-              <Avatar name={member.name} src={member.avatarUrl} size="md" />
+              <Avatar name={member.name} src={member.avatarUrl} size="md" decorative />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 truncate text-sm font-medium">
                   {member.name}

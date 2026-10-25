@@ -179,6 +179,7 @@ export function RoleSettings() {
           ) : (
             <Field
               label="Role name"
+              htmlFor="role-name"
               hint={
                 dialog?.kind === 'create' && !dialog.cloneFrom
                   ? 'New roles start with no permissions.'
@@ -186,6 +187,7 @@ export function RoleSettings() {
               }
             >
               <Input
+                id="role-name"
                 autoFocus
                 value={name}
                 onChange={(event) => setName(event.target.value)}

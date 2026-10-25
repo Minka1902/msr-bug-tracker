@@ -11,7 +11,10 @@ const TAB_CLASS =
 
 export function BottomTabBar({ actions }: BottomTabBarProps) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-safe backdrop-blur-xl md:hidden">
+    <nav
+      aria-label="Tab bar"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 pb-safe backdrop-blur-xl md:hidden"
+    >
       <div className="flex h-16 items-stretch px-2">
         <NavLink to="/" end className={TAB_CLASS}>
           <LayoutDashboard />

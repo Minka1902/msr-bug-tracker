@@ -9,6 +9,7 @@ export function ProjectSettingsLayout() {
   return (
     <div className="flex flex-col gap-4">
       <TabLinks
+        label="Project settings"
         variant="pill"
         className="self-start max-w-full"
         items={[

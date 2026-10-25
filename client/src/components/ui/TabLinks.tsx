@@ -13,13 +13,14 @@ export interface TabLinkItem {
 
 interface TabLinksProps {
   items: TabLinkItem[];
+  label: string;
   variant?: TabsVariant;
   className?: string;
 }
 
-export function TabLinks({ items, variant = 'underline', className }: TabLinksProps) {
+export function TabLinks({ items, label, variant = 'underline', className }: TabLinksProps) {
   return (
-    <nav className={cn(tabListVariants({ variant }), className)}>
+    <nav aria-label={label} className={cn(tabListVariants({ variant }), className)}>
       {items.map((item) => (
         <NavLink key={item.to} to={item.to} end={item.end} className={tabVariants({ variant })}>
           {item.icon}

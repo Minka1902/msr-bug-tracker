@@ -86,6 +86,7 @@ export function ProjectLayout() {
         </Banner>
       )}
       <TabLinks
+        label="Project views"
         items={[
           { to: `${base}/overview`, label: 'Overview', icon: <ChartPie /> },
           { to: `${base}/board`, label: 'Board', icon: <KanbanSquare /> },

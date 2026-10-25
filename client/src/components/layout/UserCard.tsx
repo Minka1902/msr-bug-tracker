@@ -12,7 +12,7 @@ export function UserCard({ user, onLogout }: UserCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-card border border-border/60 bg-surface p-3 shadow-card clean:shadow-none">
       <div className="flex items-center gap-3">
-        <Avatar name={user.name} src={user.avatarUrl} size="lg" />
+        <Avatar name={user.name} src={user.avatarUrl} size="lg" decorative />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{user.name}</p>
           <p className="truncate text-xs text-muted">{user.email}</p>

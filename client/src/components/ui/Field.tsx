@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 
 interface FieldProps {
@@ -12,15 +12,24 @@ interface FieldProps {
 }
 
 export function Field({ label, htmlFor, hint, error, required, className, children }: FieldProps) {
+  const labelId = useId();
+  const grouped = label && !htmlFor;
+
   return (
     <div className={cn('flex flex-col gap-1.5', className)}>
       {label && (
-        <label htmlFor={htmlFor} className="text-sm font-medium text-text">
+        <label id={labelId} htmlFor={htmlFor} className="text-sm font-medium text-text">
           {label}
           {required && <span className="ml-0.5 text-danger">*</span>}
         </label>
       )}
-      {children}
+      {grouped ? (
+        <div role="group" aria-labelledby={labelId} className="contents">
+          {children}
+        </div>
+      ) : (
+        children
+      )}
       {error ? (
         <p role="alert" className="text-xs text-danger">
           {error}

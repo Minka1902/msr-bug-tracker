@@ -91,7 +91,7 @@ export function TaskProperties({ task, project }: TaskPropertiesProps) {
       <PropertyRow label="Reporter">
         {task.reporter ? (
           <span className="flex items-center gap-2 px-2.5 text-sm">
-            <Avatar name={task.reporter.name} src={task.reporter.avatarUrl} size="sm" />
+            <Avatar name={task.reporter.name} src={task.reporter.avatarUrl} size="sm" decorative />
             {task.reporter.name}
           </span>
         ) : (

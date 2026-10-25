@@ -17,7 +17,7 @@ export function StatCard({ label, value, hint, icon, tone = 'accent', trend, cla
   const style = { '--c': `var(--tone-${tone})` } as CSSProperties;
 
   return (
-    <Card style={style} className={cn('flex flex-col gap-2', className)}>
+    <Card role="group" aria-label={label} style={style} className={cn('flex flex-col gap-2', className)}>
       <div className="flex min-w-0 items-center gap-2 text-xs font-semibold tracking-wide text-muted uppercase">
         {icon && (
           <span className="chip flex size-6 items-center justify-center rounded-md [&_svg]:size-3.5">

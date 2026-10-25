@@ -70,8 +70,8 @@ export function GeneralSettings() {
           <Field label="Name" htmlFor="name" error={form.formState.errors.name?.message}>
             <Input id="name" {...form.register('name')} />
           </Field>
-          <Field label="Key" hint="Keys are permanent so task links never break.">
-            <Input value={project.key} disabled className="font-mono" />
+          <Field label="Key" htmlFor="key" hint="Keys are permanent so task links never break.">
+            <Input id="key" value={project.key} disabled className="font-mono" />
           </Field>
           <Field label="Description" htmlFor="description" error={form.formState.errors.description?.message}>
             <Textarea id="description" rows={4} {...form.register('description')} />

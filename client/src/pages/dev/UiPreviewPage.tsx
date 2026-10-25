@@ -309,7 +309,7 @@ export function UiPreviewPage() {
                 options={PRIORITIES.map((value) => ({
                   value,
                   label: PRIORITY_META[value].label,
-                  icon: <PriorityIcon priority={value} />,
+                  icon: <PriorityIcon priority={value} decorative />,
                 }))}
               />
               <OptionPicker

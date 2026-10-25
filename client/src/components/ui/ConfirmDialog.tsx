@@ -39,6 +39,7 @@ export function ConfirmDialog({
       open={open}
       onOpenChange={(next) => !next && resolve(false)}
       size="sm"
+      role="alertdialog"
       title={title}
       description={description}
       hideClose

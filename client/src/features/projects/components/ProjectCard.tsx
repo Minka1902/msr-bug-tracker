@@ -45,7 +45,7 @@ export function ProjectCard({ project, onToggleFavorite, className }: ProjectCar
         {onToggleFavorite && (
           <button
             type="button"
-            aria-label={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            aria-label={`${project.isFavorite ? 'Remove' : 'Add'} ${project.name} ${project.isFavorite ? 'from' : 'to'} favorites`}
             aria-pressed={project.isFavorite}
             onClick={() => onToggleFavorite(project)}
             className={cn(

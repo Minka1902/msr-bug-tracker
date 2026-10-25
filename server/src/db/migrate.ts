@@ -5,7 +5,7 @@ import { pool } from './pool';
 const MIGRATIONS_DIR = path.resolve(import.meta.dirname, 'migrations');
 const LOCK_ID = 727_001;
 
-export const migrate = async () => {
+export const migrate = async (dir = MIGRATIONS_DIR) => {
   const client = await pool.connect();
   try {
     await client.query('SELECT pg_advisory_lock($1)', [LOCK_ID]);
@@ -17,10 +17,11 @@ export const migrate = async () => {
         (row) => row.name,
       ),
     );
-    const files = (await fs.readdir(MIGRATIONS_DIR)).filter((file) => file.endsWith('.sql')).sort();
+    const files = (await fs.readdir(dir)).filter((file) => file.endsWith('.sql')).sort();
+    if (!files.length) throw new Error(`No migrations found in ${dir}`);
     const pending = files.filter((file) => !applied.has(file));
     for (const file of pending) {
-      const sql = await fs.readFile(path.join(MIGRATIONS_DIR, file), 'utf8');
+      const sql = await fs.readFile(path.join(dir, file), 'utf8');
       await client.query('BEGIN');
       try {
         await client.query(sql);

@@ -160,6 +160,7 @@ export function RichTextEditor({
   };
 
   const uploadRef = useRef(onUpload);
+  const editableRef = useRef(editable);
   const callbacks = useRef({ onChange, onSave, onSubmit });
   const lastSaved = useRef(value);
   const editor = useEditor({
@@ -176,12 +177,16 @@ export function RichTextEditor({
       Placeholder.configure({ placeholder }),
     ],
     editorProps: {
-      attributes: {
+      attributes: (): Record<string, string> => ({
         class: 'rich-text outline-none',
-        'aria-label': aria['aria-label'] ?? 'Rich text editor',
-        role: 'textbox',
-        'aria-multiline': 'true',
-      },
+        ...(editableRef.current
+          ? {
+              'aria-label': aria['aria-label'] ?? 'Rich text editor',
+              role: 'textbox',
+              'aria-multiline': 'true',
+            }
+          : {}),
+      }),
       handlePaste: (view, event) => {
         const files = [...(event.clipboardData?.files ?? [])];
         if (!files.length || !uploadRef.current) return false;
@@ -232,6 +237,7 @@ export function RichTextEditor({
   }, [editor, value]);
 
   useEffect(() => {
+    editableRef.current = editable;
     editor?.setEditable(editable);
   }, [editor, editable]);
 
