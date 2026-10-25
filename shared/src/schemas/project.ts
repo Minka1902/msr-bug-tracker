@@ -78,6 +78,14 @@ export const updateRoleSchema = createRoleSchema.partial().strict();
 export const deleteRoleSchema = z.object({ reassignToRoleId: uuidSchema });
 
 export const addMemberSchema = z.object({ email: emailSchema, roleId: uuidSchema });
+
+const inviteFields = {
+  email: emailSchema.optional(),
+  maxUses: z.number().int().min(1).max(500).nullable().default(1),
+  expiresInDays: z.number().int().min(1).max(30).default(7),
+};
+export const createInviteSchema = z.object(inviteFields);
+export const createProjectInviteSchema = z.object({ ...inviteFields, roleId: uuidSchema });
 export const updateMemberSchema = z.object({ roleId: uuidSchema });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;

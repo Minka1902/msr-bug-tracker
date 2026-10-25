@@ -210,3 +210,27 @@ export interface Page<T> {
   items: T[];
   hasMore: boolean;
 }
+
+export interface InviteSummary {
+  id: string;
+  email: string | null;
+  projectName: string | null;
+  roleName: string | null;
+  inviterName: string;
+  uses: number;
+  maxUses: number | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface CreatedInvite extends InviteSummary {
+  url: string;
+}
+
+export interface InvitePreview {
+  inviterName: string;
+  email: string | null;
+  project: { key: string; name: string; color: string; icon: string } | null;
+  roleName: string | null;
+  expiresAt: string;
+}

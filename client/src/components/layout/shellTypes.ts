@@ -17,4 +17,5 @@ export interface ShellActions {
   onSearch: () => void;
   onQuickCreate: () => void;
   onCreateProject: () => void;
+  onInvite: () => void;
 }

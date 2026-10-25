@@ -32,6 +32,8 @@ export const createRateLimits = (enabled: boolean) => {
     demo: make(60 * MINUTE, 10),
     twoFactor: make(15 * MINUTE, 10, secondFactorKey),
     aiKeys: make(60 * MINUTE, 20, userKey),
+    invites: make(60 * MINUTE, 50, userKey),
+    invitePreview: make(15 * MINUTE, 60),
   };
 };
 

@@ -29,6 +29,14 @@ export const router = createBrowserRouter([
       { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
       {
+        path: '/install',
+        lazy: lazyRoute(() => import('../features/pwa/InstallPage').then((m) => m.InstallPage)),
+      },
+      {
+        path: '/invite/:token',
+        lazy: lazyRoute(() => import('../features/invites/pages/InvitePage').then((m) => m.InvitePage)),
+      },
+      {
         element: <GuestOnly />,
         children: [
           { path: '/login', element: <LoginPage /> },

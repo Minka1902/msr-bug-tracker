@@ -14,6 +14,7 @@ import { hashPassword, verifyPassword } from '../../lib/passwords';
 import { clearSessionCookie, setSessionCookie } from '../../lib/sessionCookie';
 import { requireAuth } from '../../middleware/session';
 import type { RateLimits } from '../../middleware/rateLimits';
+import { createInvitePreviewRouter } from '../invites/routes';
 import { verifySecondFactor } from '../twoFactor/service';
 import {
   findUserByEmail,
@@ -43,6 +44,8 @@ const INVALID_CODE = "That code didn't work. Try the newest code from your authe
 
 export const createAuthRouter = (limits: RateLimits) => {
   const router = Router();
+
+  router.use('/invites', createInvitePreviewRouter(limits));
 
   router.post('/register', limits.register, async (req, res) => {
     const input = registerSchema.parse(req.body);

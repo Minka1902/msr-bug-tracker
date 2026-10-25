@@ -167,7 +167,7 @@ export function UiPreviewPage() {
         icon,
         isFavorite,
       }))}
-      actions={{ onLogout: NOOP, onSearch: NOOP, onQuickCreate: NOOP, onCreateProject: NOOP }}
+      actions={{ onLogout: NOOP, onSearch: NOOP, onQuickCreate: NOOP, onCreateProject: NOOP, onInvite: NOOP }}
       banners={
         <Banner
           tone="warning"

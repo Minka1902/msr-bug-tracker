@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, UserPlus } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 import { Button } from '../ui/Button';
 import type { ShellUser } from './shellTypes';
@@ -6,9 +6,10 @@ import type { ShellUser } from './shellTypes';
 interface UserCardProps {
   user: ShellUser;
   onLogout: () => void;
+  onInvite: () => void;
 }
 
-export function UserCard({ user, onLogout }: UserCardProps) {
+export function UserCard({ user, onLogout, onInvite }: UserCardProps) {
   return (
     <div className="flex flex-col gap-3 rounded-card border border-border/60 bg-surface p-3 shadow-card clean:shadow-none">
       <div className="flex items-center gap-3">
@@ -18,6 +19,9 @@ export function UserCard({ user, onLogout }: UserCardProps) {
           <p className="truncate text-xs text-muted">{user.email}</p>
         </div>
       </div>
+      <Button variant="ghost" block leftIcon={<UserPlus />} onClick={onInvite} className="justify-start">
+        Invite people
+      </Button>
       <Button
         variant="secondary"
         block

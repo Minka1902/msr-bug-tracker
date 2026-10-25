@@ -1,4 +1,4 @@
-import { LogOut, UserMinus, UserPlus } from 'lucide-react';
+import { Link2, LogOut, UserMinus, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -12,8 +12,10 @@ import { Input } from '../../../components/ui/Input';
 import { OptionPicker } from '../../../components/ui/OptionPicker';
 import { useConfirm } from '../../../hooks/useConfirm';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
-import { errorMessage } from '../../../lib/api';
+import { useShell } from '../../../hooks/useShell';
+import { ApiError, errorMessage } from '../../../lib/api';
 import { formatShortDate } from '../../../lib/dates';
+import { PendingInvites } from '../../invites/components/PendingInvites';
 import { SettingsSection } from '../../settings/components/SettingsSection';
 import { useAddMember, useChangeMemberRole, useRemoveMember } from '../api';
 import { useProjectContext } from '../useProjectContext';
@@ -32,7 +34,15 @@ export function MemberSettings() {
           setEmail('');
           toast.success(`${member.name} joined the project`);
         },
-        onError,
+        onError: (error) =>
+          error instanceof ApiError && error.status === 404
+            ? toast.info(`${email.trim()} doesn't have an account yet`, {
+                action: {
+                  label: 'Send invite',
+                  onClick: () => openInvite({ ...project, email: email.trim() }),
+                },
+              })
+            : onError(error),
       },
     );
   };
@@ -52,6 +62,7 @@ export function MemberSettings() {
   const user = useCurrentUser();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const { openInvite } = useShell();
   const { can, deniedReason } = useProjectPermissions(project);
   const add = useAddMember(project.key);
   const changeRole = useChangeMemberRole(project.key);
@@ -75,7 +86,16 @@ export function MemberSettings() {
   return (
     <SettingsSection
       title="Members"
-      description={manageable ? 'Add people who already have an account.' : deniedReason}
+      description={
+        manageable ? 'Add people by email, or invite anyone with a link, QR code or WhatsApp.' : deniedReason
+      }
+      footer={
+        manageable && (
+          <Button variant="secondary" leftIcon={<Link2 />} onClick={() => openInvite(project)}>
+            Invite with a link
+          </Button>
+        )
+      }
     >
       <div className="flex flex-col gap-4">
         {manageable && (
@@ -156,6 +176,7 @@ export function MemberSettings() {
             </div>
           ))}
         </div>
+        {manageable && <PendingInvites projectKey={project.key} />}
       </div>
     </SettingsSection>
   );

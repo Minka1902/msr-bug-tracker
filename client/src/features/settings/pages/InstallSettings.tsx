@@ -1,64 +1,32 @@
-import { CircleCheck, Download, Ellipsis, Share, Smartphone, SquarePlus } from 'lucide-react';
-import { toast } from 'sonner';
-import { Badge } from '../../../components/ui/Badge';
-import { Banner } from '../../../components/ui/Banner';
-import { Button } from '../../../components/ui/Button';
-import { usePwaInstall } from '../../../hooks/usePwaInstall';
+import { QrCode } from '../../../components/ui/QrCode';
+import { ShareLinks } from '../../invites/components/ShareLinks';
+import { InstallGuide, installUrl } from '../../pwa/InstallGuide';
 import { SettingsSection } from '../components/SettingsSection';
-import { StepList } from '../components/StepList';
-
-const IPHONE_STEPS = [
-  { icon: <Smartphone />, text: 'Open this site in Safari on your iPhone.' },
-  { icon: <Share />, text: 'Tap the Share button in the toolbar (in iOS 26, tap ··· first).' },
-  { icon: <SquarePlus />, text: 'Scroll down and tap Add to Home Screen.' },
-  { icon: <CircleCheck />, text: 'Tap Add. MSR opens full-screen from its home-screen icon.' },
-];
-
-const OTHER_STEPS = [
-  { icon: <Ellipsis />, text: 'Android (Chrome): open the ⋮ menu and tap Install app.' },
-  { icon: <Download />, text: 'Desktop (Chrome or Edge): click the install icon in the address bar.' },
-];
 
 export function InstallSettings() {
-  const install = async () => {
-    if (await promptInstall()) toast.success('MSR installed');
-  };
-
-  const { ios, standalone, canPrompt, promptInstall } = usePwaInstall();
+  const url = installUrl();
 
   return (
     <div className="flex flex-col gap-4">
-      {standalone && (
-        <Banner tone="success" icon={<CircleCheck />}>
-          You're using the installed app.
-        </Banner>
-      )}
       <SettingsSection
-        title="iPhone & iPad"
-        description="Add MSR to your home screen. It opens full-screen like a native app and updates itself."
+        title="Get it on your phone"
+        description="Scan the code with your phone's camera to open the install steps there, or send the link to someone."
       >
-        <div className="flex flex-col gap-4">
-          {ios && !standalone && (
-            <Badge tone="accent" className="self-start">
-              You're on an iOS device
-            </Badge>
-          )}
-          <StepList steps={IPHONE_STEPS} />
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+          <QrCode value={url} size={168} title="Install MSR Tracker QR code" downloadName="msr-install" />
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            <code className="rounded-control border border-border bg-surface-muted/60 px-3 py-2 font-mono text-xs break-all">
+              {url}
+            </code>
+            <ShareLinks
+              url={url}
+              message="Install MSR Tracker on your phone:"
+              subject="Install MSR Tracker"
+            />
+          </div>
         </div>
       </SettingsSection>
-      <SettingsSection
-        title="Android & desktop"
-        description="Chromium browsers can install MSR as an app too."
-        footer={
-          canPrompt && (
-            <Button leftIcon={<Download />} onClick={install}>
-              Install app
-            </Button>
-          )
-        }
-      >
-        <StepList steps={OTHER_STEPS} />
-      </SettingsSection>
+      <InstallGuide />
     </div>
   );
 }
