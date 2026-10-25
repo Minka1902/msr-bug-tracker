@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/plus-jakarta-sans';
+@import './tokens.css';
+
+@custom-variant dark (&:where([data-mode='dark'], [data-mode='dark'] *));
+@custom-variant aurora (&:where([data-style='aurora'], [data-style='aurora'] *));
+@custom-variant clean (&:where([data-style='clean'], [data-style='clean'] *));
+@custom-variant rail (&:where([data-nav='rail'], [data-nav='rail'] *));
+
+@theme inline {
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-display: var(--f-display);
+  --color-page: var(--c-app);
+  --color-app: var(--c-app);
+  --color-surface: var(--c-surface);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-surface-muted: var(--c-surface-muted);
+  --color-surface-glass: var(--c-surface-glass);
+  --color-surface-inverted: var(--c-surface-inverted);
+  --color-inverted: var(--c-text-inverted);
+  --color-border: var(--c-border);
+  --color-border-strong: var(--c-border-strong);
+  --color-text: var(--c-text);
+  --color-muted: var(--c-text-muted);
+  --color-subtle: var(--c-text-subtle);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-text: var(--c-accent-text);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-contrast: var(--c-accent-contrast);
+  --color-nav-active: var(--c-nav-active);
+  --color-nav-active-text: var(--c-nav-active-text);
+  --color-ring: var(--c-ring);
+  --color-overlay: var(--c-overlay);
+  --color-danger: var(--tone-danger);
+  --color-danger-fill: var(--c-danger-fill);
+  --color-warning: var(--tone-warning);
+  --color-success: var(--tone-success);
+  --color-info: var(--tone-info);
+  --radius-card: var(--r-card);
+  --radius-control: var(--r-control);
+  --shadow-card: var(--sh-card);
+  --shadow-pop: var(--sh-pop);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-app text-text font-sans antialiased;
+    min-height: 100dvh;
+  }
+
+  [data-style='aurora'] body {
+    background: var(--c-page);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--c-ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--c-accent-soft);
+  }
+
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+}
+
+@utility glass {
+  background: var(--c-surface-glass);
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+}
+
+@utility chip {
+  color: color-mix(in oklab, var(--c, var(--tone-neutral)) 74%, var(--c-text));
+  background: color-mix(in oklab, var(--c, var(--tone-neutral)) 14%, transparent);
+}
+
+@utility chip-solid {
+  color: #fff;
+  background: var(--c, var(--tone-neutral));
+}
+
+@utility chip-outline {
+  color: color-mix(in oklab, var(--c, var(--tone-neutral)) 74%, var(--c-text));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c, var(--tone-neutral)) 40%, transparent);
+}
+
+@utility tint {
+  color: color-mix(in oklab, var(--c, var(--tone-neutral)) 80%, var(--c-text));
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-strong) transparent;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
