@@ -1,4 +1,5 @@
 import type {
+  AiProvider,
   NavLayout,
   Priority,
   RelationType,
@@ -22,6 +23,7 @@ export interface UserPreferences {
   mode: ThemeMode;
   nav: NavLayout;
   timezone: string;
+  aiProvider: AiProvider | null;
 }
 
 export interface CurrentUser extends UserRef {

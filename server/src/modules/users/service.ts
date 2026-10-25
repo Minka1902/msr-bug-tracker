@@ -36,6 +36,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   mode: 'system',
   nav: 'sidebar',
   timezone: 'UTC',
+  aiProvider: null,
 };
 
 export const avatarUrl = (id: string, avatarKey: string | null) =>

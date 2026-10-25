@@ -176,6 +176,12 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: 'ai',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/AiSettings').then((m) => m.AiSettings),
+                ),
+              },
+              {
                 path: 'appearance',
                 lazy: lazyRoute(() =>
                   import('../features/settings/pages/AppearanceSettings').then((m) => m.AppearanceSettings),

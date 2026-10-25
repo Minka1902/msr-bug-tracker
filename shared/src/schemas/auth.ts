@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { NAV_LAYOUTS, THEME_MODES, THEME_STYLES } from '../enums';
+import { AI_PROVIDERS, NAV_LAYOUTS, THEME_MODES, THEME_STYLES } from '../enums';
 
 const isTimezone = (value: string) => {
   try {
@@ -42,6 +42,7 @@ export const preferencesSchema = z
     mode: z.enum(THEME_MODES),
     nav: z.enum(NAV_LAYOUTS),
     timezone: timezoneSchema,
+    aiProvider: z.enum(AI_PROVIDERS).nullable(),
   })
   .partial()
   .strict();
@@ -71,3 +72,5 @@ export const twoFactorDisableSchema = z.object({ password: currentPassword, code
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PreferencesInput = z.infer<typeof preferencesSchema>;
+
+export const aiKeySchema = z.object({ key: z.string().trim().min(10, 'Paste the whole key').max(500) });

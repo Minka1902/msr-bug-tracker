@@ -16,6 +16,8 @@ const limiter = (windowMs: number, limit: number, key?: (req: Request) => string
 const emailKey = (req: Request) =>
   `${ipKeyGenerator(req.ip ?? '')}:${String(req.body?.email ?? '').toLowerCase()}`;
 
+const userKey = (req: Request) => `${ipKeyGenerator(req.ip ?? '')}:${req.user?.id ?? ''}`;
+
 const secondFactorKey = (req: Request) =>
   `${ipKeyGenerator(req.ip ?? '')}:${String(req.body?.ticket ?? req.user?.id ?? '')}`;
 
@@ -29,6 +31,7 @@ export const createRateLimits = (enabled: boolean) => {
     emailAction: make(60 * MINUTE, 5),
     demo: make(60 * MINUTE, 10),
     twoFactor: make(15 * MINUTE, 10, secondFactorKey),
+    aiKeys: make(60 * MINUTE, 20, userKey),
   };
 };
 

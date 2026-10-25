@@ -8,6 +8,7 @@ export const RELATION_TYPES = ['relates', 'duplicates'] as const;
 export const THEME_STYLES = ['aurora', 'clean'] as const;
 export const THEME_MODES = ['light', 'dark', 'system'] as const;
 export const NAV_LAYOUTS = ['sidebar', 'rail'] as const;
+export const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'xai'] as const;
 
 export type TaskType = (typeof TASK_TYPES)[number];
 export type Priority = (typeof PRIORITIES)[number];
@@ -19,6 +20,7 @@ export type RelationType = (typeof RELATION_TYPES)[number];
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 export type ThemeMode = (typeof THEME_MODES)[number];
 export type NavLayout = (typeof NAV_LAYOUTS)[number];
+export type AiProvider = (typeof AI_PROVIDERS)[number];
 
 export type Tone = 'neutral' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'violet';
 
@@ -69,6 +71,13 @@ export const WORKFLOW_META: Record<Workflow, EnumMeta> = {
 export const RELATION_META: Record<RelationType, EnumMeta> = {
   relates: { label: 'Relates to', tone: 'neutral' },
   duplicates: { label: 'Duplicates', tone: 'warning' },
+};
+
+export const AI_PROVIDER_META: Record<AiProvider, { label: string; vendor: string; keysUrl: string }> = {
+  anthropic: { label: 'Claude', vendor: 'Anthropic', keysUrl: 'https://console.anthropic.com/settings/keys' },
+  openai: { label: 'ChatGPT', vendor: 'OpenAI', keysUrl: 'https://platform.openai.com/api-keys' },
+  google: { label: 'Gemini', vendor: 'Google', keysUrl: 'https://aistudio.google.com/app/apikey' },
+  xai: { label: 'Grok', vendor: 'xAI', keysUrl: 'https://console.x.ai' },
 };
 
 export const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
