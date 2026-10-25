@@ -22,7 +22,14 @@ const Counter = ({ icon, value, label }: { icon: ReactNode; value: string | numb
   </span>
 );
 
-export function TaskCardView({ task, onOpen, showProject, dragging, className, ...props }: TaskCardViewProps) {
+export function TaskCardView({
+  task,
+  onOpen,
+  showProject,
+  dragging,
+  className,
+  ...props
+}: TaskCardViewProps) {
   const done = task.statusCategory === 'done';
 
   return (
@@ -38,10 +45,23 @@ export function TaskCardView({ task, onOpen, showProject, dragging, className, .
       )}
       {...props}
     >
-      {task.coverUrl && <img src={task.coverUrl} alt="" loading="lazy" className="aspect-[16/7] w-full border-b border-border object-cover" />}
+      {task.coverUrl && (
+        <img
+          src={task.coverUrl}
+          alt=""
+          loading="lazy"
+          className="aspect-[16/7] w-full border-b border-border object-cover"
+        />
+      )}
       <div className="flex flex-col gap-2 p-3">
         <div className="flex items-center gap-2">
-          <Badge variant="plain" size="xs" tone={PRIORITY_META[task.priority].tone} icon={<PriorityIcon priority={task.priority} />} className="px-0 font-semibold">
+          <Badge
+            variant="plain"
+            size="xs"
+            tone={PRIORITY_META[task.priority].tone}
+            icon={<PriorityIcon priority={task.priority} />}
+            className="px-0 font-semibold"
+          >
             {PRIORITY_META[task.priority].label}
           </Badge>
           {task.isBlocked && <Badge tone="danger" size="xs" icon={<Ban />} label="Blocked" />}
@@ -50,7 +70,9 @@ export function TaskCardView({ task, onOpen, showProject, dragging, className, .
             {showProject ? task.identifier : `#${task.number}`}
           </span>
         </div>
-        <p className={cn('line-clamp-3 text-sm leading-snug font-medium', done && 'text-muted line-through')}>{task.title}</p>
+        <p className={cn('line-clamp-3 text-sm leading-snug font-medium', done && 'text-muted line-through')}>
+          {task.title}
+        </p>
         {task.labels.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {task.labels.slice(0, 3).map((label) => (
@@ -61,10 +83,26 @@ export function TaskCardView({ task, onOpen, showProject, dragging, className, .
         )}
         <div className="flex items-center gap-3">
           {task.dueDate && <DueDate date={task.dueDate} done={done} />}
-          {task.subtaskTotal > 0 && <Counter icon={<GitBranch />} value={`${task.subtaskDone}/${task.subtaskTotal}`} label="Subtasks" />}
-          {task.checklistTotal > 0 && <Counter icon={<CheckSquare />} value={`${task.checklistDone}/${task.checklistTotal}`} label="Checklist" />}
-          {task.commentCount > 0 && <Counter icon={<MessageSquare />} value={task.commentCount} label="Comments" />}
-          {task.attachmentCount > 0 && <Counter icon={<Paperclip />} value={task.attachmentCount} label="Attachments" />}
+          {task.subtaskTotal > 0 && (
+            <Counter
+              icon={<GitBranch />}
+              value={`${task.subtaskDone}/${task.subtaskTotal}`}
+              label="Subtasks"
+            />
+          )}
+          {task.checklistTotal > 0 && (
+            <Counter
+              icon={<CheckSquare />}
+              value={`${task.checklistDone}/${task.checklistTotal}`}
+              label="Checklist"
+            />
+          )}
+          {task.commentCount > 0 && (
+            <Counter icon={<MessageSquare />} value={task.commentCount} label="Comments" />
+          )}
+          {task.attachmentCount > 0 && (
+            <Counter icon={<Paperclip />} value={task.attachmentCount} label="Attachments" />
+          )}
           <span className="flex-1" />
           {task.assignee && <Avatar name={task.assignee.name} src={task.assignee.avatarUrl} size="sm" />}
         </div>

@@ -26,12 +26,19 @@ export const ALL_PERMISSIONS = Object.values(PERMISSIONS).reduce((mask, bit) => 
 export const SYSTEM_ROLES = ['owner', 'admin', 'member', 'viewer'] as const;
 export type SystemRole = (typeof SYSTEM_ROLES)[number];
 
-export const PERMISSION_GROUPS: { label: string; items: { key: Permission; label: string; description: string }[] }[] = [
+export const PERMISSION_GROUPS: {
+  label: string;
+  items: { key: Permission; label: string; description: string }[];
+}[] = [
   {
     label: 'Tasks',
     items: [
       { key: 'task.create', label: 'Create tasks', description: 'Create tasks, bugs and subtasks' },
-      { key: 'task.edit_own', label: 'Edit own tasks', description: 'Edit tasks they reported or are assigned to' },
+      {
+        key: 'task.edit_own',
+        label: 'Edit own tasks',
+        description: 'Edit tasks they reported or are assigned to',
+      },
       { key: 'task.edit_any', label: 'Edit any task', description: 'Edit every task in the project' },
       { key: 'task.transition', label: 'Change status', description: 'Move tasks between statuses' },
       { key: 'task.assign_self', label: 'Assign to self', description: 'Take or drop tasks for themselves' },
@@ -53,7 +60,11 @@ export const PERMISSION_GROUPS: { label: string; items: { key: Permission; label
     label: 'Project',
     items: [
       { key: 'project.edit', label: 'Edit project', description: 'Name, description, color and icon' },
-      { key: 'project.manage_workflow', label: 'Manage workflows', description: 'Add, edit and reorder statuses' },
+      {
+        key: 'project.manage_workflow',
+        label: 'Manage workflows',
+        description: 'Add, edit and reorder statuses',
+      },
       { key: 'project.manage_labels', label: 'Manage labels', description: 'Create, edit and delete labels' },
       { key: 'project.manage_members', label: 'Manage members', description: 'Add, remove and change roles' },
       { key: 'project.manage_roles', label: 'Manage roles', description: 'Create and edit roles' },
@@ -111,11 +122,17 @@ export const assignmentPermission = (
   nextAssigneeId: string | null,
   userId: string,
 ): Permission =>
-  (nextAssigneeId !== null && nextAssigneeId !== userId) || (currentAssigneeId !== null && currentAssigneeId !== userId)
+  (nextAssigneeId !== null && nextAssigneeId !== userId) ||
+  (currentAssigneeId !== null && currentAssigneeId !== userId)
     ? 'task.assign_others'
     : 'task.assign_self';
 
-export const canAssign = (mask: number, currentAssigneeId: string | null, nextAssigneeId: string | null, userId: string) => {
+export const canAssign = (
+  mask: number,
+  currentAssigneeId: string | null,
+  nextAssigneeId: string | null,
+  userId: string,
+) => {
   const needed = assignmentPermission(currentAssigneeId, nextAssigneeId, userId);
   return can(mask, needed) || (needed === 'task.assign_self' && can(mask, 'task.assign_others'));
 };
@@ -132,7 +149,8 @@ export const missingTaskPermissions = (
   for (const field of Object.keys(patch)) {
     if (field === 'assigneeId') {
       const next = (patch[field] as string | null | undefined) ?? null;
-      if (!canAssign(mask, task.assigneeId, next, userId)) missing.add(assignmentPermission(task.assigneeId, next, userId));
+      if (!canAssign(mask, task.assigneeId, next, userId))
+        missing.add(assignmentPermission(task.assigneeId, next, userId));
     } else if (TRANSITION_FIELDS.has(field)) {
       if (!can(mask, 'task.transition')) missing.add('task.transition');
     } else if (!canEditTask(mask, task, userId)) {

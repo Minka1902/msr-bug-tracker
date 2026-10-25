@@ -19,7 +19,18 @@ export interface ModalProps {
   hideClose?: boolean;
 }
 
-export function Modal({ open, onOpenChange, title, description, children, footer, size = 'md', className, bodyClassName, hideClose }: ModalProps) {
+export function Modal({
+  open,
+  onOpenChange,
+  title,
+  description,
+  children,
+  footer,
+  size = 'md',
+  className,
+  bodyClassName,
+  hideClose,
+}: ModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -36,7 +47,11 @@ export function Modal({ open, onOpenChange, title, description, children, footer
           {(title || !hideClose) && (
             <div className="flex items-start gap-3 px-5 pt-5 pb-3">
               <div className="flex-1">
-                {title ? <Dialog.Title className="font-display text-lg font-semibold">{title}</Dialog.Title> : <Dialog.Title className="sr-only">Dialog</Dialog.Title>}
+                {title ? (
+                  <Dialog.Title className="font-display text-lg font-semibold">{title}</Dialog.Title>
+                ) : (
+                  <Dialog.Title className="sr-only">Dialog</Dialog.Title>
+                )}
                 {description ? (
                   <Dialog.Description className="mt-1 text-sm text-muted">{description}</Dialog.Description>
                 ) : (
@@ -51,7 +66,11 @@ export function Modal({ open, onOpenChange, title, description, children, footer
             </div>
           )}
           <div className={cn('flex-1 overflow-y-auto px-5 pb-5', bodyClassName)}>{children}</div>
-          {footer && <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-muted/50 px-5 py-3">{footer}</div>}
+          {footer && (
+            <div className="flex items-center justify-end gap-2 border-t border-border bg-surface-muted/50 px-5 py-3">
+              {footer}
+            </div>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

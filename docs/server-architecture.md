@@ -86,15 +86,15 @@ Demo rows are tagged with `projects.is_demo` and `users.demo_owner_id`. **Remove
 
 ## Config
 
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` / `TEST_DATABASE_URL` | Postgres connections (tests use the second) |
-| `APP_URL` | Public origin; used for email links and the Origin check |
-| `PORT` | HTTP port (default 4000) |
-| `UPLOAD_DIR`, `MAX_UPLOAD_MB` | Attachment storage and size limit |
-| `SMTP_URL`, `MAIL_FROM` | Outgoing mail |
-| `ENABLE_DEMO_DATA` | Turns the demo-data module on or off (default on) |
-| `CLIENT_DIST` | When set, Express serves the built SPA from this path |
+| Variable                             | Purpose                                                  |
+| ------------------------------------ | -------------------------------------------------------- |
+| `DATABASE_URL` / `TEST_DATABASE_URL` | Postgres connections (tests use the second)              |
+| `APP_URL`                            | Public origin; used for email links and the Origin check |
+| `PORT`                               | HTTP port (default 4000)                                 |
+| `UPLOAD_DIR`, `MAX_UPLOAD_MB`        | Attachment storage and size limit                        |
+| `SMTP_URL`, `MAIL_FROM`              | Outgoing mail                                            |
+| `ENABLE_DEMO_DATA`                   | Turns the demo-data module on or off (default on)        |
+| `CLIENT_DIST`                        | When set, Express serves the built SPA from this path    |
 
 ## Testing
 

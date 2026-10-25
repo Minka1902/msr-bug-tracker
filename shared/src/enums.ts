@@ -73,21 +73,22 @@ export const RELATION_META: Record<RelationType, EnumMeta> = {
 
 export const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
-export const DEFAULT_STATUSES: Record<Workflow, { name: string; color: string; category: StatusCategory }[]> = {
-  task: [
-    { name: 'Backlog', color: '#94a3b8', category: 'backlog' },
-    { name: 'To Do', color: '#64748b', category: 'todo' },
-    { name: 'In Progress', color: '#3b82f6', category: 'in_progress' },
-    { name: 'In Review', color: '#d946ef', category: 'in_progress' },
-    { name: 'Done', color: '#22c55e', category: 'done' },
-  ],
-  bug: [
-    { name: 'Open', color: '#ef4444', category: 'todo' },
-    { name: 'In Progress', color: '#3b82f6', category: 'in_progress' },
-    { name: 'Ready for QA', color: '#f59e0b', category: 'in_progress' },
-    { name: 'Resolved', color: '#22c55e', category: 'done' },
-    { name: 'Closed', color: '#64748b', category: 'done' },
-  ],
-};
+export const DEFAULT_STATUSES: Record<Workflow, { name: string; color: string; category: StatusCategory }[]> =
+  {
+    task: [
+      { name: 'Backlog', color: '#94a3b8', category: 'backlog' },
+      { name: 'To Do', color: '#64748b', category: 'todo' },
+      { name: 'In Progress', color: '#3b82f6', category: 'in_progress' },
+      { name: 'In Review', color: '#d946ef', category: 'in_progress' },
+      { name: 'Done', color: '#22c55e', category: 'done' },
+    ],
+    bug: [
+      { name: 'Open', color: '#ef4444', category: 'todo' },
+      { name: 'In Progress', color: '#3b82f6', category: 'in_progress' },
+      { name: 'Ready for QA', color: '#f59e0b', category: 'in_progress' },
+      { name: 'Resolved', color: '#22c55e', category: 'done' },
+      { name: 'Closed', color: '#64748b', category: 'done' },
+    ],
+  };
 
 export const workflowOf = (type: TaskType): Workflow => (type === 'bug' ? 'bug' : 'task');

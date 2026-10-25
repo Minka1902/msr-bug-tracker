@@ -11,7 +11,13 @@ interface ColorPickerProps {
   className?: string;
 }
 
-export function ColorPicker({ value, onChange, colors = PROJECT_COLORS, allowCustom = true, className }: ColorPickerProps) {
+export function ColorPicker({
+  value,
+  onChange,
+  colors = PROJECT_COLORS,
+  allowCustom = true,
+  className,
+}: ColorPickerProps) {
   return (
     <div role="radiogroup" aria-label="Color" className={cn('flex flex-wrap gap-2', className)}>
       {colors.map((color) => (
@@ -33,7 +39,13 @@ export function ColorPicker({ value, onChange, colors = PROJECT_COLORS, allowCus
           title="Custom color"
           className="relative flex size-7 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[conic-gradient(red,yellow,lime,cyan,blue,magenta,red)]"
         >
-          <input type="color" value={value} onChange={(event) => onChange(event.target.value)} className="absolute inset-0 cursor-pointer opacity-0" aria-label="Custom color" />
+          <input
+            type="color"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            className="absolute inset-0 cursor-pointer opacity-0"
+            aria-label="Custom color"
+          />
         </label>
       )}
     </div>

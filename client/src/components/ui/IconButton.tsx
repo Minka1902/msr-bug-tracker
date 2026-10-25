@@ -10,7 +10,15 @@ interface IconButtonProps extends Omit<ButtonProps, 'size' | 'leftIcon' | 'right
   tooltipSide?: 'top' | 'right' | 'bottom' | 'left';
 }
 
-export function IconButton({ icon, label, size = 'sm', variant = 'ghost', tooltip = true, tooltipSide, ...props }: IconButtonProps) {
+export function IconButton({
+  icon,
+  label,
+  size = 'sm',
+  variant = 'ghost',
+  tooltip = true,
+  tooltipSide,
+  ...props
+}: IconButtonProps) {
   return (
     <Tooltip content={label} side={tooltipSide} disabled={!tooltip}>
       <Button aria-label={label} size={`icon-${size}`} variant={variant} {...props}>

@@ -14,7 +14,14 @@ interface TopbarProps {
 export function Topbar({ actions, onOpenMenu }: TopbarProps) {
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 px-4 pt-safe max-md:glass max-md:h-[calc(3.5rem+env(safe-area-inset-top))] max-md:border-b max-md:border-border md:px-6">
-      <IconButton icon={<MenuIcon />} label="Open menu" size="md" onClick={onOpenMenu} className="md:hidden" tooltip={false} />
+      <IconButton
+        icon={<MenuIcon />}
+        label="Open menu"
+        size="md"
+        onClick={onOpenMenu}
+        className="md:hidden"
+        tooltip={false}
+      />
       <Logo compact className="md:hidden" />
       <button
         type="button"
@@ -26,7 +33,14 @@ export function Topbar({ actions, onOpenMenu }: TopbarProps) {
         <KeyHint keys={['mod', 'K']} />
       </button>
       <div className="flex-1" />
-      <IconButton icon={<Search />} label="Search" size="md" onClick={actions.onSearch} className="md:hidden" tooltip={false} />
+      <IconButton
+        icon={<Search />}
+        label="Search"
+        size="md"
+        onClick={actions.onSearch}
+        className="md:hidden"
+        tooltip={false}
+      />
       <AppearanceMenu />
       <Button leftIcon={<Plus />} onClick={actions.onQuickCreate} className="max-md:hidden">
         New task

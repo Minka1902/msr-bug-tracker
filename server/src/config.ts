@@ -11,7 +11,10 @@ const schema = z.object({
   TEST_DATABASE_URL: z.string().optional(),
   UPLOAD_DIR: z.string().default('./storage'),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
-  SMTP_URL: z.string().optional().transform((value) => value || undefined),
+  SMTP_URL: z
+    .string()
+    .optional()
+    .transform((value) => value || undefined),
   MAIL_FROM: z.string().default('MSR Tracker <no-reply@msr.local>'),
   ENABLE_DEMO_DATA: z
     .enum(['true', 'false'])

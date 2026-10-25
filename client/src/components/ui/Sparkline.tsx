@@ -11,10 +11,18 @@ interface SparklineProps {
 
 const WIDTH = 100;
 
-export function Sparkline({ values, color = 'var(--c-accent)', height = 36, className, label }: SparklineProps) {
+export function Sparkline({
+  values,
+  color = 'var(--c-accent)',
+  height = 36,
+  className,
+  label,
+}: SparklineProps) {
   const max = Math.max(1, ...values);
   const step = values.length > 1 ? WIDTH / (values.length - 1) : WIDTH;
-  const points = values.map((value, index) => [index * step, height - 3 - (value / max) * (height - 6)] as const);
+  const points = values.map(
+    (value, index) => [index * step, height - 3 - (value / max) * (height - 6)] as const,
+  );
   const line = points.map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
 
   const gradientId = useId();
@@ -37,7 +45,15 @@ export function Sparkline({ values, color = 'var(--c-accent)', height = 36, clas
         </linearGradient>
       </defs>
       <path d={`${line} L${WIDTH},${height} L0,${height} Z`} fill={`url(#${gradientId})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <path
+        d={line}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
     </svg>
   );
 }

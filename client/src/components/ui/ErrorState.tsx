@@ -10,7 +10,13 @@ interface ErrorStateProps {
   className?: string;
 }
 
-export function ErrorState({ title = 'Something went wrong', error, onRetry, compact, className }: ErrorStateProps) {
+export function ErrorState({
+  title = 'Something went wrong',
+  error,
+  onRetry,
+  compact,
+  className,
+}: ErrorStateProps) {
   return (
     <EmptyState
       compact={compact}

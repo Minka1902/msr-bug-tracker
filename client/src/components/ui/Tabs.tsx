@@ -52,9 +52,23 @@ interface TabsProps {
   rightSlot?: ReactNode;
 }
 
-export function Tabs({ items, value, defaultValue, onValueChange, variant = 'underline', className, listClassName, rightSlot }: TabsProps) {
+export function Tabs({
+  items,
+  value,
+  defaultValue,
+  onValueChange,
+  variant = 'underline',
+  className,
+  listClassName,
+  rightSlot,
+}: TabsProps) {
   return (
-    <RadixTabs.Root value={value} defaultValue={defaultValue ?? items[0]?.value} onValueChange={onValueChange} className={className}>
+    <RadixTabs.Root
+      value={value}
+      defaultValue={defaultValue ?? items[0]?.value}
+      onValueChange={onValueChange}
+      className={className}
+    >
       <div className="flex items-center gap-3">
         <RadixTabs.List className={cn(tabListVariants({ variant }), 'flex-1', listClassName)}>
           {items.map((item) => (

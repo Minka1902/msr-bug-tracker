@@ -12,7 +12,9 @@ export const cardVariants = cva('rounded-card', {
       inverted: 'bg-surface-inverted text-inverted shadow-card',
     },
     padding: { none: '', sm: 'p-3', md: 'p-4', lg: 'p-6' },
-    interactive: { true: 'cursor-pointer transition-[box-shadow,transform,border-color] hover:-translate-y-0.5 hover:shadow-pop clean:hover:translate-y-0 clean:hover:border-border-strong' },
+    interactive: {
+      true: 'cursor-pointer transition-[box-shadow,transform,border-color] hover:-translate-y-0.5 hover:shadow-pop clean:hover:translate-y-0 clean:hover:border-border-strong',
+    },
   },
   defaultVariants: { variant: 'raised', padding: 'md' },
 });

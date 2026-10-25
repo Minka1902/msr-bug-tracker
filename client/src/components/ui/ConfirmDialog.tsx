@@ -17,7 +17,16 @@ interface ConfirmDialogProps extends ConfirmOptions {
   onResolve: (confirmed: boolean) => void;
 }
 
-export function ConfirmDialog({ open, onResolve, title, description, confirmLabel = 'Confirm', cancelLabel = 'Cancel', tone = 'danger', requireText }: ConfirmDialogProps) {
+export function ConfirmDialog({
+  open,
+  onResolve,
+  title,
+  description,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  tone = 'danger',
+  requireText,
+}: ConfirmDialogProps) {
   const resolve = (confirmed: boolean) => {
     setTyped('');
     onResolve(confirmed);
@@ -38,7 +47,11 @@ export function ConfirmDialog({ open, onResolve, title, description, confirmLabe
           <Button variant="secondary" onClick={() => resolve(false)}>
             {cancelLabel}
           </Button>
-          <Button variant={tone} disabled={!!requireText && typed !== requireText} onClick={() => resolve(true)}>
+          <Button
+            variant={tone}
+            disabled={!!requireText && typed !== requireText}
+            onClick={() => resolve(true)}
+          >
             {confirmLabel}
           </Button>
         </>
@@ -49,7 +62,12 @@ export function ConfirmDialog({ open, onResolve, title, description, confirmLabe
           <span className="text-muted">
             Type <strong className="font-mono text-text">{requireText}</strong> to confirm.
           </span>
-          <Input autoFocus value={typed} onChange={(event) => setTyped(event.target.value)} aria-label="Confirmation text" />
+          <Input
+            autoFocus
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            aria-label="Confirmation text"
+          />
         </div>
       )}
     </Modal>

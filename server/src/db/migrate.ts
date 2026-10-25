@@ -13,7 +13,9 @@ export const migrate = async () => {
       'CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())',
     );
     const applied = new Set(
-      (await client.query<{ name: string }>('SELECT name FROM schema_migrations')).rows.map((row) => row.name),
+      (await client.query<{ name: string }>('SELECT name FROM schema_migrations')).rows.map(
+        (row) => row.name,
+      ),
     );
     const files = (await fs.readdir(MIGRATIONS_DIR)).filter((file) => file.endsWith('.sql')).sort();
     const pending = files.filter((file) => !applied.has(file));

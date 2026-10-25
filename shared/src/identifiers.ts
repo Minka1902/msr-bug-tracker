@@ -18,8 +18,13 @@ export const suggestProjectKey = (name: string) => {
     .split(/\s+/)
     .filter(Boolean);
   const raw =
-    words.length > 1 ? words.map((word) => word[0]).join('') : (words[0] ?? '').replace(/[aeiou]/gi, '').slice(0, 3) || words[0] || '';
-  const key = raw.toUpperCase().replace(/^[0-9]+/, '').slice(0, 6);
+    words.length > 1
+      ? words.map((word) => word[0]).join('')
+      : (words[0] ?? '').replace(/[aeiou]/gi, '').slice(0, 3) || words[0] || '';
+  const key = raw
+    .toUpperCase()
+    .replace(/^[0-9]+/, '')
+    .slice(0, 6);
   return key.length >= 2 ? key : (key + 'PRJ').slice(0, 3);
 };
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { branchName, formatIdentifier, parseIdentifier, PROJECT_KEY_REGEX, suggestProjectKey } from '../src/identifiers';
+import {
+  branchName,
+  formatIdentifier,
+  parseIdentifier,
+  PROJECT_KEY_REGEX,
+  suggestProjectKey,
+} from '../src/identifiers';
 
 describe('identifiers', () => {
   it('formats and parses task identifiers', () => {

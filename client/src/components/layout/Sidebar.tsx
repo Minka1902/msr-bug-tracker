@@ -16,7 +16,9 @@ interface SidebarProps {
 }
 
 const SectionLabel = ({ children }: { children: string }) => (
-  <p className="px-3 pt-4 pb-1.5 text-[11px] font-semibold tracking-wider text-subtle uppercase">{children}</p>
+  <p className="px-3 pt-4 pb-1.5 text-[11px] font-semibold tracking-wider text-subtle uppercase">
+    {children}
+  </p>
 );
 
 export function Sidebar({ user, projects, actions, onCollapse, onNavigate }: SidebarProps) {
@@ -24,7 +26,14 @@ export function Sidebar({ user, projects, actions, onCollapse, onNavigate }: Sid
     <aside className="flex h-full w-64 shrink-0 flex-col gap-3 p-3 clean:border-r clean:border-border clean:bg-surface">
       <div className="flex h-12 items-center justify-between px-2">
         <Logo />
-        {onCollapse && <IconButton icon={<PanelLeftClose />} label="Collapse sidebar" onClick={onCollapse} tooltipSide="right" />}
+        {onCollapse && (
+          <IconButton
+            icon={<PanelLeftClose />}
+            label="Collapse sidebar"
+            onClick={onCollapse}
+            tooltipSide="right"
+          />
+        )}
       </div>
       <nav className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-card px-2 pb-3 scrollbar-thin aurora:glass aurora:border aurora:border-white/50 aurora:shadow-card aurora:dark:border-white/5">
         <SectionLabel>Workspace</SectionLabel>
@@ -34,7 +43,11 @@ export function Sidebar({ user, projects, actions, onCollapse, onNavigate }: Sid
           ))}
         </div>
         <SectionLabel>Projects</SectionLabel>
-        <ProjectNavList projects={projects} onCreateProject={actions.onCreateProject} onNavigate={onNavigate} />
+        <ProjectNavList
+          projects={projects}
+          onCreateProject={actions.onCreateProject}
+          onNavigate={onNavigate}
+        />
         <SectionLabel>System</SectionLabel>
         <div className="flex flex-col gap-0.5">
           {SYSTEM_NAV.map((item) => (

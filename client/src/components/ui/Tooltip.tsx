@@ -12,7 +12,15 @@ interface TooltipProps {
   disabled?: boolean;
 }
 
-export function Tooltip({ content, children, side = 'top', align, delay, className, disabled }: TooltipProps) {
+export function Tooltip({
+  content,
+  children,
+  side = 'top',
+  align,
+  delay,
+  className,
+  disabled,
+}: TooltipProps) {
   if (disabled || !content) return children;
 
   return (

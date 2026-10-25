@@ -11,7 +11,10 @@ export function KeyHint({ keys, className }: KeyHintProps) {
   return (
     <span className={cn('hidden items-center gap-0.5 md:inline-flex', className)}>
       {keys.map((key) => (
-        <kbd key={key} className="rounded border border-border bg-surface-muted px-1.5 font-sans text-[11px] leading-5 text-muted">
+        <kbd
+          key={key}
+          className="rounded border border-border bg-surface-muted px-1.5 font-sans text-[11px] leading-5 text-muted"
+        >
           {key === 'mod' ? (IS_MAC ? '⌘' : 'Ctrl') : key}
         </kbd>
       ))}

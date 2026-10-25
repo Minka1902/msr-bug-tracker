@@ -18,7 +18,13 @@ export function UserCard({ user, onLogout }: UserCardProps) {
           <p className="truncate text-xs text-muted">{user.email}</p>
         </div>
       </div>
-      <Button variant="secondary" block leftIcon={<LogOut />} onClick={onLogout} className="aurora:border-transparent aurora:bg-surface-inverted aurora:text-inverted aurora:hover:bg-surface-inverted/90">
+      <Button
+        variant="secondary"
+        block
+        leftIcon={<LogOut />}
+        onClick={onLogout}
+        className="aurora:border-transparent aurora:bg-surface-inverted aurora:text-inverted aurora:hover:bg-surface-inverted/90"
+      >
         Log out
       </Button>
     </div>

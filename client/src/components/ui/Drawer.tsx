@@ -19,7 +19,16 @@ interface DrawerProps {
   modal?: boolean;
 }
 
-export function Drawer({ open, onOpenChange, side = 'right', title, children, width = 720, className, modal = true }: DrawerProps) {
+export function Drawer({
+  open,
+  onOpenChange,
+  side = 'right',
+  title,
+  children,
+  width = 720,
+  className,
+  modal = true,
+}: DrawerProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <Dialog.Portal>
@@ -27,7 +36,11 @@ export function Drawer({ open, onOpenChange, side = 'right', title, children, wi
         <Dialog.Content
           style={{ '--drawer-width': `${width}px` } as CSSProperties}
           onOpenAutoFocus={(event) => event.preventDefault()}
-          className={cn('fixed z-50 flex flex-col overflow-hidden border-border bg-surface-raised shadow-pop outline-none pt-safe', SIDES[side], className)}
+          className={cn(
+            'fixed z-50 flex flex-col overflow-hidden border-border bg-surface-raised shadow-pop outline-none pt-safe',
+            SIDES[side],
+            className,
+          )}
         >
           <Dialog.Title className="sr-only">{title}</Dialog.Title>
           <Dialog.Description className="sr-only">{title}</Dialog.Description>

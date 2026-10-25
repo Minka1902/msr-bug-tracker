@@ -15,7 +15,12 @@ export function ProjectPanel({ projects, onCreateProject, onCollapse }: ProjectP
       <div className="flex h-16 items-center gap-2 px-4">
         <span className="size-2.5 rounded-full bg-warning" />
         <span className="flex-1 text-sm font-semibold tracking-wide uppercase">Projects</span>
-        <IconButton icon={<ChevronsLeft />} label="Hide projects" onClick={onCollapse} className="rounded-full border border-accent/40 text-accent-text" />
+        <IconButton
+          icon={<ChevronsLeft />}
+          label="Hide projects"
+          onClick={onCollapse}
+          className="rounded-full border border-accent/40 text-accent-text"
+        />
       </div>
       <div className="flex-1 overflow-y-auto px-3 pb-3 scrollbar-thin">
         <ProjectNavList projects={projects} onCreateProject={onCreateProject} limit={100} />

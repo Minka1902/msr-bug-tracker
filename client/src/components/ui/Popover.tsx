@@ -16,7 +16,16 @@ interface PopoverProps {
 export const popoverSurface =
   'z-50 rounded-control border border-border bg-surface-raised text-text shadow-pop outline-none';
 
-export function Popover({ trigger, children, open, onOpenChange, side = 'bottom', align = 'start', className, modal }: PopoverProps) {
+export function Popover({
+  trigger,
+  children,
+  open,
+  onOpenChange,
+  side = 'bottom',
+  align = 'start',
+  className,
+  modal,
+}: PopoverProps) {
   return (
     <RadixPopover.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
@@ -26,7 +35,11 @@ export function Popover({ trigger, children, open, onOpenChange, side = 'bottom'
           align={align}
           sideOffset={6}
           collisionPadding={12}
-          className={cn(popoverSurface, 'max-h-(--radix-popover-content-available-height) overflow-auto', className)}
+          className={cn(
+            popoverSurface,
+            'max-h-(--radix-popover-content-available-height) overflow-auto',
+            className,
+          )}
         >
           {children}
         </RadixPopover.Content>

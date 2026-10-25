@@ -1,6 +1,6 @@
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { readLocal, writeLocal } from '../lib/localStore';
-import { DEFAULT_THEME, ThemeContext, type ThemePrefs } from './themeContext';
+import { DEFAULT_THEME, ThemeContext, type ThemeListener, type ThemePrefs } from './themeContext';
 
 const STORAGE_KEY = 'msr-theme';
 const DARK_QUERY = '(prefers-color-scheme: dark)';
@@ -8,7 +8,6 @@ const DARK_QUERY = '(prefers-color-scheme: dark)';
 interface ThemeProviderProps {
   children: ReactNode;
   initial?: Partial<ThemePrefs>;
-  onChange?: (prefs: ThemePrefs) => void;
 }
 
 const subscribeToScheme = (notify: () => void) => {
@@ -19,15 +18,30 @@ const subscribeToScheme = (notify: () => void) => {
 
 const systemPrefersDark = () => matchMedia(DARK_QUERY).matches;
 
-export function ThemeProvider({ children, initial, onChange }: ThemeProviderProps) {
-  const setTheme = (patch: Partial<ThemePrefs>) => {
-    const next = { ...prefs, ...patch };
+export function ThemeProvider({ children, initial }: ThemeProviderProps) {
+  const setTheme = (patch: Partial<ThemePrefs>, { silent = false } = {}) => {
+    const next = {
+      style: patch.style ?? prefs.style,
+      mode: patch.mode ?? prefs.mode,
+      nav: patch.nav ?? prefs.nav,
+    };
     setPrefs(next);
     writeLocal(STORAGE_KEY, next);
-    onChange?.(next);
+    if (!silent) listeners.current.forEach((listener) => listener(next));
   };
 
-  const [prefs, setPrefs] = useState<ThemePrefs>(() => ({ ...readLocal(STORAGE_KEY, DEFAULT_THEME), ...initial }));
+  const subscribe = (listener: ThemeListener) => {
+    listeners.current.add(listener);
+    return () => {
+      listeners.current.delete(listener);
+    };
+  };
+
+  const [prefs, setPrefs] = useState<ThemePrefs>(() => ({
+    ...readLocal(STORAGE_KEY, DEFAULT_THEME),
+    ...initial,
+  }));
+  const listeners = useRef(new Set<ThemeListener>());
   const systemDark = useSyncExternalStore(subscribeToScheme, systemPrefersDark);
   const resolvedMode = prefs.mode === 'system' ? (systemDark ? 'dark' : 'light') : prefs.mode;
 
@@ -40,5 +54,5 @@ export function ThemeProvider({ children, initial, onChange }: ThemeProviderProp
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
   }, [prefs.style, prefs.nav, resolvedMode]);
 
-  return <ThemeContext value={{ ...prefs, resolvedMode, setTheme }}>{children}</ThemeContext>;
+  return <ThemeContext value={{ ...prefs, resolvedMode, setTheme, subscribe }}>{children}</ThemeContext>;
 }

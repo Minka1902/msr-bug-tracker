@@ -14,8 +14,12 @@ export const query = <T extends pg.QueryResultRow>(text: string, values?: unknow
 export const queryOne = <T extends pg.QueryResultRow>(text: string, values?: unknown[], db: Db = pool) =>
   db.query<T>(text, values).then((result) => result.rows[0] as T | undefined);
 
-export const prepared = <T extends pg.QueryResultRow>(name: string, text: string, values: unknown[], db: Db = pool) =>
-  db.query<T>({ name, text, values }).then((result) => result.rows);
+export const prepared = <T extends pg.QueryResultRow>(
+  name: string,
+  text: string,
+  values: unknown[],
+  db: Db = pool,
+) => db.query<T>({ name, text, values }).then((result) => result.rows);
 
 export const transaction = async <T>(work: (client: pg.PoolClient) => Promise<T>) => {
   const client = await pool.connect();

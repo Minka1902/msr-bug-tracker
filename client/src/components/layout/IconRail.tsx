@@ -18,11 +18,25 @@ export function IconRail({ user, actions, onTogglePanel, panelOpen }: IconRailPr
   return (
     <aside className="flex h-full w-16 shrink-0 flex-col items-center gap-2 border-r border-border bg-surface py-3 aurora:glass aurora:border-white/40 aurora:dark:border-white/5">
       <Logo compact className="mb-3" />
-      {onTogglePanel && !panelOpen && <IconButton icon={<PanelLeftOpen />} label="Expand navigation" onClick={onTogglePanel} tooltipSide="right" />}
+      {onTogglePanel && !panelOpen && (
+        <IconButton
+          icon={<PanelLeftOpen />}
+          label="Expand navigation"
+          onClick={onTogglePanel}
+          tooltipSide="right"
+        />
+      )}
       {WORKSPACE_NAV.map((item) => (
         <NavLinkItem key={item.to} item={item} variant="icon" />
       ))}
-      <IconButton icon={<Search />} label="Search" size="md" onClick={actions.onSearch} tooltipSide="right" className="size-10 [&_svg]:size-5" />
+      <IconButton
+        icon={<Search />}
+        label="Search"
+        size="md"
+        onClick={actions.onSearch}
+        tooltipSide="right"
+        className="size-10 [&_svg]:size-5"
+      />
       <div className="flex-1" />
       {SYSTEM_NAV.map((item) => (
         <NavLinkItem key={item.to} item={item} variant="icon" />

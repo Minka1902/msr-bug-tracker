@@ -23,11 +23,11 @@ pnpm dev                      # API on :4000, app on http://localhost:5173
 
 ## Scripts
 
-| Command | What it does |
-|---|---|
-| `pnpm dev` | API (tsx watch) and client (Vite) together |
-| `pnpm build` / `pnpm start` | Production build, then serve the API and the built client |
-| `pnpm lint` / `pnpm typecheck` / `pnpm test` | ESLint, tsc, and Vitest in every package |
-| `pnpm e2e` | Playwright end-to-end tests |
-| `pnpm db:migrate` | Apply pending SQL migrations |
-| `pnpm db:seed` | Create a `demo@msr.local` login filled with demo data |
+| Command                                      | What it does                                              |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `pnpm dev`                                   | API (tsx watch) and client (Vite) together                |
+| `pnpm build` / `pnpm start`                  | Production build, then serve the API and the built client |
+| `pnpm lint` / `pnpm typecheck` / `pnpm test` | ESLint, tsc, and Vitest in every package                  |
+| `pnpm e2e`                                   | Playwright end-to-end tests                               |
+| `pnpm db:migrate`                            | Apply pending SQL migrations                              |
+| `pnpm db:seed`                               | Create a `demo@msr.local` login filled with demo data     |

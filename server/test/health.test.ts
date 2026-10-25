@@ -7,6 +7,6 @@ describe('health', () => {
     const app = createApp();
     expect((await request(app).get('/api/health')).body).toEqual({ ok: true });
     expect((await request(app).get('/api/config')).body.features).toHaveProperty('demoData');
-    expect((await request(app).get('/api/nope')).status).toBe(404);
+    expect((await request(app).get('/api/nope')).status).toBe(401);
   });
 });

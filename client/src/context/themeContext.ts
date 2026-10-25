@@ -7,9 +7,12 @@ export interface ThemePrefs {
   nav: NavLayout;
 }
 
+export type ThemeListener = (prefs: ThemePrefs) => void;
+
 export interface ThemeContextValue extends ThemePrefs {
   resolvedMode: 'light' | 'dark';
-  setTheme: (patch: Partial<ThemePrefs>) => void;
+  setTheme: (patch: Partial<ThemePrefs>, options?: { silent?: boolean }) => void;
+  subscribe: (listener: ThemeListener) => () => void;
 }
 
 export const DEFAULT_THEME: ThemePrefs = { style: 'aurora', mode: 'system', nav: 'sidebar' };

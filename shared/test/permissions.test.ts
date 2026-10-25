@@ -44,15 +44,21 @@ describe('permissions', () => {
     expect(missingTaskPermissions(editOwn, ownTask, { title: 'x' }, ME)).toEqual([]);
     expect(missingTaskPermissions(editOwn, foreignTask, { title: 'x' }, ME)).toEqual(['task.edit_any']);
     expect(missingTaskPermissions(editOwn, ownTask, { statusId: 's' }, ME)).toEqual(['task.transition']);
-    expect(missingTaskPermissions(maskOf('task.transition'), foreignTask, { statusId: 's', position: 'a0' }, ME)).toEqual([]);
+    expect(
+      missingTaskPermissions(maskOf('task.transition'), foreignTask, { statusId: 's', position: 'a0' }, ME),
+    ).toEqual([]);
   });
 
   it('splits self and others assignment', () => {
     const self = maskOf('task.assign_self');
     expect(missingTaskPermissions(self, ownTask, { assigneeId: ME }, ME)).toEqual([]);
     expect(missingTaskPermissions(self, ownTask, { assigneeId: OTHER }, ME)).toEqual(['task.assign_others']);
-    expect(missingTaskPermissions(self, foreignTask, { assigneeId: null }, ME)).toEqual(['task.assign_others']);
-    expect(missingTaskPermissions(self, { reporterId: OTHER, assigneeId: ME }, { assigneeId: null }, ME)).toEqual([]);
+    expect(missingTaskPermissions(self, foreignTask, { assigneeId: null }, ME)).toEqual([
+      'task.assign_others',
+    ]);
+    expect(
+      missingTaskPermissions(self, { reporterId: OTHER, assigneeId: ME }, { assigneeId: null }, ME),
+    ).toEqual([]);
     expect(missingTaskPermissions(maskOf('task.assign_others'), ownTask, { assigneeId: ME }, ME)).toEqual([]);
   });
 });

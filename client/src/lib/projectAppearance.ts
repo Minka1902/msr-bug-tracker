@@ -105,4 +105,3 @@ export const PROJECT_COLORS = [
   '#3b82f6',
   '#64748b',
 ];
-

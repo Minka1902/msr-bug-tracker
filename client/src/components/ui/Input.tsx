@@ -13,20 +13,38 @@ export const fieldVariants = cva(
   },
 );
 
-export interface InputProps extends Omit<ComponentProps<'input'>, 'size'>, VariantProps<typeof fieldVariants> {
+export interface InputProps
+  extends Omit<ComponentProps<'input'>, 'size'>, VariantProps<typeof fieldVariants> {
   leftIcon?: ReactNode;
   rightSlot?: ReactNode;
   invalid?: boolean;
   wrapperClassName?: string;
 }
 
-export function Input({ leftIcon, rightSlot, invalid, size, tone, className, wrapperClassName, ...props }: InputProps) {
+export function Input({
+  leftIcon,
+  rightSlot,
+  invalid,
+  size,
+  tone,
+  className,
+  wrapperClassName,
+  ...props
+}: InputProps) {
   return (
     <div className={cn('relative flex items-center', wrapperClassName)}>
-      {leftIcon && <span className="pointer-events-none absolute left-3 text-subtle [&_svg]:size-4">{leftIcon}</span>}
+      {leftIcon && (
+        <span className="pointer-events-none absolute left-3 text-subtle [&_svg]:size-4">{leftIcon}</span>
+      )}
       <input
         aria-invalid={invalid || undefined}
-        className={cn(fieldVariants({ size, tone }), 'px-3', leftIcon && 'pl-9', rightSlot && 'pr-10', className)}
+        className={cn(
+          fieldVariants({ size, tone }),
+          'px-3',
+          leftIcon && 'pl-9',
+          rightSlot && 'pr-10',
+          className,
+        )}
         {...props}
       />
       {rightSlot && <span className="absolute right-1.5 flex items-center">{rightSlot}</span>}

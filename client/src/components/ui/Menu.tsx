@@ -35,10 +35,17 @@ export function Menu({ trigger, items, align = 'end', side = 'bottom', className
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content align={align} side={side} sideOffset={6} collisionPadding={12} className={cn(popoverSurface, 'min-w-48 p-1', className)}>
+        <DropdownMenu.Content
+          align={align}
+          side={side}
+          sideOffset={6}
+          collisionPadding={12}
+          className={cn(popoverSurface, 'min-w-48 p-1', className)}
+        >
           {items.map((item, index) => {
             if (item.hidden) return null;
-            if (item.type === 'separator') return <DropdownMenu.Separator key={index} className="my-1 h-px bg-border" />;
+            if (item.type === 'separator')
+              return <DropdownMenu.Separator key={index} className="my-1 h-px bg-border" />;
             if (item.type === 'label')
               return (
                 <DropdownMenu.Label key={index} className="px-2 pt-1.5 pb-1 text-xs font-medium text-subtle">

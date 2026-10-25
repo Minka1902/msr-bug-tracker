@@ -12,9 +12,20 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon, title, description, action, compact, className }: EmptyStateProps) {
   return (
-    <div className={cn('flex flex-col items-center justify-center text-center', compact ? 'gap-2 py-6' : 'gap-3 py-14', className)}>
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center text-center',
+        compact ? 'gap-2 py-6' : 'gap-3 py-14',
+        className,
+      )}
+    >
       {icon && (
-        <div className={cn('flex items-center justify-center rounded-2xl bg-accent-soft text-accent-text', compact ? 'size-10 [&_svg]:size-5' : 'size-14 [&_svg]:size-7')}>
+        <div
+          className={cn(
+            'flex items-center justify-center rounded-2xl bg-accent-soft text-accent-text',
+            compact ? 'size-10 [&_svg]:size-5' : 'size-14 [&_svg]:size-7',
+          )}
+        >
           {icon}
         </div>
       )}

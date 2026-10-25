@@ -18,13 +18,22 @@ export function MiniBarChart({ data, height = 64, className, showLabels = true }
   const max = Math.max(1, ...data.map((datum) => datum.value));
 
   return (
-    <div role="img" aria-label={data.map((datum) => `${datum.label}: ${datum.value}`).join(', ')} className={cn('flex flex-col gap-1.5', className)}>
+    <div
+      role="img"
+      aria-label={data.map((datum) => `${datum.label}: ${datum.value}`).join(', ')}
+      className={cn('flex flex-col gap-1.5', className)}
+    >
       <div className="flex items-end gap-1.5" style={{ height }}>
         {data.map((datum) => (
           <div
             key={datum.label}
             title={`${datum.label}: ${datum.value}`}
-            style={{ '--c': datum.color ?? 'var(--c-accent)', height: `${Math.max(6, (datum.value / max) * 100)}%` } as CSSProperties}
+            style={
+              {
+                '--c': datum.color ?? 'var(--c-accent)',
+                height: `${Math.max(6, (datum.value / max) * 100)}%`,
+              } as CSSProperties
+            }
             className="flex-1 rounded-t-[5px] rounded-b-[2px] bg-(--c) opacity-90 transition-[height] duration-500"
           />
         ))}

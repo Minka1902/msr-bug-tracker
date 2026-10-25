@@ -54,7 +54,9 @@ interface MultiProps<V extends string> extends BaseProps<V> {
 export type OptionPickerProps<V extends string> = SingleProps<V> | MultiProps<V>;
 
 export const OptionDot = ({ color }: { color?: string }) =>
-  color ? <span style={{ '--c': color } as CSSProperties} className="size-2.5 shrink-0 rounded-full bg-(--c)" /> : null;
+  color ? (
+    <span style={{ '--c': color } as CSSProperties} className="size-2.5 shrink-0 rounded-full bg-(--c)" />
+  ) : null;
 
 const defaultRenderOption = <V extends string>(option: PickerOption<V>) => (
   <>
@@ -95,7 +97,11 @@ export function OptionPicker<V extends string>(props: OptionPickerProps<V>) {
 
   const toggle = (value: V) => {
     if (props.multiple) {
-      props.onChange(selectedValues.includes(value) ? props.value.filter((item) => item !== value) : [...props.value, value]);
+      props.onChange(
+        selectedValues.includes(value)
+          ? props.value.filter((item) => item !== value)
+          : [...props.value, value],
+      );
       return;
     }
     props.onChange(props.clearable && props.value === value ? null : value);
@@ -177,7 +183,9 @@ export function OptionPicker<V extends string>(props: OptionPickerProps<V>) {
                         className="flex min-h-8.5 cursor-pointer items-center gap-2.5 rounded-[calc(var(--r-control)-4px)] px-2 py-1 text-sm outline-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-surface-muted [&_svg]:size-4"
                       >
                         {renderOption(option)}
-                        {selectedValues.includes(option.value) && <Check className="shrink-0 text-accent-text" />}
+                        {selectedValues.includes(option.value) && (
+                          <Check className="shrink-0 text-accent-text" />
+                        )}
                       </Command.Item>
                     ))}
                 </Command.Group>

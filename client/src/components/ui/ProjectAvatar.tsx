@@ -13,7 +13,8 @@ const projectAvatarVariants = cva('relative inline-flex shrink-0 items-center ju
       xl: 'size-20 rounded-2xl [&_svg]:size-10',
     },
     variant: {
-      gradient: 'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--c)_70%,white),var(--c))] shadow-[0_6px_16px_-6px_var(--c)] clean:bg-(--c) clean:shadow-none',
+      gradient:
+        'bg-[linear-gradient(135deg,color-mix(in_oklab,var(--c)_70%,white),var(--c))] shadow-[0_6px_16px_-6px_var(--c)] clean:bg-(--c) clean:shadow-none',
       soft: 'chip',
       dot: 'size-2.5! rounded-full bg-(--c) [&_svg]:hidden',
     },
@@ -29,7 +30,11 @@ interface ProjectAvatarProps extends VariantProps<typeof projectAvatarVariants> 
 
 export function ProjectAvatar({ color, icon, size, variant, className }: ProjectAvatarProps) {
   return (
-    <span aria-hidden style={{ '--c': color } as CSSProperties} className={cn(projectAvatarVariants({ size, variant }), className)}>
+    <span
+      aria-hidden
+      style={{ '--c': color } as CSSProperties}
+      className={cn(projectAvatarVariants({ size, variant }), className)}
+    >
       <ProjectIcon name={icon} />
     </span>
   );

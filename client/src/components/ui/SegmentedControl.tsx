@@ -18,12 +18,24 @@ interface SegmentedControlProps<T extends string> {
   label?: string;
 }
 
-export function SegmentedControl<T extends string>({ options, value, onChange, size = 'md', block, className, label }: SegmentedControlProps<T>) {
+export function SegmentedControl<T extends string>({
+  options,
+  value,
+  onChange,
+  size = 'md',
+  block,
+  className,
+  label,
+}: SegmentedControlProps<T>) {
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      className={cn('inline-flex items-center gap-1 rounded-control border border-border bg-surface-muted p-1', block && 'flex w-full', className)}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-control border border-border bg-surface-muted p-1',
+        block && 'flex w-full',
+        className,
+      )}
     >
       {options.map((option) => (
         <button

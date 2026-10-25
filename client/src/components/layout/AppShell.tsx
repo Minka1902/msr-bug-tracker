@@ -26,19 +26,37 @@ export function AppShell({ user, projects, actions, banners, children }: AppShel
   };
 
   const { nav } = useTheme();
-  const [collapsed, setCollapsedState] = useState(() => readLocal(STORAGE_KEY, { collapsed: false }).collapsed);
+  const [collapsed, setCollapsedState] = useState(
+    () => readLocal(STORAGE_KEY, { collapsed: false }).collapsed,
+  );
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="md:h-dvh md:p-(--shell-margin)">
       <div className="flex min-h-dvh md:h-full md:min-h-0 md:overflow-hidden md:rounded-(--shell-radius) md:bg-app md:shadow-[0_30px_80px_-30px_rgb(15_23_42/0.5)] clean:md:shadow-none">
         <div className="hidden md:flex">
-          {nav === 'sidebar' && !collapsed && <Sidebar user={user} projects={projects} actions={actions} onCollapse={() => setCollapsed(true)} />}
+          {nav === 'sidebar' && !collapsed && (
+            <Sidebar
+              user={user}
+              projects={projects}
+              actions={actions}
+              onCollapse={() => setCollapsed(true)}
+            />
+          )}
           {(nav === 'rail' || collapsed) && (
-            <IconRail user={user} actions={actions} panelOpen={nav === 'rail' && !collapsed} onTogglePanel={() => setCollapsed(false)} />
+            <IconRail
+              user={user}
+              actions={actions}
+              panelOpen={nav === 'rail' && !collapsed}
+              onTogglePanel={() => setCollapsed(false)}
+            />
           )}
           {nav === 'rail' && !collapsed && (
-            <ProjectPanel projects={projects} onCreateProject={actions.onCreateProject} onCollapse={() => setCollapsed(true)} />
+            <ProjectPanel
+              projects={projects}
+              onCreateProject={actions.onCreateProject}
+              onCollapse={() => setCollapsed(true)}
+            />
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-app md:overflow-hidden">

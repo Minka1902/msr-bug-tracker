@@ -11,7 +11,12 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     return;
   }
   if (error instanceof ZodError) {
-    res.status(400).json({ error: 'Invalid input', details: error.issues.map(({ path, message }) => ({ path, message })) });
+    res
+      .status(400)
+      .json({
+        error: 'Invalid input',
+        details: error.issues.map(({ path, message }) => ({ path, message })),
+      });
     return;
   }
   if (error?.code === PG_UNIQUE_VIOLATION) {

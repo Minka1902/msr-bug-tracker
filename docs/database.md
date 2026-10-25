@@ -35,7 +35,37 @@ erDiagram
   tasks ||--o{ task_activity : logs
 ```
 
-Every table is documented column by column below as its migration lands.
+## Tables
+
+### `users` — migration 001
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `email` | citext, unique | Always stored lowercase. Case-insensitive uniqueness comes from `citext`. |
+| `password_hash` | text, null | argon2id. `NULL` for demo teammates, so they cannot log in with a password. |
+| `name` | text | 1–80 chars (CHECK). |
+| `avatar_key` | text, null | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version. |
+| `email_verified_at` | timestamptz, null | Reset to `NULL` when the email changes. |
+| `preferences` | jsonb | Partial `{style, mode, nav, timezone}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
+| `demo_owner_id` | uuid FK → users, cascade | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values. |
+
+### `sessions` — migration 001
+| Column | Type | Notes |
+|---|---|---|
+| `token_hash` | bytea, unique | `sha256(cookie token)`. Every request looks the session up through this unique index. |
+| `user_id` | uuid FK, cascade | |
+| `impersonator_id` | uuid FK, null | The real user while "View as" a demo teammate is active. |
+| `expires_at` | timestamptz | Rolling 30 days, refreshed at most once a day. |
+| `user_agent`, `ip` | text, inet | For auditing and future session management. |
+
+### `auth_tokens` — migration 001
+| Column | Type | Notes |
+|---|---|---|
+| `type` | enum `verify_email` / `reset_password` | |
+| `token_hash` | bytea, unique | `sha256(token)`. The raw token exists only in the email link. |
+| `email` | citext | The address the token was issued for. Verification only succeeds while `users.email` still matches, so old links stop working after an email change. |
+| `expires_at` | timestamptz | 48h for verification, 1h for password reset. |
+| `used_at` | timestamptz, null | Tokens are consumed with a single atomic `UPDATE … WHERE used_at IS NULL AND expires_at > now() RETURNING`. Issuing a new token voids the user's older unused tokens of the same type. |
 
 ## Invariants
 
@@ -50,15 +80,15 @@ Every table is documented column by column below as its migration lands.
 
 ## Key query patterns
 
-| Need | Pattern |
-|---|---|
-| Board ordering | Fractional string keys in `tasks.position` (`fractional-indexing`, `COLLATE "C"`). A drag updates one row and never reindexes. |
-| Board load | One query with `row_number() OVER (PARTITION BY status_id ORDER BY position)`, capped at 100 cards per column, plus per-column totals. |
-| Project stats | One aggregate query per request, using `count(*) FILTER (WHERE category = 'done')` and similar for total, completed, active and overdue, joined to `project_statuses` for categories. |
-| Overdue | `due_date < (now() AT TIME ZONE $tz)::date AND category <> 'done'`, where `$tz` is the user's stored timezone. |
-| Search | Exact `KEY-123` match first; otherwise `search_vector @@ to_tsquery('simple', 'a & b:*')` combined with trigram `similarity(title, q)`. Projects and tasks come back in one query. |
-| Activity | A PATCH diffs the old and new rows and writes all changes with one multi-row `INSERT`. |
-| Bulk edits | `UPDATE … WHERE id = ANY($1)`, with activity written by `INSERT … SELECT`. |
+| Need           | Pattern                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Board ordering | Fractional string keys in `tasks.position` (`fractional-indexing`, `COLLATE "C"`). A drag updates one row and never reindexes.                                                        |
+| Board load     | One query with `row_number() OVER (PARTITION BY status_id ORDER BY position)`, capped at 100 cards per column, plus per-column totals.                                                |
+| Project stats  | One aggregate query per request, using `count(*) FILTER (WHERE category = 'done')` and similar for total, completed, active and overdue, joined to `project_statuses` for categories. |
+| Overdue        | `due_date < (now() AT TIME ZONE $tz)::date AND category <> 'done'`, where `$tz` is the user's stored timezone.                                                                        |
+| Search         | Exact `KEY-123` match first; otherwise `search_vector @@ to_tsquery('simple', 'a & b:*')` combined with trigram `similarity(title, q)`. Projects and tasks come back in one query.    |
+| Activity       | A PATCH diffs the old and new rows and writes all changes with one multi-row `INSERT`.                                                                                                |
+| Bulk edits     | `UPDATE … WHERE id = ANY($1)`, with activity written by `INSERT … SELECT`.                                                                                                            |
 
 ## Backups
 

@@ -26,7 +26,11 @@ export function Checkbox({ checked, onCheckedChange, label, disabled, className,
       {...aria}
     >
       <RadixCheckbox.Indicator className="text-accent-contrast">
-        {checked === 'indeterminate' ? <Minus className="size-3" strokeWidth={3} /> : <Check className="size-3" strokeWidth={3} />}
+        {checked === 'indeterminate' ? (
+          <Minus className="size-3" strokeWidth={3} />
+        ) : (
+          <Check className="size-3" strokeWidth={3} />
+        )}
       </RadixCheckbox.Indicator>
     </RadixCheckbox.Root>
   );

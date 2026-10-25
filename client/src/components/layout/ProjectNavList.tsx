@@ -12,8 +12,17 @@ interface ProjectNavListProps {
   className?: string;
 }
 
-export function ProjectNavList({ projects, onCreateProject, onNavigate, limit = 12, className }: ProjectNavListProps) {
-  const sorted = [...projects.filter((project) => project.isFavorite), ...projects.filter((project) => !project.isFavorite)].slice(0, limit);
+export function ProjectNavList({
+  projects,
+  onCreateProject,
+  onNavigate,
+  limit = 12,
+  className,
+}: ProjectNavListProps) {
+  const sorted = [
+    ...projects.filter((project) => project.isFavorite),
+    ...projects.filter((project) => !project.isFavorite),
+  ].slice(0, limit);
 
   return (
     <div className={cn('flex flex-col gap-0.5', className)}>

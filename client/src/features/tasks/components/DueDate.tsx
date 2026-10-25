@@ -19,7 +19,13 @@ interface DueDateProps {
 
 export function DueDate({ date, done, icon = true, className }: DueDateProps) {
   return (
-    <span className={cn('inline-flex items-center gap-1 text-xs whitespace-nowrap', STATE_CLASS[dueState(date, done)], className)}>
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-xs whitespace-nowrap',
+        STATE_CLASS[dueState(date, done)],
+        className,
+      )}
+    >
       {icon && <Clock className="size-3.5" />}
       {formatDue(date)}
     </span>

@@ -13,7 +13,16 @@ interface SwitchProps {
   id?: string;
 }
 
-export function Switch({ checked, onCheckedChange, label, description, disabled, size = 'md', className, id }: SwitchProps) {
+export function Switch({
+  checked,
+  onCheckedChange,
+  label,
+  description,
+  disabled,
+  size = 'md',
+  className,
+  id,
+}: SwitchProps) {
   const control = (
     <RadixSwitch.Root
       id={id}
@@ -29,7 +38,9 @@ export function Switch({ checked, onCheckedChange, label, description, disabled,
       <RadixSwitch.Thumb
         className={cn(
           'block rounded-full bg-white shadow-sm transition-transform',
-          size === 'sm' ? 'size-3.5 translate-x-0.5 data-[state=checked]:translate-x-4' : 'size-4.5 translate-x-0.5 data-[state=checked]:translate-x-5',
+          size === 'sm'
+            ? 'size-3.5 translate-x-0.5 data-[state=checked]:translate-x-4'
+            : 'size-4.5 translate-x-0.5 data-[state=checked]:translate-x-5',
         )}
       />
     </RadixSwitch.Root>
@@ -38,7 +49,13 @@ export function Switch({ checked, onCheckedChange, label, description, disabled,
   if (!label) return control;
 
   return (
-    <label className={cn('flex cursor-pointer items-center justify-between gap-4', disabled && 'cursor-not-allowed opacity-60', className)}>
+    <label
+      className={cn(
+        'flex cursor-pointer items-center justify-between gap-4',
+        disabled && 'cursor-not-allowed opacity-60',
+        className,
+      )}
+    >
       <span className="flex flex-col">
         <span className="text-sm font-medium">{label}</span>
         {description && <span className="text-xs text-muted">{description}</span>}

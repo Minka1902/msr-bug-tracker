@@ -11,7 +11,12 @@ interface IconPickerProps {
 
 export function IconPicker({ value, onChange, color = 'var(--c-accent)', className }: IconPickerProps) {
   return (
-    <div role="radiogroup" aria-label="Icon" style={{ '--c': color } as CSSProperties} className={cn('grid grid-cols-8 gap-1.5', className)}>
+    <div
+      role="radiogroup"
+      aria-label="Icon"
+      style={{ '--c': color } as CSSProperties}
+      className={cn('grid grid-cols-8 gap-1.5', className)}
+    >
       {Object.entries(PROJECT_ICONS).map(([name, Icon]) => (
         <button
           key={name}
