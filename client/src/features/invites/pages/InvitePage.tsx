@@ -29,7 +29,10 @@ export function InvitePage() {
   const acceptInvite = useAcceptInvite();
   const invite = preview.data;
   const here = `/invite/${token}`;
-  const registerQuery = new URLSearchParams({ next: here, ...(invite?.email ? { email: invite.email } : {}) });
+  const registerQuery = new URLSearchParams({
+    next: here,
+    ...(invite?.email ? { email: invite.email } : {}),
+  });
 
   if (preview.isPending || me.isPending)
     return (

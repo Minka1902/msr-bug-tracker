@@ -120,7 +120,13 @@ export function InviteDialog({ open, onOpenChange, project, defaultEmail = '' }:
             />
           </Field>
         )}
-        <SegmentedControl label="How to invite" value={mode} onChange={setMode} options={MODE_OPTIONS} block />
+        <SegmentedControl
+          label="How to invite"
+          value={mode}
+          onChange={setMode}
+          options={MODE_OPTIONS}
+          block
+        />
         {mode === 'email' && (
           <form onSubmit={sendEmail} className="flex flex-col gap-2 sm:flex-row sm:items-end" noValidate>
             <Field label="Email address" htmlFor="invite-email" className="flex-1">
@@ -133,17 +139,35 @@ export function InviteDialog({ open, onOpenChange, project, defaultEmail = '' }:
                 onChange={(event) => setEmail(event.target.value)}
               />
             </Field>
-            <Button type="submit" leftIcon={<Mail />} loading={create.isPending} disabled={!email.includes('@')}>
+            <Button
+              type="submit"
+              leftIcon={<Mail />}
+              loading={create.isPending}
+              disabled={!email.includes('@')}
+            >
               Send invite
             </Button>
           </form>
         )}
         {mode === 'link' && !invite && (
           <div className="flex flex-col gap-3">
-            <Field label="Who can use the link" hint="Links expire after 7 days. You can revoke them any time.">
-              <SegmentedControl label="Who can use the link" value={reach} onChange={setReach} options={REACH_OPTIONS} />
+            <Field
+              label="Who can use the link"
+              hint="Links expire after 7 days. You can revoke them any time."
+            >
+              <SegmentedControl
+                label="Who can use the link"
+                value={reach}
+                onChange={setReach}
+                options={REACH_OPTIONS}
+              />
             </Field>
-            <Button leftIcon={<Link2 />} loading={create.isPending} onClick={createLink} className="self-start">
+            <Button
+              leftIcon={<Link2 />}
+              loading={create.isPending}
+              onClick={createLink}
+              className="self-start"
+            >
               Create invite link
             </Button>
           </div>

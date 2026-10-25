@@ -25,7 +25,8 @@ interface NewInvite {
   expiresInDays: number;
 }
 
-const ACTIVE = 'i.revoked_at IS NULL AND i.expires_at > now() AND (i.max_uses IS NULL OR i.uses < i.max_uses)';
+const ACTIVE =
+  'i.revoked_at IS NULL AND i.expires_at > now() AND (i.max_uses IS NULL OR i.uses < i.max_uses)';
 
 const INSERT_INVITE = `
   INSERT INTO invites (token_hash, inviter_id, project_id, role_id, email, max_uses, expires_at)

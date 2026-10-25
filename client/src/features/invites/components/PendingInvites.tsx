@@ -28,8 +28,8 @@ export function PendingInvites({ projectKey }: PendingInvitesProps) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{invite.email ?? 'Invite link'}</p>
               <p className="truncate text-xs text-muted">
-                {invite.maxUses === null ? `${invite.uses} joined` : `${invite.uses}/${invite.maxUses} used`} · by{' '}
-                {invite.inviterName} · expires {formatShortDate(invite.expiresAt)}
+                {invite.maxUses === null ? `${invite.uses} joined` : `${invite.uses}/${invite.maxUses} used`}{' '}
+                · by {invite.inviterName} · expires {formatShortDate(invite.expiresAt)}
               </p>
             </div>
             {invite.roleName && <Badge label={invite.roleName} />}

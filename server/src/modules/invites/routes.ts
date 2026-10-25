@@ -46,7 +46,12 @@ export const createProjectInvitesRouter = () => {
     const role = await getRole(project.id, input.roleId);
     if (role.system_key === 'owner') throw badRequest('A project has exactly one owner');
     assertCovers(project, role.permissions);
-    const invite = await createInvite({ ...input, inviterId: req.user!.id, projectId: project.id, roleId: role.id });
+    const invite = await createInvite({
+      ...input,
+      inviterId: req.user!.id,
+      projectId: project.id,
+      roleId: role.id,
+    });
     await emailInvite(invite);
     res.status(201).json({ invite });
   });

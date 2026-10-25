@@ -8,15 +8,17 @@ export type KeyCheck = 'valid' | 'invalid' | 'unreachable';
 const CHECK_TIMEOUT_MS = 10_000;
 const REJECTED_STATUSES = new Set([400, 401, 403]);
 
-const HTTP_CHECKS: Record<Exclude<AiProvider, 'anthropic'>, { url: string; headers: (key: string) => Record<string, string> }> =
-  {
-    openai: { url: 'https://api.openai.com/v1/models', headers: (key) => ({ Authorization: `Bearer ${key}` }) },
-    google: {
-      url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
-      headers: (key) => ({ 'x-goog-api-key': key }),
-    },
-    xai: { url: 'https://api.x.ai/v1/models', headers: (key) => ({ Authorization: `Bearer ${key}` }) },
-  };
+const HTTP_CHECKS: Record<
+  Exclude<AiProvider, 'anthropic'>,
+  { url: string; headers: (key: string) => Record<string, string> }
+> = {
+  openai: { url: 'https://api.openai.com/v1/models', headers: (key) => ({ Authorization: `Bearer ${key}` }) },
+  google: {
+    url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
+    headers: (key) => ({ 'x-goog-api-key': key }),
+  },
+  xai: { url: 'https://api.x.ai/v1/models', headers: (key) => ({ Authorization: `Bearer ${key}` }) },
+};
 
 const LIST_KEYS = `
   SELECT provider, last4, verified_at FROM user_api_keys WHERE user_id = $1 ORDER BY provider`;
@@ -55,7 +57,11 @@ export const checkApiKey = (provider: AiProvider, key: string) =>
 
 export const listApiKeys = (userId: string) =>
   query<{ provider: AiProvider; last4: string; verified_at: Date }>(LIST_KEYS, [userId]).then((rows) =>
-    rows.map((row) => ({ provider: row.provider, last4: row.last4, verifiedAt: row.verified_at.toISOString() })),
+    rows.map((row) => ({
+      provider: row.provider,
+      last4: row.last4,
+      verifiedAt: row.verified_at.toISOString(),
+    })),
   );
 
 export const saveApiKey = (userId: string, provider: AiProvider, key: string) =>

@@ -25,8 +25,10 @@ export const createAiKeysRouter = (limits: RateLimits) => {
     const { key } = aiKeySchema.parse(req.body);
     const { label, vendor } = AI_PROVIDER_META[provider];
     const check = await checkApiKey(provider, key);
-    if (check === 'invalid') throw badRequest(`${vendor} rejected this ${label} key. Check that you copied all of it.`);
-    if (check === 'unreachable') throw badGateway(`We couldn't reach ${vendor} to check the key. Try again shortly.`);
+    if (check === 'invalid')
+      throw badRequest(`${vendor} rejected this ${label} key. Check that you copied all of it.`);
+    if (check === 'unreachable')
+      throw badGateway(`We couldn't reach ${vendor} to check the key. Try again shortly.`);
     await saveApiKey(req.user!.id, provider, key);
     res.json({ keys: await listApiKeys(req.user!.id) });
   });
