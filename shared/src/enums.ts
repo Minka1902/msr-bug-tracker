@@ -80,6 +80,17 @@ export const AI_PROVIDER_META: Record<AiProvider, { label: string; vendor: strin
   xai: { label: 'Grok', vendor: 'xAI', keysUrl: 'https://console.x.ai' },
 };
 
+export const LABEL_COLORS = [
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#f59e0b',
+  '#22c55e',
+  '#ef4444',
+  '#14b8a6',
+  '#64748b',
+];
+
 export const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 export const DEFAULT_STATUSES: Record<Workflow, { name: string; color: string; category: StatusCategory }[]> =

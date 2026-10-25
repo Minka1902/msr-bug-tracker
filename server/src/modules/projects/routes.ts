@@ -9,6 +9,7 @@ import {
 import { conflict } from '../../lib/httpError';
 import { removeStored } from '../../lib/storage';
 import { createLabelsRouter } from '../labels/routes';
+import { createProjectImportRouter } from '../importer/routes';
 import { createProjectInvitesRouter } from '../invites/routes';
 import { createMembersRouter } from '../members/routes';
 import { createRolesRouter } from '../roles/routes';
@@ -97,6 +98,7 @@ export const createProjectsRouter = () => {
   scoped.use('/roles', createRolesRouter());
   scoped.use('/members', createMembersRouter());
   scoped.use('/invites', createProjectInvitesRouter());
+  scoped.use(createProjectImportRouter());
   scoped.use(createProjectTasksRouter());
   scoped.use(createProjectInsightsRouter());
 

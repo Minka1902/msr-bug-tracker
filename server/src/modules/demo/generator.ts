@@ -4,6 +4,7 @@ import path from 'node:path';
 import { generateNKeysBetween } from 'fractional-indexing';
 import {
   DEFAULT_STATUSES,
+  LABEL_COLORS,
   workflowOf,
   type StatusCategory,
   type TaskType,
@@ -22,7 +23,6 @@ import {
   DESCRIPTIONS,
   FEATURE_TITLES,
   IMPROVEMENT_TITLES,
-  LABEL_COLORS,
   LEGACY_TEMPLATE,
   MILESTONES,
   OS_OPTIONS,

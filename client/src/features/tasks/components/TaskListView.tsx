@@ -9,6 +9,7 @@ import { FilterBar } from '../../../components/ui/FilterBar';
 import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useShell } from '../../../hooks/useShell';
 import { useUrlFilters, type FilterValues } from '../../../hooks/useUrlFilters';
+import { ImportExportMenu } from '../../importExport/components/ImportExportMenu';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { useTaskList } from '../api';
 import { COLUMN_BY_SORT, SORT_BY_COLUMN, taskColumns } from '../taskColumns';
@@ -65,7 +66,9 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
           onChange: setSearch,
           placeholder: bugsOnly ? 'Search bugs' : 'Search tasks',
         }}
-      />
+      >
+        <ImportExportMenu project={project} filters={query} canImport={permissions.can('task.create')} />
+      </FilterBar>
       <DataTable
         label={bugsOnly ? 'Bugs' : 'Tasks'}
         rows={tasks}

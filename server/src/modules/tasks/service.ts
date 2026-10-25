@@ -151,7 +151,7 @@ const RESOLVE_IDENTIFIER = `
   WHERE p.key = $1`;
 const SUBTASKS = `${cardSelect()} WHERE t.parent_id = $1 ORDER BY t.position, t.number`;
 
-const pickStatus = (statuses: ProjectStatus[], workflow: Workflow, category: StatusCategory) => {
+export const pickStatus = (statuses: ProjectStatus[], workflow: Workflow, category: StatusCategory) => {
   for (const candidate of CATEGORY_FALLBACK[category]) {
     const match = statuses.find((status) => status.workflow === workflow && status.category === candidate);
     if (match) return match;

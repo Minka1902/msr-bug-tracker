@@ -1,4 +1,4 @@
-import { FolderPlus, LayoutGrid, List, Plus, Search, Star } from 'lucide-react';
+import { FolderPlus, Import, LayoutGrid, List, Plus, Search, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { ProjectSummary } from '@msr/shared/types';
@@ -19,6 +19,7 @@ import { cn } from '../../../lib/cn';
 import { formatRelative } from '../../../lib/dates';
 import { useProjects, useToggleFavorite, type ArchivedFilter } from '../api';
 import { ProjectCard } from '../components/ProjectCard';
+import { MigrationWizard } from '../../migrations/components/MigrationWizard';
 import { ProjectHealthBadge } from '../components/ProjectHealthBadge';
 
 type Scope = 'all' | 'favorites' | 'owned' | 'shared';
@@ -124,6 +125,7 @@ export function ProjectsPage() {
   const [archived, setArchived] = useState<ArchivedFilter>('false');
   const [scope, setScope] = useState<Scope>('all');
   const [search, setSearch] = useState('');
+  const [migrating, setMigrating] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
   const projects = useProjects(archived);
 
@@ -181,12 +183,16 @@ export function ProjectsPage() {
                 { value: 'list', label: 'List', icon: <List /> },
               ]}
             />
+            <Button variant="secondary" leftIcon={<Import />} onClick={() => setMigrating(true)}>
+              Import
+            </Button>
             <Button leftIcon={<Plus />} onClick={openCreateProject}>
               New Project
             </Button>
           </>
         }
       />
+      <MigrationWizard open={migrating} onOpenChange={setMigrating} />
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-1.5">
           {SCOPES.map((item) => (

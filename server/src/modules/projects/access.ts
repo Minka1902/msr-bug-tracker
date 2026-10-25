@@ -42,11 +42,14 @@ export const toProjectContext = (row: AccessRow, userId: string): ProjectContext
   roleName: row.role_name,
 });
 
-export const loadProject: RequestHandler = async (req, _res, next) => {
-  const key = String(req.params.key ?? '');
-  const [row] = await prepared<AccessRow>('load-project', LOAD_PROJECT, [key, req.user!.id]);
+export const findProjectContext = async (key: string, userId: string) => {
+  const [row] = await prepared<AccessRow>('load-project', LOAD_PROJECT, [key, userId]);
   if (!row) throw notFound('Project not found');
-  req.project = toProjectContext(row, req.user!.id);
+  return toProjectContext(row, userId);
+};
+
+export const loadProject: RequestHandler = async (req, _res, next) => {
+  req.project = await findProjectContext(String(req.params.key ?? ''), req.user!.id);
   next();
 };
 
