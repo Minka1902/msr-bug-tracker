@@ -190,6 +190,7 @@ describe('account settings', () => {
       mode: 'dark',
       nav: 'sidebar',
       timezone: 'Asia/Jerusalem',
+      aiProvider: null,
     });
     await agent
       .patch('/api/me')
