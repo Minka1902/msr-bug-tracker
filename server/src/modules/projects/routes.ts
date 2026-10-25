@@ -12,6 +12,7 @@ import { createLabelsRouter } from '../labels/routes';
 import { createMembersRouter } from '../members/routes';
 import { createRolesRouter } from '../roles/routes';
 import { createStatusesRouter } from '../statuses/routes';
+import { createProjectTasksRouter } from '../tasks/projectRoutes';
 import { DEFAULT_PREFERENCES } from '../users/service';
 import { assertCan, assertCanWrite, assertOwner, loadProject, projectOf } from './access';
 import {
@@ -93,6 +94,7 @@ export const createProjectsRouter = () => {
   scoped.use('/labels', createLabelsRouter());
   scoped.use('/roles', createRolesRouter());
   scoped.use('/members', createMembersRouter());
+  scoped.use(createProjectTasksRouter());
 
   router.use('/:key', loadProject, scoped);
   return router;

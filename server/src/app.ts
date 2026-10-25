@@ -12,6 +12,7 @@ import { loadSession, requireAuth } from './middleware/session';
 import { createAuthRouter } from './modules/auth/routes';
 import { createDevRouter } from './modules/dev/routes';
 import { createProjectsRouter } from './modules/projects/routes';
+import { createTasksRouter } from './modules/tasks/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 interface AppOptions {
@@ -55,6 +56,7 @@ export const createApp = ({ rateLimit = true }: AppOptions = {}) => {
   api.use(requireAuth);
   api.use(createUsersRouter());
   api.use('/projects', createProjectsRouter());
+  api.use('/tasks', createTasksRouter());
   api.use(() => {
     throw notFound();
   });

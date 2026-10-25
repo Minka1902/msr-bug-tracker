@@ -96,3 +96,39 @@ export const setupTeam = async () => {
     outsider,
   };
 };
+
+export interface TaskResponse {
+  id: string;
+  number: number;
+  identifier: string;
+  projectKey: string;
+  type: string;
+  title: string;
+  statusId: string;
+  statusCategory: string;
+  priority: string;
+  assignee: { id: string; name: string } | null;
+  reporterId: string | null;
+  labels: { id: string; name: string }[];
+  parentId: string | null;
+  position: string;
+  completedAt: string | null;
+  subtaskTotal: number;
+  subtaskDone: number;
+  dueDate: string | null;
+  isBlocked: boolean;
+}
+
+export const createTask = async (agent: Agent, key: string, body: Record<string, unknown> = {}) =>
+  (
+    await agent
+      .post(`/api/projects/${key}/tasks`)
+      .send({ title: 'A task', ...body })
+      .expect(201)
+  ).body.task as TaskResponse;
+
+export const statusOf = (
+  project: Awaited<ReturnType<typeof createProject>>,
+  workflow: string,
+  name: string,
+) => project.statuses.find((status) => status.workflow === workflow && status.name === name)!.id;

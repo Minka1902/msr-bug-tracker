@@ -1,5 +1,6 @@
 import type { SessionUser } from '../middleware/session';
 import type { ProjectContext } from '../modules/projects/access';
+import type { TaskContext } from '../modules/tasks/access';
 
 declare global {
   namespace Express {
@@ -7,6 +8,7 @@ declare global {
       user?: SessionUser;
       sessionId?: string;
       project?: ProjectContext;
+      task?: TaskContext;
     }
   }
 }
