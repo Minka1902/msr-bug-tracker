@@ -1,24 +1,40 @@
 import { Plus } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useState, type FocusEvent, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import type { TaskType } from '@msr/shared/enums';
 import type { CreateTaskInput } from '@msr/shared/schemas/task';
+import type { ProjectDetail } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { errorMessage } from '../../../lib/api';
 import { useCreateTask } from '../api';
+import { TaskCreateFields, type TaskCreateValues } from '../components/TaskCreateFields';
 
 interface InlineTaskComposerProps {
-  projectKey: string;
+  project: ProjectDetail;
   defaults: Omit<CreateTaskInput, 'title'>;
+  types: readonly TaskType[];
 }
 
-export function InlineTaskComposer({ projectKey, defaults }: InlineTaskComposerProps) {
+const POPOVER_SELECTOR = '[data-radix-popper-content-wrapper]';
+
+export function InlineTaskComposer({ project, defaults, types }: InlineTaskComposerProps) {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const text = title.trim();
     if (!text) return;
     setTitle('');
     create.mutate(
-      { projectKey, title: text, ...defaults },
+      {
+        ...defaults,
+        projectKey: project.key,
+        title: text,
+        type: fields.type,
+        priority: fields.priority,
+        assigneeId: fields.assigneeId,
+        dueDate: fields.dueDate,
+        labelIds: fields.labelIds,
+        severity: fields.type === 'bug' ? fields.severity : null,
+      },
       {
         onError: (error) => {
           setTitle(text);
@@ -28,9 +44,24 @@ export function InlineTaskComposer({ projectKey, defaults }: InlineTaskComposerP
     );
   };
 
+  const closeOnLeave = (event: FocusEvent<HTMLFormElement>) => {
+    const next = event.relatedTarget as HTMLElement | null;
+    if (title.trim() || event.currentTarget.contains(next) || next?.closest(POPOVER_SELECTOR)) return;
+    setOpen(false);
+  };
+
   const create = useCreateTask();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
+  const [fields, setFields] = useState<TaskCreateValues>({
+    type: defaults.type ?? types[0]!,
+    statusId: defaults.statusId ?? null,
+    priority: defaults.priority ?? 'medium',
+    assigneeId: defaults.assigneeId ?? null,
+    dueDate: defaults.dueDate ?? null,
+    labelIds: defaults.labelIds ?? [],
+    severity: null,
+  });
 
   if (!open)
     return (
@@ -48,6 +79,7 @@ export function InlineTaskComposer({ projectKey, defaults }: InlineTaskComposerP
   return (
     <form
       onSubmit={submit}
+      onBlur={closeOnLeave}
       className="flex flex-col gap-2 rounded-[calc(var(--r-card)-4px)] border border-accent/50 bg-surface-raised p-2 shadow-card"
     >
       <textarea
@@ -56,13 +88,21 @@ export function InlineTaskComposer({ projectKey, defaults }: InlineTaskComposerP
         value={title}
         maxLength={300}
         placeholder="Task title, then press Enter"
+        aria-label="Task title"
         onChange={(event) => setTitle(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) submit(event);
           if (event.key === 'Escape') setOpen(false);
         }}
-        onBlur={() => !title.trim() && setOpen(false)}
         className="w-full resize-none bg-transparent px-1 text-sm outline-none placeholder:text-subtle"
+      />
+      <TaskCreateFields
+        layout="compact"
+        project={project}
+        values={fields}
+        onChange={(patch) => setFields((current) => ({ ...current, ...patch }))}
+        fields={['type', 'priority', 'assignee', 'dueDate', 'labels', 'severity']}
+        types={types}
       />
       <div className="flex justify-end gap-1.5">
         <Button size="xs" variant="ghost" onClick={() => setOpen(false)}>

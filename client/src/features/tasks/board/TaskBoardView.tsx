@@ -19,7 +19,7 @@ import { generateKeyBetween } from 'fractional-indexing';
 import { ChevronDown, KanbanSquare } from 'lucide-react';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
-import type { Workflow } from '@msr/shared/enums';
+import { TASK_TYPES, workflowOf, type Workflow } from '@msr/shared/enums';
 import type { BoardColumn, ProjectDetail, TaskCard } from '@msr/shared/types';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -50,6 +50,10 @@ const SCREEN_READER_INSTRUCTIONS = {
     'Press Enter to open this task. To move it, press Space, use the arrow keys to change column or position, then press Space or Enter to drop it, or Escape to cancel.',
 };
 const SEPARATOR = '|';
+const TYPES_BY_WORKFLOW = {
+  task: TASK_TYPES.filter((type) => workflowOf(type) === 'task'),
+  bug: TASK_TYPES.filter((type) => workflowOf(type) === 'bug'),
+};
 const containerId = (laneKey: string, statusId: string) => `${laneKey}${SEPARATOR}${statusId}`;
 const parseContainer = (id: string) => {
   const [laneKey, statusId] = id.split(SEPARATOR);
@@ -200,7 +204,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           key={id}
           id={id}
           label={groupBy === 'none' ? status.name : `${status.name}, ${lane.label}`}
-          projectKey={project.key}
+          project={project}
           tasks={(containers[id] ?? []).map((taskId) => taskById.get(taskId)!).filter(Boolean)}
           hiddenCount={groupBy === 'none' && column ? column.total - column.tasks.length : 0}
           loadingMore={loadingColumn === status.id}
@@ -212,6 +216,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
               ? { statusId: status.id, type: workflow === 'bug' ? 'bug' : 'task', ...lane.patch?.input }
               : null
           }
+          composerTypes={composerTypes}
         />
       );
     });
@@ -252,6 +257,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   const containers = dragContainers ?? baseContainers;
   const canDrag = permissions.can('task.transition');
   const canCreate = permissions.can('task.create');
+  const composerTypes = TYPES_BY_WORKFLOW[workflow];
 
   if (board.error) return <ErrorState error={board.error} onRetry={board.refetch} />;
   if (board.isPending)
