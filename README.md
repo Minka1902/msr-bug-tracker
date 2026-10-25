@@ -41,7 +41,7 @@ Before the first `pnpm e2e`, install the browser once with `pnpm exec playwright
 
 1. Push this repository to GitHub.
 2. In Render, choose **New → Blueprint** and pick the repository.
-3. When asked, fill in `SMTP_URL` (for example `smtps://user:pass@smtp.example.com:465`) and `MAIL_FROM`. Both can stay empty: without SMTP, verification and password-reset links are written to the service log instead of being emailed.
+3. When asked, fill in `RESEND_API_KEY` and `MAIL_FROM` (an address on the domain you verified in Resend, for example `MSR Tracker <no-reply@example.com>`). Without them, verification and password-reset links are written to the service log instead of being emailed. See [docs/setup-requirements.md](docs/setup-requirements.md).
 4. Apply. The first deploy builds the image, runs migrations and goes live at `https://<service>.onrender.com`. `APP_URL` defaults to that address; set it yourself only if you add a custom domain.
 
 The Starter plan is required for the persistent disk. Render backs up the database (point-in-time recovery on paid plans) and snapshots the disk daily.

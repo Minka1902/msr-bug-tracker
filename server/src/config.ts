@@ -20,6 +20,7 @@ export const envSchema = z
     UPLOAD_DIR: z.string().default('./storage'),
     MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
     SMTP_URL: optional(z.string()),
+    RESEND_API_KEY: optional(z.string()),
     MAIL_FROM: optional(z.string()),
     ENABLE_DEMO_DATA: z
       .enum(['true', 'false'])
@@ -53,6 +54,6 @@ export const config = {
   databaseUrl: isTest && env.TEST_DATABASE_URL ? env.TEST_DATABASE_URL : env.DATABASE_URL,
   uploadDir: path.resolve(env.UPLOAD_DIR),
   maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
-  devMailbox: !env.SMTP_URL && env.NODE_ENV !== 'production',
+  devMailbox: !env.SMTP_URL && !env.RESEND_API_KEY && env.NODE_ENV !== 'production',
   rateLimit: env.NODE_ENV === 'production' || !env.DISABLE_RATE_LIMIT,
 };

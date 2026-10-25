@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { changeEmailSchema, changePasswordSchema, updateMeSchema } from '@msr/shared/schemas/auth';
 import { badRequest, conflict, notFound } from '../../lib/httpError';
+import { logger } from '../../lib/logger';
 import { hashPassword, verifyPassword } from '../../lib/passwords';
 import { removeStored, storagePath } from '../../lib/storage';
 import { IMAGE_TYPES, storeUploads, uploadFiles } from '../../lib/upload';
@@ -44,7 +45,7 @@ export const createUsersRouter = () => {
     if (input.email === req.user!.email) throw badRequest('That is already your email');
     if (await findUserByEmail(input.email)) throw conflict('An account with this email already exists');
     const user = await setEmail(req.user!.id, input.email);
-    await sendVerificationEmail(user);
+    await sendVerificationEmail(user).catch((err) => logger.error({ err }, 'Verification email failed'));
     res.json({ user: toCurrentUser(user, req.user!.impersonator) });
   });
 

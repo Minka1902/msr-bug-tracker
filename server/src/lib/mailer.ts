@@ -10,6 +10,7 @@ export interface MailMessage {
 }
 
 const MAILBOX_LIMIT = 200;
+const RESEND_URL = 'https://api.resend.com/emails';
 
 const transport = config.SMTP_URL ? nodemailer.createTransport(config.SMTP_URL) : null;
 
@@ -19,7 +20,18 @@ export const clearMailbox = () => {
   mailbox.length = 0;
 };
 
+const sendWithResend = async (apiKey: string, to: string, subject: string, text: string) => {
+  const response = await fetch(RESEND_URL, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: config.MAIL_FROM, to, subject, text }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`Resend responded ${response.status}: ${await response.text()}`);
+};
+
 export const sendMail = async (to: string, subject: string, text: string) => {
+  if (config.RESEND_API_KEY) return sendWithResend(config.RESEND_API_KEY, to, subject, text);
   if (transport) {
     await transport.sendMail({ from: config.MAIL_FROM, to, subject, text });
     return;

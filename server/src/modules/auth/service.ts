@@ -21,6 +21,10 @@ const CONSUME_TOKEN = `
   UPDATE auth_tokens SET used_at = now()
   WHERE token_hash = $1 AND type = $2 AND used_at IS NULL AND expires_at > now()
   RETURNING user_id, email`;
+const VERIFIED_TOKEN = `
+  SELECT 1 FROM auth_tokens t JOIN users u ON u.id = t.user_id
+  WHERE t.token_hash = $1 AND t.type = 'verify_email' AND t.used_at IS NOT NULL
+    AND u.email = t.email AND u.email_verified_at IS NOT NULL`;
 const VOID_TOKENS =
   'UPDATE auth_tokens SET used_at = now() WHERE user_id = $1 AND type = $2 AND used_at IS NULL';
 
@@ -59,6 +63,9 @@ export const issueToken = async (userId: string, type: TokenType, email: string,
 
 export const consumeToken = (token: string, type: TokenType, db?: Db) =>
   queryOne<{ user_id: string; email: string }>(CONSUME_TOKEN, [hashToken(token), type], db);
+
+export const isVerifiedToken = async (token: string) =>
+  !!(await queryOne(VERIFIED_TOKEN, [hashToken(token)]));
 
 export const voidTokens = (userId: string, type: TokenType, db?: Db) =>
   query(VOID_TOKENS, [userId, type], db);

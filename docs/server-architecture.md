@@ -125,7 +125,13 @@ Sorting maps a whitelisted key to SQL (`sortSql`), always with `t.number DESC` a
 
 ## Mail
 
-When `SMTP_URL` is set, `nodemailer` sends mail through it. Without it (dev and test only), mail goes to an in-memory **dev mailbox** exposed at `GET /api/dev/mailbox?to=`, which the e2e tests use. In production without SMTP, links are written to the log.
+Mail goes out through the first configured transport:
+
+1. **Resend** (`RESEND_API_KEY`): an HTTPS `POST` to `api.resend.com/emails`. This is the production choice, because Render's free plan blocks outbound SMTP ports. `MAIL_FROM` must use the domain verified in Resend.
+2. **SMTP** (`SMTP_URL`) through `nodemailer`.
+3. Neither (dev and test only): an in-memory **dev mailbox** exposed at `GET /api/dev/mailbox?to=`, which the e2e tests use. In production without a transport, links are written to the log.
+
+A failed send never undoes the action that triggered it: registration and email changes log the error and the user can resend from the banner. `POST /auth/resend-verification` itself answers `502` so the user sees that it failed. Verification links can be opened more than once, so a mail scanner that opens the link first doesn't leave the user with an "invalid link" error.
 
 ## Demo data
 
@@ -181,15 +187,15 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 
 ## Config
 
-| Variable                             | Purpose                                                                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `DATABASE_URL` / `TEST_DATABASE_URL` | Postgres connections (tests use the second)                                                                                    |
-| `APP_URL`                            | Public origin for email links and the Origin check. Falls back to Render's `RENDER_EXTERNAL_URL`, then `http://localhost:5173` |
-| `PORT`                               | HTTP port (default 4000)                                                                                                       |
-| `UPLOAD_DIR`, `MAX_UPLOAD_MB`        | Attachment storage and size limit                                                                                              |
-| `SMTP_URL`, `MAIL_FROM`              | Outgoing mail. Without SMTP, mail is logged (and kept in the dev mailbox outside production). Blank values count as unset      |
-| `ENABLE_DEMO_DATA`                   | Turns the demo-data module on or off (default on)                                                                              |
-| `CLIENT_DIST`                        | When set, Express serves the built SPA from this path                                                                          |
+| Variable                                  | Purpose                                                                                                                                               |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` / `TEST_DATABASE_URL`      | Postgres connections (tests use the second)                                                                                                           |
+| `APP_URL`                                 | Public origin for email links and the Origin check. Falls back to Render's `RENDER_EXTERNAL_URL`, then `http://localhost:5173`                        |
+| `PORT`                                    | HTTP port (default 4000)                                                                                                                              |
+| `UPLOAD_DIR`, `MAX_UPLOAD_MB`             | Attachment storage and size limit                                                                                                                     |
+| `RESEND_API_KEY`, `SMTP_URL`, `MAIL_FROM` | Outgoing mail (Resend first, then SMTP). Without either, mail is logged (and kept in the dev mailbox outside production). Blank values count as unset |
+| `ENABLE_DEMO_DATA`                        | Turns the demo-data module on or off (default on)                                                                                                     |
+| `CLIENT_DIST`                             | When set, Express serves the built SPA from this path                                                                                                 |
 
 ## Testing
 

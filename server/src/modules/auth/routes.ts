@@ -7,7 +7,8 @@ import {
   verifyEmailSchema,
 } from '@msr/shared/schemas/auth';
 import { transaction } from '../../db/pool';
-import { badRequest, conflict, unauthorized } from '../../lib/httpError';
+import { badGateway, badRequest, conflict, unauthorized } from '../../lib/httpError';
+import { logger } from '../../lib/logger';
 import { hashPassword, verifyPassword } from '../../lib/passwords';
 import { clearSessionCookie, setSessionCookie } from '../../lib/sessionCookie';
 import { requireAuth } from '../../middleware/session';
@@ -18,12 +19,14 @@ import {
   createSession,
   deleteSession,
   deleteUserSessions,
+  isVerifiedToken,
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from './service';
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
 const INVALID_LINK = 'This link is invalid or has expired';
+const MAIL_FAILED = "We couldn't send the email. Please try again in a few minutes.";
 
 export const createAuthRouter = (limits: RateLimits) => {
   const router = Router();
@@ -38,7 +41,7 @@ export const createAuthRouter = (limits: RateLimits) => {
       input.timezone ? { timezone: input.timezone } : {},
     );
     setSessionCookie(res, await createSession(req, user.id));
-    await sendVerificationEmail(user);
+    await sendVerificationEmail(user).catch((err) => logger.error({ err }, 'Verification email failed'));
     res.status(201).json({ user: toCurrentUser(user) });
   });
 
@@ -68,12 +71,16 @@ export const createAuthRouter = (limits: RateLimits) => {
       const consumed = await consumeToken(token, 'verify_email', db);
       return consumed ? markEmailVerified(consumed.user_id, consumed.email, db) : false;
     });
-    if (!verified) throw badRequest(INVALID_LINK);
+    if (!verified && !(await isVerifiedToken(token))) throw badRequest(INVALID_LINK);
     res.status(204).end();
   });
 
   router.post('/resend-verification', requireAuth, limits.emailAction, async (req, res) => {
-    if (!req.user!.email_verified_at) await sendVerificationEmail(req.user!);
+    if (!req.user!.email_verified_at)
+      await sendVerificationEmail(req.user!).catch((err) => {
+        logger.error({ err }, 'Verification email failed');
+        throw badGateway(MAIL_FAILED);
+      });
     res.status(204).end();
   });
 
