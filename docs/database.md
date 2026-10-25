@@ -38,34 +38,89 @@ erDiagram
 ## Tables
 
 ### `users` — migration 001
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | `gen_random_uuid()` |
-| `email` | citext, unique | Always stored lowercase. Case-insensitive uniqueness comes from `citext`. |
-| `password_hash` | text, null | argon2id. `NULL` for demo teammates, so they cannot log in with a password. |
-| `name` | text | 1–80 chars (CHECK). |
-| `avatar_key` | text, null | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version. |
-| `email_verified_at` | timestamptz, null | Reset to `NULL` when the email changes. |
-| `preferences` | jsonb | Partial `{style, mode, nav, timezone}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
-| `demo_owner_id` | uuid FK → users, cascade | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values. |
+
+| Column              | Type                     | Notes                                                                                                                       |
+| ------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `id`                | uuid PK                  | `gen_random_uuid()`                                                                                                         |
+| `email`             | citext, unique           | Always stored lowercase. Case-insensitive uniqueness comes from `citext`.                                                   |
+| `password_hash`     | text, null               | argon2id. `NULL` for demo teammates, so they cannot log in with a password.                                                 |
+| `name`              | text                     | 1–80 chars (CHECK).                                                                                                         |
+| `avatar_key`        | text, null               | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version.                      |
+| `email_verified_at` | timestamptz, null        | Reset to `NULL` when the email changes.                                                                                     |
+| `preferences`       | jsonb                    | Partial `{style, mode, nav, timezone}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
+| `demo_owner_id`     | uuid FK → users, cascade | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values. |
 
 ### `sessions` — migration 001
-| Column | Type | Notes |
-|---|---|---|
-| `token_hash` | bytea, unique | `sha256(cookie token)`. Every request looks the session up through this unique index. |
-| `user_id` | uuid FK, cascade | |
-| `impersonator_id` | uuid FK, null | The real user while "View as" a demo teammate is active. |
-| `expires_at` | timestamptz | Rolling 30 days, refreshed at most once a day. |
-| `user_agent`, `ip` | text, inet | For auditing and future session management. |
+
+| Column             | Type             | Notes                                                                                 |
+| ------------------ | ---------------- | ------------------------------------------------------------------------------------- |
+| `token_hash`       | bytea, unique    | `sha256(cookie token)`. Every request looks the session up through this unique index. |
+| `user_id`          | uuid FK, cascade |                                                                                       |
+| `impersonator_id`  | uuid FK, null    | The real user while "View as" a demo teammate is active.                              |
+| `expires_at`       | timestamptz      | Rolling 30 days, refreshed at most once a day.                                        |
+| `user_agent`, `ip` | text, inet       | For auditing and future session management.                                           |
 
 ### `auth_tokens` — migration 001
-| Column | Type | Notes |
-|---|---|---|
-| `type` | enum `verify_email` / `reset_password` | |
-| `token_hash` | bytea, unique | `sha256(token)`. The raw token exists only in the email link. |
-| `email` | citext | The address the token was issued for. Verification only succeeds while `users.email` still matches, so old links stop working after an email change. |
-| `expires_at` | timestamptz | 48h for verification, 1h for password reset. |
-| `used_at` | timestamptz, null | Tokens are consumed with a single atomic `UPDATE … WHERE used_at IS NULL AND expires_at > now() RETURNING`. Issuing a new token voids the user's older unused tokens of the same type. |
+
+| Column       | Type                                   | Notes                                                                                                                                                                                  |
+| ------------ | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`       | enum `verify_email` / `reset_password` |                                                                                                                                                                                        |
+| `token_hash` | bytea, unique                          | `sha256(token)`. The raw token exists only in the email link.                                                                                                                          |
+| `email`      | citext                                 | The address the token was issued for. Verification only succeeds while `users.email` still matches, so old links stop working after an email change.                                   |
+| `expires_at` | timestamptz                            | 48h for verification, 1h for password reset.                                                                                                                                           |
+| `used_at`    | timestamptz, null                      | Tokens are consumed with a single atomic `UPDATE … WHERE used_at IS NULL AND expires_at > now() RETURNING`. Issuing a new token voids the user's older unused tokens of the same type. |
+
+### `projects` — migration 002
+
+| Column                                 | Type                                         | Notes                                                                                  |
+| -------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `key`                                  | citext, unique, CHECK `^[A-Z][A-Z0-9]{1,5}$` | Globally unique and immutable. Used in URLs and task identifiers.                      |
+| `name`, `description`, `color`, `icon` | text                                         | `icon` is a name from the client's curated lucide set.                                 |
+| `owner_id`                             | uuid FK users                                | Must match the single member who holds the `owner` system role.                        |
+| `task_seq`                             | int                                          | The last allocated task number (see Invariants).                                       |
+| `archived_at`                          | timestamptz, null                            | Archived projects are read-only: every mutation except restore and delete returns 409. |
+| `is_demo`                              | bool                                         | Marks generated demo data.                                                             |
+
+### `project_roles` — migration 002
+
+Each project has 4 system roles (`system_key` = owner/admin/member/viewer) plus any custom roles (`system_key` NULL). `permissions` is an int bitmask (`shared/src/permissions.ts`). Names are unique per project (case-insensitive index), and `UNIQUE (project_id, system_key)` allows one of each system role.
+
+| Bit | Permission              | Admin | Member | Viewer |
+| --- | ----------------------- | ----- | ------ | ------ |
+| 0   | task.create             | ✓     | ✓      |        |
+| 1   | task.edit_own           | ✓     | ✓      |        |
+| 2   | task.edit_any           | ✓     | ✓      |        |
+| 3   | task.transition         | ✓     | ✓      |        |
+| 4   | task.assign_self        | ✓     | ✓      |        |
+| 5   | task.assign_others      | ✓     | ✓      |        |
+| 6   | task.delete             | ✓     |        |        |
+| 7   | task.move               | ✓     |        |        |
+| 8   | comment.create          | ✓     | ✓      |        |
+| 9   | comment.moderate        | ✓     |        |        |
+| 10  | attachment.upload       | ✓     | ✓      |        |
+| 11  | attachment.delete_any   | ✓     |        |        |
+| 12  | project.edit            | ✓     |        |        |
+| 13  | project.manage_workflow | ✓     |        |        |
+| 14  | project.manage_labels   | ✓     | ✓      |        |
+| 15  | project.manage_members  | ✓     |        |        |
+| 16  | project.manage_roles    | ✓     |        |        |
+| 17  | project.archive         | ✓     |        |        |
+
+The owner role holds every bit, can't be edited, and is the only role that can delete the project.
+
+### `project_members` — migration 002
+
+PK `(project_id, user_id)`. `role_id` uses `ON DELETE RESTRICT`, so deleting a role first moves its members to another role in the same transaction. `is_favorite` and `last_opened_at` are per user and drive sidebar ordering. Indexed on `user_id` (for "my projects") and on `role_id`.
+
+### `project_statuses` and `labels` — migration 002
+
+Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | todo | in_progress | done`). `position` is a fractional-index string with `COLLATE "C"`, so byte order equals sort order. Status names are unique per workflow and label names are unique per project, both case-insensitive.
+
+### `tasks` and children — migration 003
+
+`tasks` holds every work item: tasks, bugs, features, improvements and subtasks (`parent_id`). Bug-only fields are plain columns, so a task is read in one row with no joins. Denormalized counters avoid aggregate joins when rendering board cards. `search_vector` is a generated `tsvector` (title weighted A, description B) with a GIN index, and titles also have a trigram GIN index.
+
+Child tables: `task_aliases` (old identifiers of moved tasks), `task_labels`, `task_checklist_items`, `task_comments` (one level of replies via `parent_id`), `attachments` (`task_id` NULL while a file is pending for a task not yet created), `task_relations` (canonical ordering, unique per type), and `task_activity` (bigserial; `task_id` is `SET NULL` on delete so project feeds keep a "deleted" entry).
 
 ## Invariants
 

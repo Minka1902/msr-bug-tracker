@@ -11,6 +11,7 @@ import { createRateLimits } from './middleware/rateLimits';
 import { loadSession, requireAuth } from './middleware/session';
 import { createAuthRouter } from './modules/auth/routes';
 import { createDevRouter } from './modules/dev/routes';
+import { createProjectsRouter } from './modules/projects/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 interface AppOptions {
@@ -53,6 +54,7 @@ export const createApp = ({ rateLimit = true }: AppOptions = {}) => {
   if (config.devMailbox) api.use('/dev', createDevRouter());
   api.use(requireAuth);
   api.use(createUsersRouter());
+  api.use('/projects', createProjectsRouter());
   api.use(() => {
     throw notFound();
   });

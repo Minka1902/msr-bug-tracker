@@ -4,6 +4,15 @@ import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
+import { ProjectLayout } from '../features/projects/pages/ProjectLayout';
+import { ProjectsPage } from '../features/projects/pages/ProjectsPage';
+import { DangerSettings } from '../features/projects/settings/DangerSettings';
+import { GeneralSettings } from '../features/projects/settings/GeneralSettings';
+import { LabelSettings } from '../features/projects/settings/LabelSettings';
+import { MemberSettings } from '../features/projects/settings/MemberSettings';
+import { ProjectSettingsLayout } from '../features/projects/settings/ProjectSettingsLayout';
+import { RoleSettings } from '../features/projects/settings/RoleSettings';
+import { WorkflowSettings } from '../features/projects/settings/WorkflowSettings';
 import { AccountSettings } from '../features/settings/pages/AccountSettings';
 import { AppearanceSettings } from '../features/settings/pages/AppearanceSettings';
 import { ProfileSettings } from '../features/settings/pages/ProfileSettings';
@@ -40,7 +49,29 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
-          { path: '/', element: <Navigate to="/settings" replace /> },
+          { path: '/', element: <Navigate to="/projects" replace /> },
+          { path: '/projects', element: <ProjectsPage /> },
+          {
+            path: '/p/:key',
+            element: <ProjectLayout />,
+            children: [
+              { index: true, element: <Navigate to="board" replace /> },
+              {
+                path: 'settings',
+                element: <ProjectSettingsLayout />,
+                children: [
+                  { index: true, element: <Navigate to="general" replace /> },
+                  { path: 'general', element: <GeneralSettings /> },
+                  { path: 'workflows', element: <WorkflowSettings /> },
+                  { path: 'labels', element: <LabelSettings /> },
+                  { path: 'members', element: <MemberSettings /> },
+                  { path: 'roles', element: <RoleSettings /> },
+                  { path: 'danger', element: <DangerSettings /> },
+                ],
+              },
+              { path: '*', element: <NotFoundPage /> },
+            ],
+          },
           {
             path: '/settings',
             element: <SettingsPage />,

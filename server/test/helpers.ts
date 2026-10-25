@@ -46,3 +46,53 @@ export const lastLink = (to: string, path: string) => {
   const match = message?.text.match(new RegExp(`${path}\\?token=([\\w-]+)`));
   return match?.[1];
 };
+
+export const projectInput = (overrides: Record<string, unknown> = {}) => ({
+  name: 'Website Redesign',
+  key: 'WEB',
+  description: 'Marketing site',
+  color: '#4f56f0',
+  icon: 'globe',
+  ...overrides,
+});
+
+export const createProject = async (agent: Agent, overrides: Record<string, unknown> = {}) =>
+  (await agent.post('/api/projects').send(projectInput(overrides)).expect(201)).body.project as {
+    id: string;
+    key: string;
+    roles: { id: string; name: string; systemKey: string | null; permissions: number }[];
+    statuses: { id: string; workflow: string; name: string; category: string; position: string }[];
+    labels: { id: string; name: string }[];
+    memberList: { id: string; roleId: string; isOwner: boolean }[];
+    permissions: number;
+  };
+
+export const roleId = (project: Awaited<ReturnType<typeof createProject>>, systemKey: string) =>
+  project.roles.find((role) => role.systemKey === systemKey)!.id;
+
+export const addMember = async (owner: Agent, key: string, email: string, role: string) =>
+  owner.post(`/api/projects/${key}/members`).send({ email, roleId: role }).expect(201);
+
+export const setupTeam = async () => {
+  const owner = agentFor();
+  const ownerAccount = await registerUser(owner);
+  const project = await createProject(owner);
+  const people: Record<string, { agent: Agent; id: string; email: string }> = {};
+  for (const systemKey of ['admin', 'member', 'viewer']) {
+    const agent = agentFor();
+    const account = await registerUser(agent);
+    await addMember(owner, project.key, account.email, roleId(project, systemKey));
+    people[systemKey] = { agent, id: account.user.id, email: account.email };
+  }
+  const outsider = agentFor();
+  await registerUser(outsider);
+  return {
+    owner,
+    ownerId: ownerAccount.user.id,
+    project,
+    admin: people.admin!,
+    member: people.member!,
+    viewer: people.viewer!,
+    outsider,
+  };
+};
