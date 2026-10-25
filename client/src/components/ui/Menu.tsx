@@ -25,12 +25,20 @@ interface MenuProps {
   align?: 'start' | 'center' | 'end';
   side?: 'top' | 'right' | 'bottom' | 'left';
   className?: string;
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 const itemClass =
   'flex h-8.5 cursor-pointer items-center gap-2.5 rounded-[calc(var(--r-control)-4px)] px-2 text-sm outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[highlighted]:bg-surface-muted [&_svg]:size-4 [&_svg]:text-muted';
 
-export function Menu({ trigger, items, align = 'end', side = 'bottom', className }: MenuProps) {
+export function Menu({
+  trigger,
+  items,
+  align = 'end',
+  side = 'bottom',
+  className,
+  onCloseAutoFocus,
+}: MenuProps) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>{trigger}</DropdownMenu.Trigger>
@@ -40,6 +48,7 @@ export function Menu({ trigger, items, align = 'end', side = 'bottom', className
           side={side}
           sideOffset={6}
           collisionPadding={12}
+          onCloseAutoFocus={onCloseAutoFocus}
           className={cn(popoverSurface, 'min-w-48 p-1', className)}
         >
           {items.map((item, index) => {

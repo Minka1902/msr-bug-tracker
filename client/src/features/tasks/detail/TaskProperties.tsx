@@ -68,6 +68,7 @@ export function TaskProperties({ task, project }: TaskPropertiesProps) {
         <div className="flex h-9 items-center gap-2 px-2.5">
           <Switch
             size="sm"
+            aria-label="Blocked"
             checked={task.isBlocked}
             disabled={!canEdit}
             onCheckedChange={(isBlocked) => save({ isBlocked, ...(!isBlocked && { blockedReason: null }) })}

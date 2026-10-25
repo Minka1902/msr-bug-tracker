@@ -49,12 +49,12 @@ export function ProjectCard({ project, onToggleFavorite, className }: ProjectCar
             aria-pressed={project.isFavorite}
             onClick={() => onToggleFavorite(project)}
             className={cn(
-              'absolute top-2 right-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-full bg-surface/90 text-subtle transition-opacity hover:text-warning',
+              'absolute top-2 right-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-full bg-surface/90 text-subtle transition-opacity hover:text-highlight',
               !project.isFavorite &&
                 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-md:opacity-100',
             )}
           >
-            <Star className={cn('size-4', project.isFavorite && 'fill-warning text-warning')} />
+            <Star className={cn('size-4', project.isFavorite && 'fill-highlight text-highlight')} />
           </button>
         )}
       </div>

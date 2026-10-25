@@ -11,7 +11,15 @@ const rowIds = async (page: Page) =>
   page
     .getByRole('table', { name: 'Tasks' })
     .getByRole('row')
-    .evaluateAll((rows) => rows.slice(1).map((row) => row.querySelector('[role=cell]')?.textContent?.trim()));
+    .evaluateAll((rows) =>
+      rows
+        .slice(1)
+        .map((row) =>
+          [...row.querySelectorAll('[role=cell]')]
+            .map((cell) => cell.textContent?.trim())
+            .find((text) => /^[A-Z][A-Z0-9]*-\d+$/.test(text ?? '')),
+        ),
+    );
 
 test('organizes work by status, priority, type and deadline', async ({ page }) => {
   const me = await signUp(page, 'Organizer');

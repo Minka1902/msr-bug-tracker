@@ -75,7 +75,12 @@ export function ProjectOverviewPage() {
         icon={<CircleDot />}
         action={<span className="text-sm font-semibold tabular-nums">{data.stats.progress}%</span>}
       >
-        <ProgressBar value={data.stats.progress} color={project.color} size="md" />
+        <ProgressBar
+          value={data.stats.progress}
+          color={project.color}
+          size="md"
+          aria-label="Project progress"
+        />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {WORKFLOWS.map((workflow) => {
             const statuses = project.statuses.filter((status) => status.workflow === workflow);

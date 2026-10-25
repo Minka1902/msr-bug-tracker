@@ -56,7 +56,7 @@ const COLUMNS: DataColumn<ProjectSummary>[] = [
         <ProjectAvatar color={project.color} icon={project.icon} size="sm" />
         <span className="truncate font-medium">{project.name}</span>
         <span className="font-mono text-xs text-subtle">{project.key}</span>
-        {project.isFavorite && <Star className="size-3.5 shrink-0 fill-warning text-warning" />}
+        {project.isFavorite && <Star className="size-3.5 shrink-0 fill-highlight text-highlight" />}
       </span>
     ),
   },
@@ -66,7 +66,13 @@ const COLUMNS: DataColumn<ProjectSummary>[] = [
     width: '180px',
     sortable: true,
     cell: (project) => (
-      <ProgressBar value={project.stats.progress} color={project.color} showValue className="w-full" />
+      <ProgressBar
+        value={project.stats.progress}
+        color={project.color}
+        showValue
+        aria-label={`${project.name} progress`}
+        className="w-full"
+      />
     ),
   },
   {
@@ -237,6 +243,7 @@ export function ProjectsPage() {
           rows={visible}
           columns={COLUMNS}
           getRowId={(project) => project.id}
+          getRowLabel={(project) => project.name}
           sort={sort}
           onSortChange={setSort}
           loading={projects.isPending}

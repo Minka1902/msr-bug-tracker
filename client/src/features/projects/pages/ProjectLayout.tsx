@@ -59,7 +59,7 @@ export function ProjectLayout() {
         {data.isArchived && <Badge tone="warning" icon={<Archive />} label="Archived" />}
         {data.isDemo && <Badge tone="violet" label="Demo" />}
         <IconButton
-          icon={<Star className={cn(data.isFavorite && 'fill-warning text-warning')} />}
+          icon={<Star className={cn(data.isFavorite && 'fill-highlight text-highlight')} />}
           label={data.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           onClick={() => favorite.mutate({ key: data.key, favorite: !data.isFavorite })}
         />

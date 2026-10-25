@@ -1,5 +1,5 @@
 import { CalendarRange, ListFilter, Search, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { Button } from './Button';
 import { Input } from './Input';
@@ -45,6 +45,14 @@ export function FilterBar({ defs, values, onChange, onClear, search, children, c
   const remove = (def: FilterDef) =>
     onChange(def.type === 'dateRange' ? { [def.key]: null, [def.toKey]: null } : { [def.key]: null });
 
+  const openPending = (event: Event) => {
+    if (!pendingKey.current) return;
+    event.preventDefault();
+    setOpenKey(pendingKey.current);
+    pendingKey.current = null;
+  };
+
+  const pendingKey = useRef<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const visible = defs.filter((def) => isActive(def, values) || def.key === openKey);
   const available = defs.filter((def) => !isActive(def, values));
@@ -147,13 +155,14 @@ export function FilterBar({ defs, values, onChange, onClear, search, children, c
               Filter
             </Button>
           }
+          onCloseAutoFocus={openPending}
           items={available.map((def) => ({
             label: def.label,
             icon: def.icon,
-            onSelect: () =>
-              def.type === 'toggle'
-                ? onChange({ [def.key]: 'true' })
-                : setTimeout(() => setOpenKey(def.key), 0),
+            onSelect: () => {
+              if (def.type === 'toggle') onChange({ [def.key]: 'true' });
+              else pendingKey.current = def.key;
+            },
           }))}
         />
       )}

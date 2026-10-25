@@ -13,7 +13,7 @@ export function ProjectPanel({ projects, onCreateProject, onCollapse }: ProjectP
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-surface-muted/60 aurora:bg-surface-glass/40">
       <div className="flex h-16 items-center gap-2 px-4">
-        <span className="size-2.5 rounded-full bg-warning" />
+        <span className="size-2.5 rounded-full bg-highlight" />
         <span className="flex-1 text-sm font-semibold tracking-wide uppercase">Projects</span>
         <IconButton
           icon={<ChevronsLeft />}

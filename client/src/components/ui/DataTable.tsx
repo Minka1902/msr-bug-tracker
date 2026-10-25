@@ -24,6 +24,7 @@ interface DataTableProps<T> {
   rows: T[];
   columns: DataColumn<T>[];
   getRowId: (row: T) => string;
+  getRowLabel?: (row: T) => string;
   sort?: SortState | null;
   onSortChange?: (sort: SortState | null) => void;
   selected?: Set<string>;
@@ -56,6 +57,7 @@ export function DataTable<T>({
   rows,
   columns,
   getRowId,
+  getRowLabel,
   sort,
   onSortChange,
   selected,
@@ -119,7 +121,7 @@ export function DataTable<T>({
           className="sticky top-0 z-10 grid h-10 items-center border-b border-border bg-surface-muted/95 text-xs font-semibold tracking-wide text-muted uppercase backdrop-blur"
         >
           {selectable && (
-            <div className="flex justify-center">
+            <div role="columnheader" className="flex justify-center">
               <Checkbox
                 checked={allSelected ? true : someSelected ? 'indeterminate' : false}
                 onCheckedChange={toggleAll}
@@ -182,11 +184,15 @@ export function DataTable<T>({
                   )}
                 >
                   {selectable && (
-                    <div className="flex justify-center" onClick={(event) => event.stopPropagation()}>
+                    <div
+                      role="cell"
+                      className="flex justify-center"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <Checkbox
                         checked={!!selected?.has(id)}
                         onCheckedChange={() => toggleRow(id)}
-                        aria-label="Select row"
+                        aria-label={`Select ${getRowLabel?.(row) ?? 'row'}`}
                       />
                     </div>
                   )}

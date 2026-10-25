@@ -6,13 +6,22 @@ interface ProgressBarProps {
   color?: string;
   size?: 'xs' | 'sm' | 'md';
   label?: string;
+  'aria-label'?: string;
   showValue?: boolean;
   className?: string;
 }
 
 const HEIGHTS = { xs: 'h-1', sm: 'h-1.5', md: 'h-2.5' };
 
-export function ProgressBar({ value, color, size = 'sm', label, showValue, className }: ProgressBarProps) {
+export function ProgressBar({
+  value,
+  color,
+  size = 'sm',
+  label,
+  showValue,
+  className,
+  'aria-label': ariaLabel,
+}: ProgressBarProps) {
   const clamped = Math.min(100, Math.max(0, Math.round(value)));
   const style = { '--c': color ?? 'var(--c-accent)', width: `${clamped}%` } as CSSProperties;
 
@@ -29,7 +38,7 @@ export function ProgressBar({ value, color, size = 'sm', label, showValue, class
         aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={label}
+        aria-label={label ?? ariaLabel}
         className={cn('w-full overflow-hidden rounded-full bg-surface-muted', HEIGHTS[size])}
       >
         <div

@@ -71,6 +71,7 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
         rows={tasks}
         columns={columns}
         getRowId={(task) => task.id}
+        getRowLabel={(task) => `${task.identifier} ${task.title}`}
         loading={list.isPending}
         activeRowId={tasks.find((task) => task.identifier === peek.identifier)?.id}
         onRowClick={onOpen}

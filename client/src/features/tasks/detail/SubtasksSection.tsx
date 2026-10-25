@@ -57,7 +57,11 @@ export function SubtasksSection({ task, project, canCreate, onOpen }: SubtasksSe
       }
     >
       {task.subtaskTotal > 0 && (
-        <ProgressBar value={(task.subtaskDone / task.subtaskTotal) * 100} size="xs" />
+        <ProgressBar
+          value={(task.subtaskDone / task.subtaskTotal) * 100}
+          size="xs"
+          aria-label="Subtask progress"
+        />
       )}
       <div className="flex flex-col">
         {subtasks.data?.map((subtask) => {

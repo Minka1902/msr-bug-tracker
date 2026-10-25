@@ -63,6 +63,7 @@ export function ChecklistSection({ task, editable }: ChecklistSectionProps) {
           value={(items.filter((item) => item.isDone).length / items.length) * 100}
           size="xs"
           color="var(--tone-success)"
+          aria-label="Checklist progress"
         />
       )}
       <SortableList

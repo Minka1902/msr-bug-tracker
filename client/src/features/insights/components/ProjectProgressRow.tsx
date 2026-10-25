@@ -18,7 +18,12 @@ export function ProjectProgressRow({ project }: { project: ProjectSummary }) {
           <span className="flex-1" />
           <ProjectHealthBadge project={project} />
         </div>
-        <ProgressBar value={project.stats.progress} color={project.color} size="xs" />
+        <ProgressBar
+          value={project.stats.progress}
+          color={project.color}
+          size="xs"
+          aria-label={`${project.name} progress`}
+        />
       </div>
       <span className="w-12 text-right text-xs font-semibold tabular-nums">{project.stats.progress}%</span>
     </Link>
