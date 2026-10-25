@@ -1,0 +1,4 @@
+Release checklist notes
+- Verify migrations on staging
+- Smoke test checkout
+- Announce in #releases
