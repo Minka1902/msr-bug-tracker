@@ -77,7 +77,7 @@ export function TaskDetailHeader({ task, project, onClose, onNavigate }: TaskDet
   return (
     <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 md:px-5">
       <TypeIcon type={task.type} />
-      <span className="font-mono text-sm font-semibold">{task.identifier}</span>
+      <span className="shrink-0 font-mono text-sm font-semibold whitespace-nowrap">{task.identifier}</span>
       {task.parent && (
         <button
           type="button"
