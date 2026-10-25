@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup && cp -r src/db/migrations dist/migrations",
+    "build": "tsup && cp -r src/db/migrations dist/migrations && cp -r src/modules/demo/assets dist/assets",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",

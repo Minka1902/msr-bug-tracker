@@ -34,6 +34,7 @@ export interface CardRow {
   assignee_avatar_key: string | null;
   labels: Label[];
   cover_id: string | null;
+  parent_number: number | null;
 }
 
 export interface DetailRow extends CardRow {
@@ -50,7 +51,6 @@ export interface DetailRow extends CardRow {
   reproducibility: Reproducibility | null;
   reporter_name: string | null;
   reporter_avatar_key: string | null;
-  parent_number: number | null;
   parent_title: string | null;
 }
 
@@ -64,7 +64,8 @@ const CARD_COLUMNS = `
             FROM task_labels tl JOIN labels l ON l.id = tl.label_id WHERE tl.task_id = t.id), '[]') AS labels,
   CASE WHEN t.attachment_count > 0 THEN
     (SELECT f.id FROM attachments f WHERE f.task_id = t.id AND f.mime LIKE 'image/%' ORDER BY f.created_at LIMIT 1)
-  END AS cover_id`;
+  END AS cover_id,
+  CASE WHEN t.parent_id IS NOT NULL THEN (SELECT pt.number FROM tasks pt WHERE pt.id = t.parent_id) END AS parent_number`;
 
 export const TASK_FROM = `
   FROM tasks t
@@ -79,7 +80,7 @@ export const DETAIL_SELECT = `
   SELECT ${CARD_COLUMNS},
          t.description, t.blocked_reason, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior, t.env_os, t.env_browser,
          t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility,
-         r.name AS reporter_name, r.avatar_key AS reporter_avatar_key, pt.number AS parent_number, pt.title AS parent_title
+         r.name AS reporter_name, r.avatar_key AS reporter_avatar_key, pt.title AS parent_title
   ${TASK_FROM}
   LEFT JOIN users r ON r.id = t.reporter_id
   LEFT JOIN tasks pt ON pt.id = t.parent_id`;
@@ -91,6 +92,7 @@ export const toCard = (row: CardRow): TaskCard => ({
   number: row.number,
   identifier: formatIdentifier(row.project_key, row.number),
   parentId: row.parent_id,
+  parentIdentifier: row.parent_number ? formatIdentifier(row.project_key, row.parent_number) : null,
   type: row.type,
   title: row.title,
   statusId: row.status_id,

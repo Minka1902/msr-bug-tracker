@@ -19,13 +19,18 @@ import { createCommentsRouter } from './modules/comments/routes';
 import { createRelationsRouter } from './modules/relations/routes';
 import { createInsightsRouter } from './modules/insights/routes';
 import { createSearchRouter } from './modules/search/routes';
+import { createDemoRouter } from './modules/demo/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 interface AppOptions {
   rateLimit?: boolean;
+  demoData?: boolean;
 }
 
-export const createApp = ({ rateLimit = config.rateLimit }: AppOptions = {}) => {
+export const createApp = ({
+  rateLimit = config.rateLimit,
+  demoData = config.ENABLE_DEMO_DATA,
+}: AppOptions = {}) => {
   const app = express();
   const api = express.Router();
   const clientDist = config.CLIENT_DIST && path.resolve(config.CLIENT_DIST);
@@ -55,7 +60,7 @@ export const createApp = ({ rateLimit = config.rateLimit }: AppOptions = {}) => 
     res.json({ ok: true });
   });
   api.get('/config', (_req, res) => {
-    res.json({ features: { demoData: config.ENABLE_DEMO_DATA } });
+    res.json({ features: { demoData } });
   });
   api.use('/auth', createAuthRouter(limits));
   if (config.devMailbox) api.use('/dev', createDevRouter());
@@ -68,6 +73,7 @@ export const createApp = ({ rateLimit = config.rateLimit }: AppOptions = {}) => 
   api.use(createRelationsRouter());
   api.use(createInsightsRouter());
   api.use(createSearchRouter());
+  if (demoData) api.use('/demo', createDemoRouter(limits));
   api.use('/tasks', createTasksRouter());
   api.use(() => {
     throw notFound();

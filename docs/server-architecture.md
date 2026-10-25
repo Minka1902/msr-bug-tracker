@@ -84,6 +84,17 @@ When `SMTP_URL` is set, `nodemailer` sends mail through it. Without it (dev and 
 
 Demo rows are tagged with `projects.is_demo` and `users.demo_owner_id`. **Remove** deletes only the caller's demo set. **View as** creates a session for one of the caller's own demo teammates; the session records `impersonator_id` so the user can switch back. The whole module is off when `ENABLE_DEMO_DATA=false`.
 
+| Size  | Contents                                                                                                 | Time   |
+| ----- | -------------------------------------------------------------------------------------------------------- | ------ |
+| Small | 3 projects (one owned by a demo teammate and shared with you) plus an archived legacy project, ~80 tasks | ~0.3 s |
+| Large | 8 projects × 250 tasks, one archived                                                                     | ~1.1 s |
+
+Every project gets a custom **QA** role, labels, subtasks, checklists, threaded comments, relations, bundled sample attachments (copied from `modules/demo/assets` into storage) and activity backdated across 60 days.
+
+Routes (all under `requireAuth`, rate limited): `GET /demo`, `POST /demo {size, seed?}` (replaces the current set), `DELETE /demo`, `POST /demo/impersonate/:userId` and `POST /demo/impersonate/stop`. Managing demo data is blocked while impersonating. `GET /config` reports whether the module is on, so the client hides the Settings tab when it is off.
+
+`pnpm db:seed` (`seedCli.ts`) creates `demo@msr.local` / `demo-password` and generates a Small set with seed 42.
+
 ## Config
 
 | Variable                             | Purpose                                                  |

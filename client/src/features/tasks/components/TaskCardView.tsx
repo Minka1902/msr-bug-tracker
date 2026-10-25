@@ -1,4 +1,4 @@
-import { Ban, CheckSquare, GitBranch, MessageSquare, Paperclip } from 'lucide-react';
+import { Ban, CheckSquare, CornerDownRight, GitBranch, MessageSquare, Paperclip } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { PRIORITY_META } from '@msr/shared/enums';
 import type { TaskCard } from '@msr/shared/types';
@@ -70,6 +70,12 @@ export function TaskCardView({
             {showProject ? task.identifier : `#${task.number}`}
           </span>
         </div>
+        {task.parentIdentifier && (
+          <span className="-mb-1 flex items-center gap-1 text-[11px] text-subtle">
+            <CornerDownRight className="size-3" />
+            {task.parentIdentifier}
+          </span>
+        )}
         <p className={cn('line-clamp-3 text-sm leading-snug font-medium', done && 'text-muted line-through')}>
           {task.title}
         </p>

@@ -107,6 +107,7 @@ export interface TaskCard {
   number: number;
   identifier: string;
   parentId: string | null;
+  parentIdentifier: string | null;
   type: TaskType;
   title: string;
   statusId: string;

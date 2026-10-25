@@ -122,6 +122,10 @@ Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | tod
 
 Child tables: `task_aliases` (old identifiers of moved tasks), `task_labels`, `task_checklist_items`, `task_comments` (one level of replies via `parent_id`), `attachments` (`task_id` NULL while a file is pending for a task not yet created), `task_relations` (canonical ordering, unique per type), and `task_activity` (bigserial; `task_id` is `SET NULL` on delete so project feeds keep a "deleted" entry).
 
+### `demo_sets` — migration 004
+
+One row per user who has generated demo data: `owner_id` (PK, FK → users, cascade), `seed`, `size` (`small | large`) and `created_at`. The Settings panel reads it to show the current set and to regenerate with the same seed. A partial index `projects (owner_id) WHERE is_demo` lets **Remove** find the caller's demo projects without scanning real ones.
+
 ## Invariants
 
 - **Project keys** are globally unique (case-insensitive), match `^[A-Z][A-Z0-9]{1,5}$`, and never change after creation.

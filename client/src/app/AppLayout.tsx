@@ -6,6 +6,7 @@ import { ShellContext, type ShellContextValue } from '../context/shellContext';
 import { useLogout } from '../features/auth/api';
 import { VerifyEmailBanner } from '../features/auth/components/VerifyEmailBanner';
 import { useThemeSync } from '../features/auth/useThemeSync';
+import { ImpersonationBanner } from '../features/demo/ImpersonationBanner';
 import { useProjects } from '../features/projects/api';
 import { CreateProjectModal } from '../features/projects/components/CreateProjectModal';
 import {
@@ -56,7 +57,13 @@ export function AppLayout({ user, children }: AppLayoutProps) {
           onQuickCreate: () => shell.openQuickCreate(),
           onCreateProject: shell.openCreateProject,
         }}
-        banners={!user.emailVerified && !user.impersonator && <VerifyEmailBanner email={user.email} />}
+        banners={
+          user.impersonator ? (
+            <ImpersonationBanner user={user} />
+          ) : (
+            !user.emailVerified && <VerifyEmailBanner email={user.email} />
+          )
+        }
       >
         {children}
       </AppShell>

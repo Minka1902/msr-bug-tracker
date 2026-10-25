@@ -95,6 +95,7 @@ const task = (
   number,
   identifier: `WEB-${number}`,
   parentId: null,
+  parentIdentifier: null,
   type: 'task',
   title,
   statusId: `s${statusIndex}`,

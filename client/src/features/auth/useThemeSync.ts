@@ -12,12 +12,15 @@ export const useThemeSync = (user: CurrentUser) => {
   const { style, mode, nav, timezone } = user.preferences;
 
   useEffect(() => {
-    if (appliedFor.current === user.id) return;
+    if (appliedFor.current === user.id || user.impersonator) return;
     appliedFor.current = user.id;
     setTheme({ style, mode, nav }, { silent: true });
     if (timezone !== BROWSER_TIMEZONE && !user.impersonator)
       updateMe.mutate({ preferences: { timezone: BROWSER_TIMEZONE } });
   }, [user.id, user.impersonator, style, mode, nav, timezone, setTheme, updateMe]);
 
-  useEffect(() => subscribe((prefs) => updateMe.mutate({ preferences: prefs })), [subscribe, updateMe]);
+  useEffect(
+    () => (user.impersonator ? undefined : subscribe((prefs) => updateMe.mutate({ preferences: prefs }))),
+    [subscribe, updateMe, user.impersonator],
+  );
 };
