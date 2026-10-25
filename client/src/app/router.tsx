@@ -170,6 +170,12 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: 'security',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/SecuritySettings').then((m) => m.SecuritySettings),
+                ),
+              },
+              {
                 path: 'appearance',
                 lazy: lazyRoute(() =>
                   import('../features/settings/pages/AppearanceSettings').then((m) => m.AppearanceSettings),

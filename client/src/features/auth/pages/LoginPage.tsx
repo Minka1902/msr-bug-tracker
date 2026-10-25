@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { CircleAlert } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { loginSchema } from '@msr/shared/schemas/auth';
@@ -12,20 +12,39 @@ import { safeNextPath } from '../../../lib/safeNextPath';
 import { useLogin } from '../api';
 import { AuthLayout } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
+import { TwoFactorStep } from '../components/TwoFactorStep';
 
 export function LoginPage() {
   const submit = (event: FormEvent) =>
     form.handleSubmit((values) =>
       login.mutate(values, {
-        onSuccess: () => navigate(safeNextPath(params.get('next')), { replace: true }),
+        onSuccess: (result) => ('user' in result ? goNext() : setTicket(result.ticket)),
       }),
     )(event);
+
+  const goNext = () => navigate(safeNextPath(params.get('next')), { replace: true });
 
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const login = useLogin();
   const form = useZodForm(loginSchema, { email: '', password: '' });
+  const [ticket, setTicket] = useState<string | null>(null);
   const { errors } = form.formState;
+
+  if (ticket)
+    return (
+      <AuthLayout title="Two-step verification" subtitle="One more step to keep your account safe.">
+        <TwoFactorStep
+          ticket={ticket}
+          onSuccess={goNext}
+          onBack={() => {
+            setTicket(null);
+            login.reset();
+            form.resetField('password');
+          }}
+        />
+      </AuthLayout>
+    );
 
   return (
     <AuthLayout

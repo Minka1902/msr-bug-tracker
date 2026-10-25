@@ -5,6 +5,8 @@ const ENV_FILE = path.resolve(import.meta.dirname, '../../.env');
 
 const DEFAULT_APP_URL = 'http://localhost:5173';
 const DEFAULT_MAIL_FROM = 'MSR Tracker <no-reply@msr.local>';
+const DEV_ENCRYPTION_KEY = Buffer.from('dev-only-encryption-key-32-bytes').toString('base64');
+const KEY_BYTES = 32;
 
 const optional = <T extends z.ZodType>(type: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), type.optional());
@@ -21,6 +23,14 @@ export const envSchema = z
     MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
     SMTP_URL: optional(z.string()),
     RESEND_API_KEY: optional(z.string()),
+    ENCRYPTION_KEY: optional(
+      z
+        .string()
+        .refine(
+          (value) => Buffer.from(value, 'base64').length === KEY_BYTES,
+          'ENCRYPTION_KEY must be 32 random bytes, base64-encoded (openssl rand -base64 32)',
+        ),
+    ),
     MAIL_FROM: optional(z.string()),
     ENABLE_DEMO_DATA: z
       .enum(['true', 'false'])
@@ -32,10 +42,15 @@ export const envSchema = z
       .default('false')
       .transform((value) => value === 'true'),
   })
+  .refine((env) => env.ENCRYPTION_KEY || env.NODE_ENV !== 'production', {
+    path: ['ENCRYPTION_KEY'],
+    message: 'ENCRYPTION_KEY is required in production. Generate one with: openssl rand -base64 32',
+  })
   .transform(({ RENDER_EXTERNAL_URL, ...env }) => ({
     ...env,
     APP_URL: env.APP_URL ?? RENDER_EXTERNAL_URL ?? DEFAULT_APP_URL,
     MAIL_FROM: env.MAIL_FROM ?? DEFAULT_MAIL_FROM,
+    ENCRYPTION_KEY: env.ENCRYPTION_KEY ?? DEV_ENCRYPTION_KEY,
   }));
 
 try {
@@ -54,6 +69,7 @@ export const config = {
   databaseUrl: isTest && env.TEST_DATABASE_URL ? env.TEST_DATABASE_URL : env.DATABASE_URL,
   uploadDir: path.resolve(env.UPLOAD_DIR),
   maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
+  encryptionKey: Buffer.from(env.ENCRYPTION_KEY, 'base64'),
   devMailbox: !env.SMTP_URL && !env.RESEND_API_KEY && env.NODE_ENV !== 'production',
   rateLimit: env.NODE_ENV === 'production' || !env.DISABLE_RATE_LIMIT,
 };

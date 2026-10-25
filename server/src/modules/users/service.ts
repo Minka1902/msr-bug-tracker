@@ -8,12 +8,14 @@ export interface UserRow {
   name: string;
   avatar_key: string | null;
   email_verified_at: Date | null;
+  totp_enabled_at: Date | null;
   preferences: Partial<UserPreferences>;
   created_at: Date;
   demo_owner_id: string | null;
 }
 
-const USER_COLUMNS = 'id, email, name, avatar_key, email_verified_at, preferences, created_at, demo_owner_id';
+const USER_COLUMNS =
+  'id, email, name, avatar_key, email_verified_at, totp_enabled_at, preferences, created_at, demo_owner_id';
 
 const FIND_BY_ID = `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`;
 const FIND_BY_EMAIL = `SELECT ${USER_COLUMNS}, password_hash FROM users WHERE email = $1`;
@@ -49,6 +51,7 @@ export const toCurrentUser = (row: UserRow, impersonator: UserRef | null = null)
   ...toUserRef(row),
   email: row.email,
   emailVerified: row.email_verified_at !== null,
+  twoFactorEnabled: row.totp_enabled_at !== null,
   preferences: { ...DEFAULT_PREFERENCES, ...row.preferences },
   createdAt: row.created_at.toISOString(),
   impersonator,

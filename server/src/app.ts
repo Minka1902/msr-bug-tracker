@@ -20,6 +20,7 @@ import { createRelationsRouter } from './modules/relations/routes';
 import { createInsightsRouter } from './modules/insights/routes';
 import { createSearchRouter } from './modules/search/routes';
 import { createDemoRouter } from './modules/demo/routes';
+import { createTwoFactorRouter } from './modules/twoFactor/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 const noCache = (res: express.Response) => {
@@ -71,6 +72,7 @@ export const createApp = ({
   if (config.devMailbox) api.use('/dev', createDevRouter());
   api.use(requireAuth);
   api.use(createUsersRouter());
+  api.use('/me/2fa', createTwoFactorRouter(limits));
   api.use('/projects', createProjectsRouter());
   api.use(createAttachmentsRouter());
   api.use(createCommentsRouter());

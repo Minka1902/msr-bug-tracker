@@ -27,6 +27,7 @@ export interface UserPreferences {
 export interface CurrentUser extends UserRef {
   email: string;
   emailVerified: boolean;
+  twoFactorEnabled: boolean;
   preferences: UserPreferences;
   createdAt: string;
   impersonator: UserRef | null;

@@ -25,4 +25,14 @@ describe('env schema', () => {
     expect(env.MAIL_FROM).toBe('MSR Tracker <no-reply@msr.local>');
     expect(env.SMTP_URL).toBeUndefined();
   });
+
+  it('requires a 32-byte ENCRYPTION_KEY in production and uses a dev key elsewhere', () => {
+    expect(() => envSchema.parse({ ...BASE, NODE_ENV: 'production' })).toThrow(/ENCRYPTION_KEY is required/);
+    expect(() => envSchema.parse({ ...BASE, ENCRYPTION_KEY: 'c2hvcnQ=' })).toThrow(/32 random bytes/);
+    const key = Buffer.alloc(32, 7).toString('base64');
+    expect(envSchema.parse({ ...BASE, NODE_ENV: 'production', ENCRYPTION_KEY: key }).ENCRYPTION_KEY).toBe(
+      key,
+    );
+    expect(Buffer.from(envSchema.parse(BASE).ENCRYPTION_KEY, 'base64')).toHaveLength(32);
+  });
 });

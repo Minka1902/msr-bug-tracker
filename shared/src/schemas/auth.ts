@@ -56,6 +56,18 @@ export const changePasswordSchema = z.object({
 });
 export const changeEmailSchema = z.object({ email: emailSchema, password: z.string().min(1).max(128) });
 
+const currentPassword = z.string().min(1, 'Enter your password').max(128);
+export const twoFactorCodeSchema = z
+  .string()
+  .trim()
+  .min(6, 'Enter the 6-digit code')
+  .max(20)
+  .transform((value) => value.replace(/[\s-]/g, '').toLowerCase());
+export const twoFactorLoginSchema = z.object({ ticket: tokenSchema, code: twoFactorCodeSchema });
+export const twoFactorSetupSchema = z.object({ password: currentPassword });
+export const twoFactorCodeInputSchema = z.object({ code: twoFactorCodeSchema });
+export const twoFactorDisableSchema = z.object({ password: currentPassword, code: twoFactorCodeSchema });
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type PreferencesInput = z.infer<typeof preferencesSchema>;
