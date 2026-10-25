@@ -97,15 +97,15 @@ Routes (all under `requireAuth`, rate limited): `GET /demo`, `POST /demo {size, 
 
 ## Config
 
-| Variable                             | Purpose                                                  |
-| ------------------------------------ | -------------------------------------------------------- |
-| `DATABASE_URL` / `TEST_DATABASE_URL` | Postgres connections (tests use the second)              |
-| `APP_URL`                            | Public origin; used for email links and the Origin check |
-| `PORT`                               | HTTP port (default 4000)                                 |
-| `UPLOAD_DIR`, `MAX_UPLOAD_MB`        | Attachment storage and size limit                        |
-| `SMTP_URL`, `MAIL_FROM`              | Outgoing mail                                            |
-| `ENABLE_DEMO_DATA`                   | Turns the demo-data module on or off (default on)        |
-| `CLIENT_DIST`                        | When set, Express serves the built SPA from this path    |
+| Variable                             | Purpose                                                                                                                        |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL` / `TEST_DATABASE_URL` | Postgres connections (tests use the second)                                                                                    |
+| `APP_URL`                            | Public origin for email links and the Origin check. Falls back to Render's `RENDER_EXTERNAL_URL`, then `http://localhost:5173` |
+| `PORT`                               | HTTP port (default 4000)                                                                                                       |
+| `UPLOAD_DIR`, `MAX_UPLOAD_MB`        | Attachment storage and size limit                                                                                              |
+| `SMTP_URL`, `MAIL_FROM`              | Outgoing mail. Without SMTP, mail is logged (and kept in the dev mailbox outside production). Blank values count as unset      |
+| `ENABLE_DEMO_DATA`                   | Turns the demo-data module on or off (default on)                                                                              |
+| `CLIENT_DIST`                        | When set, Express serves the built SPA from this path                                                                          |
 
 ## Testing
 
@@ -117,6 +117,27 @@ Routes (all under `requireAuth`, rate limited): `GET /demo`, `POST /demo {size, 
 
 ## Deployment
 
-A multi-stage `Dockerfile` builds `shared`, `client` and `server`, then runs `node dist/index.js` as a non-root user. On boot the server runs migrations under a Postgres advisory lock, so it is safe if several instances start at once. `render.yaml` defines the web service, a managed Postgres database, and a persistent disk for `UPLOAD_DIR`. `trust proxy` is enabled so rate limits and `Secure` cookies work behind Render's proxy.
+**Image.** The multi-stage `Dockerfile` installs with the frozen lockfile, builds `client` and `server` (tsup bundles `shared` in), and copies only production dependencies (`pnpm deploy --prod`) into a `node:22-slim` runtime. The server bundle lives at `/app/dist`, with migrations and demo assets beside it, and the built client at `/app/client` (`CLIENT_DIST`).
 
-The client is a PWA: a manifest plus a Workbox service worker that precaches the app shell. `/api` responses are never cached.
+**Entrypoint.** `scripts/docker-entrypoint.sh` starts as root only long enough to create `UPLOAD_DIR` and hand it to the `node` user. That is needed because Render mounts disks root-owned. It then `setpriv`s to `node` before running the app. The container has a `HEALTHCHECK` on `/api/health`.
+
+**Boot.** The server runs migrations under a Postgres advisory lock, so several instances can start at once safely. `trust proxy` is enabled so rate limits and `Secure` cookies work behind Render's proxy.
+
+**Render.** `render.yaml` defines the web service (Starter, required for the disk), a 1 GB disk at `/var/data/uploads`, and a managed Postgres 16 database wired in via `fromDatabase`.
+
+### Static files and the PWA
+
+| Path                                                         | Cache-Control                         |
+| ------------------------------------------------------------ | ------------------------------------- |
+| `/assets/*` (content-hashed)                                 | `public, max-age=31536000, immutable` |
+| `/assets/*` that no longer exists                            | 404, never the SPA shell              |
+| Other root files (`sw.js`, manifest, icons, `theme-boot.js`) | `no-cache`                            |
+| Any other non-API path                                       | `index.html`, `no-cache`              |
+
+`vite-plugin-pwa` generates the manifest and a Workbox service worker:
+
+- **Icons.** Icons, the apple-touch icon and light/dark iOS splash screens are generated at build time from `client/public/logo.svg` (`pwa-assets.config.ts`).
+- **Precache.** The service worker precaches the app shell. Splash images are left out because iOS reads them only while installing.
+- **Navigation.** Navigations fall back to `index.html`, except `/api/*`. API responses are never cached, so nothing private stays on a shared phone after logout.
+- **Updates.** Registration is `prompt`: the client checks for a new worker hourly and whenever the app returns to the foreground, then shows a **Reload** toast.
+- **Offline.** The client turns a failed `fetch` into `ApiError(0)`. `ErrorState` shows an offline screen that retries on the `online` event, and the app shell shows an offline banner.

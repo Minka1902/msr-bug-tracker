@@ -151,6 +151,6 @@ One row per user who has generated demo data: `owner_id` (PK, FK → users, casc
 
 ## Backups
 
-- `scripts/backup.sh` runs `pg_dump -Fc` and tars `UPLOAD_DIR` into `BACKUP_DIR`, keeping the 14 newest copies.
-- `scripts/restore.sh <dump> <uploads.tar.gz>` restores both.
-- Render's managed Postgres also takes daily snapshots on paid plans.
+- `scripts/backup.sh [dir]` writes `db-<UTC stamp>.dump` (`pg_dump -Fc --no-owner --no-acl`) and `uploads-<stamp>.tar.gz` (`UPLOAD_DIR` without `tmp/`). Each file is written as `.partial` and renamed when complete, so a failed run never rotates out a good backup. It keeps the newest `KEEP` copies (default 14).
+- `scripts/restore.sh <dump> [uploads.tar.gz]` runs `pg_restore --clean --if-exists --single-transaction`, so a failed restore leaves the database untouched, and then unpacks the uploads. It asks for confirmation unless `FORCE=1` is set.
+- On Render, the managed database has point-in-time recovery on paid plans, and the uploads disk is snapshotted daily.
