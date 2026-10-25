@@ -13,6 +13,7 @@ import { createMembersRouter } from '../members/routes';
 import { createRolesRouter } from '../roles/routes';
 import { createStatusesRouter } from '../statuses/routes';
 import { createProjectTasksRouter } from '../tasks/projectRoutes';
+import { createProjectInsightsRouter } from '../insights/routes';
 import { DEFAULT_PREFERENCES } from '../users/service';
 import { assertCan, assertCanWrite, assertOwner, loadProject, projectOf } from './access';
 import {
@@ -95,6 +96,7 @@ export const createProjectsRouter = () => {
   scoped.use('/roles', createRolesRouter());
   scoped.use('/members', createMembersRouter());
   scoped.use(createProjectTasksRouter());
+  scoped.use(createProjectInsightsRouter());
 
   router.use('/:key', loadProject, scoped);
   return router;

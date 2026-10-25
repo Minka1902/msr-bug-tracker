@@ -17,6 +17,8 @@ import { createAttachmentsRouter } from './modules/attachments/routes';
 import { createChecklistRouter } from './modules/checklist/routes';
 import { createCommentsRouter } from './modules/comments/routes';
 import { createRelationsRouter } from './modules/relations/routes';
+import { createInsightsRouter } from './modules/insights/routes';
+import { createSearchRouter } from './modules/search/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 interface AppOptions {
@@ -64,6 +66,8 @@ export const createApp = ({ rateLimit = config.rateLimit }: AppOptions = {}) => 
   api.use(createCommentsRouter());
   api.use(createChecklistRouter());
   api.use(createRelationsRouter());
+  api.use(createInsightsRouter());
+  api.use(createSearchRouter());
   api.use('/tasks', createTasksRouter());
   api.use(() => {
     throw notFound();

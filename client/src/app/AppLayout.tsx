@@ -13,6 +13,8 @@ import {
   type QuickCreateDefaults,
 } from '../features/tasks/components/QuickCreateTaskModal';
 import { TaskPeek } from '../features/tasks/components/TaskPeek';
+import { CommandPalette } from '../features/search/CommandPalette';
+import { useHotkey } from '../hooks/useHotkey';
 
 interface AppLayoutProps {
   user: CurrentUser;
@@ -32,13 +34,15 @@ export function AppLayout({ user, children }: AppLayoutProps) {
     defaults: QuickCreateDefaults;
     version: number;
   }>({ open: false, defaults: {}, version: 0 });
+  const [paletteOpen, setPaletteOpen] = useState(false);
   useThemeSync(user);
+  useHotkey('k', () => setPaletteOpen((current) => !current));
 
   const shell: ShellContextValue = {
     openCreateProject: () => setCreatingProject(true),
     openQuickCreate: (defaults = {}) =>
       setQuickCreate((current) => ({ open: true, defaults, version: current.version + 1 })),
-    openSearch: () => undefined,
+    openSearch: () => setPaletteOpen(true),
   };
 
   return (
@@ -64,6 +68,13 @@ export function AppLayout({ user, children }: AppLayoutProps) {
         onOpenChange={(open) => setQuickCreate((current) => ({ ...current, open }))}
       />
       <TaskPeek />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onCreateTask={() => shell.openQuickCreate()}
+        onCreateProject={shell.openCreateProject}
+        onLogout={handleLogout}
+      />
     </ShellContext>
   );
 }

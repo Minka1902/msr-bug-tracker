@@ -25,8 +25,10 @@ interface FilterBarProps {
 const chipClass =
   'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft pr-1 pl-3 text-sm text-accent-text [&_svg]:size-3.5';
 
+const isOn = (value: string | undefined) => !!value && value !== 'false';
+
 const isActive = (def: FilterDef, values: FilterBarProps['values']) =>
-  !!values[def.key] || (def.type === 'dateRange' && !!values[def.toKey]);
+  isOn(values[def.key]) || (def.type === 'dateRange' && isOn(values[def.toKey]));
 
 export function FilterBar({ defs, values, onChange, onClear, search, children, className }: FilterBarProps) {
   const summary = (def: FilterDef) => {

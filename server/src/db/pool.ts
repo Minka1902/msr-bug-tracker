@@ -4,7 +4,11 @@ import { config } from '../config';
 pg.types.setTypeParser(pg.types.builtins.INT8, (value) => Number(value));
 pg.types.setTypeParser(pg.types.builtins.DATE, (value) => value);
 
-export const pool = new pg.Pool({ connectionString: config.databaseUrl, max: 20 });
+export const pool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  max: 20,
+  options: '-c pg_trgm.word_similarity_threshold=0.5',
+});
 
 export type Db = pg.Pool | pg.PoolClient;
 

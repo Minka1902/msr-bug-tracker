@@ -38,6 +38,7 @@ export const useUrlFilters = (defaults: FilterValues = NO_DEFAULTS) => {
         for (const [key, value] of Object.entries(patch)) {
           const text = Array.isArray(value) ? value.join(',') : value;
           if (text) next.set(key, text);
+          else if (key in defaults) next.set(key, 'false');
           else next.delete(key);
         }
         return next;

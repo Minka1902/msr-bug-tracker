@@ -14,6 +14,10 @@ import { ProjectSettingsLayout } from '../features/projects/settings/ProjectSett
 import { RoleSettings } from '../features/projects/settings/RoleSettings';
 import { WorkflowSettings } from '../features/projects/settings/WorkflowSettings';
 import { AccountSettings } from '../features/settings/pages/AccountSettings';
+import { DashboardPage } from '../features/insights/pages/DashboardPage';
+import { MyTasksPage } from '../features/insights/pages/MyTasksPage';
+import { ProjectActivityPage } from '../features/insights/pages/ProjectActivityPage';
+import { ProjectOverviewPage } from '../features/insights/pages/ProjectOverviewPage';
 import { BoardPage } from '../features/tasks/pages/BoardPage';
 import { BugsPage } from '../features/tasks/pages/BugsPage';
 import { IdentifierRedirect } from '../features/tasks/pages/IdentifierRedirect';
@@ -54,7 +58,8 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
-          { path: '/', element: <Navigate to="/projects" replace /> },
+          { path: '/', element: <DashboardPage /> },
+          { path: '/my-tasks', element: <MyTasksPage /> },
           { path: '/projects', element: <ProjectsPage /> },
           { path: '/t/:identifier', element: <IdentifierRedirect /> },
           {
@@ -62,7 +67,9 @@ export const router = createBrowserRouter([
             element: <ProjectLayout />,
             children: [
               { index: true, element: <Navigate to="board" replace /> },
+              { path: 'overview', element: <ProjectOverviewPage /> },
               { path: 'board', element: <BoardPage /> },
+              { path: 'activity', element: <ProjectActivityPage /> },
               { path: 'list', element: <ListPage /> },
               { path: 'bugs', element: <BugsPage /> },
               { path: ':number', element: <TaskPage /> },

@@ -27,14 +27,17 @@ export function StatCard({ label, value, hint, icon, tone = 'accent', trend, cla
         {label}
       </div>
       <div className="flex items-end gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="font-display text-2xl font-bold tabular-nums">{value}</span>
-          {hint && <span className="truncate text-xs text-muted">{hint}</span>}
-        </div>
+        <span className="font-display text-2xl font-bold tabular-nums">{value}</span>
         {trend && (
-          <Sparkline values={trend} color="var(--c)" height={34} className="ml-auto max-w-24 max-sm:hidden" />
+          <Sparkline
+            values={trend}
+            color="var(--c)"
+            height={30}
+            className="ml-auto max-w-28 min-w-12 flex-1"
+          />
         )}
       </div>
+      {hint && <span className="text-xs text-muted">{hint}</span>}
     </Card>
   );
 }
