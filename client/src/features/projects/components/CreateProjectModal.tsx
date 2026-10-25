@@ -18,13 +18,22 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
 import { useCreateProject, useKeyAvailability } from '../api';
+import { ProjectLinkFields } from './ProjectLinkFields';
 
 interface CreateProjectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const DEFAULTS = { name: '', key: '', description: '', color: '#4f56f0', icon: 'hexagon' };
+const DEFAULTS = {
+  name: '',
+  key: '',
+  description: '',
+  color: '#4f56f0',
+  icon: 'hexagon',
+  liveUrl: '',
+  repoUrl: '',
+};
 
 export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalProps) {
   const submit = (event: FormEvent) =>
@@ -137,6 +146,11 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
               {...form.register('description')}
             />
           </Field>
+          <ProjectLinkFields
+            liveUrl={form.register('liveUrl')}
+            repoUrl={form.register('repoUrl')}
+            errors={{ liveUrl: errors.liveUrl?.message, repoUrl: errors.repoUrl?.message }}
+          />
         </div>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3 rounded-card border border-border bg-surface-muted/50 p-3">

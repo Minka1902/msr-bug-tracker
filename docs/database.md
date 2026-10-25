@@ -83,6 +83,7 @@ erDiagram
 | `task_seq`                             | int                                          | The last allocated task number (see Invariants).                                       |
 | `archived_at`                          | timestamptz, null                            | Archived projects are read-only: every mutation except restore and delete returns 409. |
 | `is_demo`                              | bool                                         | Marks generated demo data.                                                             |
+| `live_url`, `repo_url`                 | text, null — migration 005                   | Links shown in the project header. CHECK: `^https?://`, at most 2048 chars.            |
 
 ### `project_roles` — migration 002
 

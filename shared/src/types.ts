@@ -47,6 +47,8 @@ export interface ProjectSummary {
   description: string;
   color: string;
   icon: string;
+  liveUrl: string | null;
+  repoUrl: string | null;
   isFavorite: boolean;
   isArchived: boolean;
   isDemo: boolean;

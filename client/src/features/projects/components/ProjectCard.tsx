@@ -10,6 +10,7 @@ import { ProgressBar } from '../../../components/ui/ProgressBar';
 import { ProjectIcon } from '../../../components/ui/ProjectIcon';
 import { DueDate } from '../../tasks/components/DueDate';
 import { ProjectHealthBadge } from './ProjectHealthBadge';
+import { ProjectLinks } from './ProjectLinks';
 
 interface ProjectCardProps {
   project: ProjectSummary;
@@ -42,6 +43,12 @@ export function ProjectCard({ project, onToggleFavorite, className }: ProjectCar
         {project.isDemo && (
           <Badge size="xs" tone="violet" className="absolute bottom-2 left-2" label="Demo" />
         )}
+        <ProjectLinks
+          project={project}
+          size="xs"
+          variant="secondary"
+          className="absolute right-2 bottom-2 z-10"
+        />
         {onToggleFavorite && (
           <button
             type="button"

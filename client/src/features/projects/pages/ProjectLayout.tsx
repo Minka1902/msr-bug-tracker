@@ -15,6 +15,7 @@ import { ApiError, errorMessage } from '../../../lib/api';
 import { cn } from '../../../lib/cn';
 import { NotFoundPage } from '../../../pages/NotFoundPage';
 import { useArchiveProject, useProject, useToggleFavorite } from '../api';
+import { ProjectLinks } from '../components/ProjectLinks';
 import { ProjectSwitcher } from '../components/ProjectSwitcher';
 import { useProjectPermissions } from '../useProjectPermissions';
 
@@ -63,6 +64,7 @@ export function ProjectLayout() {
           label={data.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           onClick={() => favorite.mutate({ key: data.key, favorite: !data.isFavorite })}
         />
+        <ProjectLinks project={data} />
         <div className="flex-1" />
         {permissions.can('task.create') && (
           <Button leftIcon={<Plus />} onClick={() => openQuickCreate({ projectKey: data.key })}>

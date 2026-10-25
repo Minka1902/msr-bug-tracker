@@ -19,6 +19,8 @@ interface SummaryRow {
   description: string;
   color: string;
   icon: string;
+  live_url: string | null;
+  repo_url: string | null;
   owner_id: string;
   archived_at: Date | null;
   is_demo: boolean;
@@ -38,7 +40,7 @@ interface SummaryRow {
 }
 
 const SUMMARY_SQL = `
-  SELECT p.id, p.key, p.name, p.description, p.color, p.icon, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
+  SELECT p.id, p.key, p.name, p.description, p.color, p.icon, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
          my.is_favorite, r.name AS role_name, r.permissions,
          st.total, st.completed, st.active, st.overdue, st.next_due, st.last_task_update, mc.member_count, mem.members
   FROM project_members my
@@ -72,7 +74,8 @@ const TOUCH_OPENED = `
   UPDATE project_members SET last_opened_at = now()
   WHERE project_id = $1 AND user_id = $2 AND (last_opened_at IS NULL OR last_opened_at < now() - interval '1 minute')`;
 const INSERT_PROJECT = `
-  INSERT INTO projects (key, name, description, color, icon, owner_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`;
+  INSERT INTO projects (key, name, description, color, icon, live_url, repo_url, owner_id)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
 const INSERT_ROLES = `
   INSERT INTO project_roles (project_id, name, system_key, permissions, position)
   SELECT $1, name, system_key::system_role, permissions, position
@@ -86,7 +89,8 @@ const INSERT_STATUSES = `
   FROM unnest($2::text[], $3::text[], $4::text[], $5::text[], $6::text[]) AS s(workflow, name, color, category, position)`;
 const UPDATE_PROJECT = `
   UPDATE projects SET name = COALESCE($2, name), description = COALESCE($3, description), color = COALESCE($4, color),
-         icon = COALESCE($5, icon), updated_at = now()
+         icon = COALESCE($5, icon), live_url = CASE WHEN $6 THEN $7 ELSE live_url END,
+         repo_url = CASE WHEN $8 THEN $9 ELSE repo_url END, updated_at = now()
   WHERE id = $1`;
 const SET_ARCHIVED =
   'UPDATE projects SET archived_at = CASE WHEN $2 THEN now() ELSE NULL END, updated_at = now() WHERE id = $1';
@@ -103,6 +107,8 @@ const toSummary = (row: SummaryRow, userId: string): ProjectSummary => ({
   description: row.description,
   color: row.color,
   icon: row.icon,
+  liveUrl: row.live_url,
+  repoUrl: row.repo_url,
   isFavorite: row.is_favorite,
   isArchived: row.archived_at !== null,
   isDemo: row.is_demo,
@@ -161,7 +167,16 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
   transaction(async (db) => {
     const project = await queryOne<{ id: string }>(
       INSERT_PROJECT,
-      [input.key, input.name, input.description, input.color, input.icon, ownerId],
+      [
+        input.key,
+        input.name,
+        input.description,
+        input.color,
+        input.icon,
+        input.liveUrl ?? null,
+        input.repoUrl ?? null,
+        ownerId,
+      ],
       db,
     );
     const roles = await query<{ id: string; system_key: string }>(
@@ -210,6 +225,10 @@ export const updateProject = (projectId: string, input: UpdateProjectInput) =>
     input.description ?? null,
     input.color ?? null,
     input.icon ?? null,
+    input.liveUrl !== undefined,
+    input.liveUrl ?? null,
+    input.repoUrl !== undefined,
+    input.repoUrl ?? null,
   ]);
 
 export const setArchived = (projectId: string, archived: boolean) =>

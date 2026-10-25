@@ -13,12 +13,21 @@ export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Pick a color')
 export const iconSchema = z.string().regex(/^[a-z0-9-]{1,40}$/, 'Pick an icon');
 export const uuidSchema = z.uuid();
 export const positionSchema = z.string().min(1).max(64);
+export const httpUrlSchema = z
+  .union([
+    z.literal(''),
+    z.url({ protocol: /^https?$/, error: 'Enter a full link starting with http:// or https://' }).max(2048),
+  ])
+  .nullable()
+  .transform((value) => value || null);
 
 const projectFields = {
   name: z.string().trim().min(1, 'Name is required').max(80),
   description: z.string().trim().max(2000),
   color: colorSchema,
   icon: iconSchema,
+  liveUrl: httpUrlSchema.optional(),
+  repoUrl: httpUrlSchema.optional(),
 };
 
 export const createProjectSchema = z.object({
@@ -26,7 +35,8 @@ export const createProjectSchema = z.object({
   key: projectKeySchema,
   description: projectFields.description.default(''),
 });
-export const updateProjectSchema = z.object(projectFields).partial().strict();
+export const projectDetailsSchema = z.object(projectFields);
+export const updateProjectSchema = projectDetailsSchema.partial().strict();
 export const favoriteSchema = z.object({ favorite: z.boolean() });
 
 const statusName = z.string().trim().min(1, 'Name is required').max(40);
