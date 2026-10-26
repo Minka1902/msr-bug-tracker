@@ -137,17 +137,17 @@ Sorting maps a whitelisted key to SQL (`sortSql`), always with `t.number DESC` a
 **Discovery.** The routes sit at the site root, outside `/api` and its Origin check, because Claude's and ChatGPT's servers call them directly:
 
 - `GET /.well-known/oauth-authorization-server` and `GET /.well-known/oauth-protected-resource[/mcp]`
-- `POST /register` (dynamic client registration), `GET /authorize`, `POST /token`, `POST /revoke`
+- `POST /oauth/register` (dynamic client registration), `GET /oauth/authorize`, `POST /oauth/token`, `POST /oauth/revoke`. They live under `/oauth/` because `/register` is the app's sign-up page
 - `POST /mcp` (Streamable HTTP). Without a valid token it answers `401` with `WWW-Authenticate: Bearer … resource_metadata=…`, which starts the sign-in.
 
 The OAuth endpoints come from `@modelcontextprotocol/sdk` (`mcpAuthRouter`, `requireBearerAuth`), on top of our Postgres-backed provider in `oauth.ts`.
 
 **Sign-in.**
 
-1. `/register` stores the client. Redirect URIs must be `https`, or `http` on localhost. A client secret, if any, is sealed with `secretBox` and never expires, so a connector keeps working.
-2. `/authorize` checks the client and redirect URI, then seals the request (client, redirect URI, PKCE challenge, state, scopes, 10-minute expiry) and redirects to the consent page `/connect/authorize?request=…`. Nothing is stored yet.
+1. `/oauth/register` stores the client. Redirect URIs must be `https`, or `http` on localhost. A client secret, if any, is sealed with `secretBox` and never expires, so a connector keeps working.
+2. `/oauth/authorize` checks the client and redirect URI, then seals the request (client, redirect URI, PKCE challenge, state, scopes, 10-minute expiry) and redirects to the consent page `/connect/authorize?request=…`. Nothing is stored yet.
 3. The consent page needs a normal session; signed-out users go through login and come back. It shows the app's name and the host it returns to, and offers **Read only** or **Read and write**. `POST /api/connector/authorize` (Origin-checked, refused while impersonating) stores a hashed, single-use code for 5 minutes and returns the redirect with `code` and `state`. Cancel returns `error=access_denied`.
-4. `/token` verifies PKCE (S256), then consumes the code and creates the grant in one statement.
+4. `/oauth/token` verifies PKCE (S256), then consumes the code and creates the grant in one statement.
 
 **Tokens.** A grant row holds `sha256` hashes of an access token (1 hour) and a refresh token (60 days, rolling). Refreshing rotates both in one `UPDATE … RETURNING`, so an old refresh token stops working. Each MCP request costs one indexed lookup joined to `users`; `last_used_at` is written at most once an hour. Changing or resetting the password deletes all grants together with the sessions. An hourly job purges expired codes and grants. Settings → Connected apps lists grants and disconnects them.
 
@@ -312,7 +312,7 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 | Health & config     | `GET /health`, `GET /config`                                                                                                                                                                                                                                                                                                                                               |
 | Auth                | `POST /auth/register`, `/auth/login`, `/auth/login/2fa`, `/auth/logout`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`; `GET /auth/me`; `GET /auth/invites/:token` (public preview)                                                                                                                                   |
 | 2FA & AI keys       | `GET /me/2fa`, `POST /me/2fa/setup`, `/enable`, `/recovery-codes`, `/disable`; `GET /me/ai-keys`, `PUT`/`DELETE /me/ai-keys/:provider`                                                                                                                                                                                                                                     |
-| Connector           | `GET /connector/request?request=`, `POST /connector/authorize`; `GET /me/connections`, `DELETE /me/connections/:id`. Outside `/api`: `/.well-known/oauth-*`, `POST /register`, `GET /authorize`, `POST /token`, `POST /revoke`, `POST /mcp`                                                                                                                                |
+| Connector           | `GET /connector/request?request=`, `POST /connector/authorize`; `GET /me/connections`, `DELETE /me/connections/:id`. Outside `/api`: `/.well-known/oauth-*`, `POST /oauth/register`, `GET /oauth/authorize`, `POST /oauth/token`, `POST /oauth/revoke`, `POST /mcp`                                                                                                        |
 | Invites             | `GET`/`POST /invites`, `DELETE /invites/:id`, `POST /invites/:token/accept`; `GET`/`POST /projects/:key/invites`                                                                                                                                                                                                                                                           |
 | Import & migration  | `GET /import/template`, `GET /projects/:key/tasks/export`, `POST /projects/:key/tasks/import`; `POST /migrations/:tool/sources`, `POST /migrations/:tool/jobs`, `GET`/`DELETE /migrations/jobs/:id`, `POST /migrations/jobs/:id/commit`                                                                                                                                    |
 | Calendar            | `GET`/`POST /calendar/events`, `PATCH`/`DELETE /calendar/events/:id`, `GET /calendar/conflicts`, `/conflicts/upcoming`; `GET /calendar/connections`, `PATCH`/`DELETE …/connections/:id`, `POST …/connections/:id/sync`; `POST /calendar/feed`; `GET /calendar/google/connect`, `/google/callback`; `POST /calendar/icloud/connect`; public `GET /calendar-feed/:token.ics` |

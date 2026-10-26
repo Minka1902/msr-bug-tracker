@@ -41,7 +41,7 @@ const pkce = () => {
 const registerClient = async (name = 'Claude') =>
   (
     await request(app)
-      .post('/register')
+      .post('/oauth/register')
       .send({
         client_name: name,
         redirect_uris: [REDIRECT_URI],
@@ -54,7 +54,7 @@ const registerClient = async (name = 'Claude') =>
 
 const startAuthorization = async (client: Client, challenge: string, scope = 'read write') => {
   const response = await request(app)
-    .get('/authorize')
+    .get('/oauth/authorize')
     .query({
       response_type: 'code',
       client_id: client.client_id,
@@ -83,7 +83,7 @@ const approve = async (agent: Agent, sealed: string, scopes: string[]) => {
 };
 
 const exchange = (client: Client, code: string, verifier: string) =>
-  request(app).post('/token').type('form').send({
+  request(app).post('/oauth/token').type('form').send({
     grant_type: 'authorization_code',
     code,
     code_verifier: verifier,
@@ -126,10 +126,10 @@ describe('Connector discovery', () => {
     const server = (await request(app).get('/.well-known/oauth-authorization-server').expect(200)).body;
     expect(server).toMatchObject({
       issuer: `${ORIGIN}/`,
-      authorization_endpoint: `${ORIGIN}/authorize`,
-      token_endpoint: `${ORIGIN}/token`,
-      registration_endpoint: `${ORIGIN}/register`,
-      revocation_endpoint: `${ORIGIN}/revoke`,
+      authorization_endpoint: `${ORIGIN}/oauth/authorize`,
+      token_endpoint: `${ORIGIN}/oauth/token`,
+      registration_endpoint: `${ORIGIN}/oauth/register`,
+      revocation_endpoint: `${ORIGIN}/oauth/revoke`,
       code_challenge_methods_supported: ['S256'],
       scopes_supported: ['read', 'write'],
     });
@@ -150,11 +150,11 @@ describe('Connector discovery', () => {
 
   it('refuses redirect URIs that are not https or loopback', async () => {
     await request(app)
-      .post('/register')
+      .post('/oauth/register')
       .send({ client_name: 'Evil', redirect_uris: ['http://evil.example/cb'] })
       .expect(400);
     await request(app)
-      .post('/register')
+      .post('/oauth/register')
       .send({ client_name: 'CLI', redirect_uris: ['http://localhost:33418/callback'] })
       .expect(201);
   });
@@ -224,7 +224,7 @@ describe('Connector sign-in', () => {
     await registerUser(agent);
     const { client, tokens } = await connect(agent);
     const refresh = () =>
-      request(app).post('/token').type('form').send({
+      request(app).post('/oauth/token').type('form').send({
         grant_type: 'refresh_token',
         refresh_token: tokens.refresh_token,
         client_id: client.client_id,
@@ -247,7 +247,7 @@ describe('Connector sign-in', () => {
 
     const again = await connect(agent, ['read'], client);
     await request(app)
-      .post('/revoke')
+      .post('/oauth/revoke')
       .type('form')
       .send({
         token: again.tokens.access_token,

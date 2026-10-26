@@ -13,7 +13,7 @@ test('connects Claude through sign-in and consent, then creates a task over MCP'
   await page.request.post('/api/auth/logout');
 
   const client = await (
-    await page.request.post('/register', {
+    await page.request.post('/oauth/register', {
       data: { client_name: 'Claude', redirect_uris: [REDIRECT_URI], token_endpoint_auth_method: 'none' },
     })
   ).json();
@@ -23,7 +23,7 @@ test('connects Claude through sign-in and consent, then creates a task over MCP'
   const guest = await (await browser.newContext()).newPage();
   await guest.route('https://claude.ai/**', (route) => route.fulfill({ body: 'connected' }));
   await guest.goto(
-    `/authorize?${new URLSearchParams({
+    `/oauth/authorize?${new URLSearchParams({
       response_type: 'code',
       client_id: client.client_id,
       redirect_uri: REDIRECT_URI,
@@ -47,7 +47,7 @@ test('connects Claude through sign-in and consent, then creates a task over MCP'
   expect(callback.searchParams.get('state')).toBe('e2e-state');
 
   const tokens = await (
-    await guest.request.post('/token', {
+    await guest.request.post('/oauth/token', {
       form: {
         grant_type: 'authorization_code',
         code: callback.searchParams.get('code')!,

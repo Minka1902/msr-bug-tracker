@@ -27,11 +27,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
         globIgnores: ['**/apple-splash-*'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [
-          /^\/api\//,
-          /^\/(authorize|token|register|revoke|mcp)(\/|$)/,
-          /^\/\.well-known\//,
-        ],
+        navigateFallbackDenylist: [/^\/api\//, /^\/(oauth|mcp)(\/|$)/, /^\/\.well-known\//],
         cleanupOutdatedCaches: true,
       },
     }),
@@ -39,10 +35,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: Object.fromEntries(
-      ['/api', '/mcp', '/authorize', '/token', '/register', '/revoke', '/.well-known'].map((path) => [
-        path,
-        'http://localhost:4000',
-      ]),
+      ['/api', '/mcp', '/oauth', '/.well-known'].map((path) => [path, 'http://localhost:4000']),
     ),
   },
   test: {
