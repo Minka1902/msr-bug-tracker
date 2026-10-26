@@ -31,6 +31,11 @@ interface GrantRow {
   last_used_at: Date;
 }
 
+const redirectLabel = (url: URL) =>
+  url.protocol === 'https:' || url.protocol === 'http:'
+    ? url.host
+    : `${url.protocol}${url.host && `//${url.host}`}`;
+
 const allowedScopes = (requested: string[]) => {
   const known = CONNECTOR_SCOPES.filter((scope) => requested.includes(scope));
   return known.length ? known : [...CONNECTOR_SCOPES];
@@ -46,8 +51,8 @@ const loadRequest = async (sealed: string) => {
 export const previewRequest = async (sealed: string): Promise<ConnectorRequestPreview> => {
   const { request, client, redirect } = await loadRequest(sealed);
   return {
-    clientName: client.client_name?.trim() || redirect.host,
-    redirectHost: redirect.host,
+    clientName: client.client_name?.trim() || redirectLabel(redirect),
+    redirectHost: redirectLabel(redirect),
     scopes: allowedScopes(request.scopes),
   };
 };
@@ -86,7 +91,7 @@ export const decideRequest = async (
 
 export const listConnectedApps = async (userId: string): Promise<ConnectedApp[]> =>
   (await query<GrantRow>(LIST_GRANTS, [userId])).map((row) => {
-    const host = URL.canParse(row.redirect_uri) ? new URL(row.redirect_uri).host : '';
+    const host = URL.canParse(row.redirect_uri) ? redirectLabel(new URL(row.redirect_uri)) : '';
     return {
       id: row.id,
       name: row.client_name?.trim() || host,

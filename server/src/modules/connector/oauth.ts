@@ -25,6 +25,18 @@ const ACCESS_TTL_SECONDS = 3600;
 const REFRESH_TTL_DAYS = 60;
 const TOUCH_AFTER_MS = 3_600_000;
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+const BLOCKED_SCHEMES = new Set([
+  'javascript:',
+  'data:',
+  'vbscript:',
+  'file:',
+  'blob:',
+  'about:',
+  'filesystem:',
+  'ws:',
+  'wss:',
+  'ftp:',
+]);
 
 const GET_CLIENT = 'SELECT secret_sealed, metadata FROM oauth_clients WHERE id = $1';
 const INSERT_CLIENT = 'INSERT INTO oauth_clients (id, secret_sealed, metadata) VALUES ($1, $2, $3)';
@@ -87,7 +99,10 @@ export interface ConnectorAuth {
 
 const isSafeRedirect = (uri: string) => {
   const url = new URL(uri);
-  return url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK_HOSTS.has(url.hostname));
+  return (
+    url.protocol === 'https:' ||
+    (url.protocol === 'http:' ? LOOPBACK_HOSTS.has(url.hostname) : !BLOCKED_SCHEMES.has(url.protocol))
+  );
 };
 
 const issueTokens = () => {
@@ -123,10 +138,10 @@ export const openRequest = (sealed: string) => {
   try {
     request = JSON.parse(openSecret(sealed));
   } catch {
-    throw badRequest('This connection request is not valid. Start connecting again from Claude or ChatGPT.');
+    throw badRequest('This connection request is not valid. Start connecting again from your AI app.');
   }
   if (request.expiresAt < Date.now())
-    throw badRequest('This connection request has expired. Start connecting again from Claude or ChatGPT.');
+    throw badRequest('This connection request has expired. Start connecting again from your AI app.');
   return request;
 };
 
@@ -139,7 +154,9 @@ export const clientsStore: OAuthRegisteredClientsStore = {
   registerClient: async (registration) => {
     const client = registration as OAuthClientInformationFull;
     if (!client.redirect_uris.every(isSafeRedirect))
-      throw new InvalidClientMetadataError('Redirect URIs must use https, or http on localhost');
+      throw new InvalidClientMetadataError(
+        'Redirect URIs must use https, http on localhost, or an app scheme',
+      );
     const { client_secret, ...metadata } = client;
     await query(INSERT_CLIENT, [
       client.client_id,

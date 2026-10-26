@@ -148,15 +148,55 @@ describe('Connector discovery', () => {
     await request(app).get('/mcp').expect(405);
   });
 
-  it('refuses redirect URIs that are not https or loopback', async () => {
-    await request(app)
-      .post('/oauth/register')
-      .send({ client_name: 'Evil', redirect_uris: ['http://evil.example/cb'] })
-      .expect(400);
+  it('refuses redirect URIs that are not https, loopback or an app scheme', async () => {
+    for (const uri of [
+      'http://evil.example/cb',
+      'javascript:alert(1)',
+      'data:text/html,x',
+      'file:///etc/passwd',
+    ])
+      await request(app)
+        .post('/oauth/register')
+        .send({ client_name: 'Evil', redirect_uris: [uri] })
+        .expect(400);
     await request(app)
       .post('/oauth/register')
       .send({ client_name: 'CLI', redirect_uris: ['http://localhost:33418/callback'] })
       .expect(201);
+  });
+
+  it('signs in desktop apps that return through their own scheme', async () => {
+    const redirectUri = 'cursor://anysphere.cursor-mcp/oauth/callback';
+    const cursor = (
+      await request(app)
+        .post('/oauth/register')
+        .send({ client_name: 'Cursor', redirect_uris: [redirectUri], token_endpoint_auth_method: 'none' })
+        .expect(201)
+    ).body as Client;
+    const authorize = await request(app)
+      .get('/oauth/authorize')
+      .query({
+        response_type: 'code',
+        client_id: cursor.client_id,
+        redirect_uri: redirectUri,
+        code_challenge: pkce().challenge,
+        code_challenge_method: 'S256',
+        state: 'cursor-state',
+      })
+      .expect(302);
+    const sealed = new URL(authorize.headers.location!).searchParams.get('request')!;
+    const agent = agentFor();
+    await registerUser(agent);
+    expect(
+      (await agent.get('/api/connector/request').query({ request: sealed }).expect(200)).body.request,
+    ).toMatchObject({ clientName: 'Cursor', redirectHost: 'cursor://anysphere.cursor-mcp' });
+    const { body } = await agent
+      .post('/api/connector/authorize')
+      .send({ request: sealed, approve: true, scopes: ['read'] })
+      .expect(200);
+    expect(body.redirectUrl).toMatch(
+      /^cursor:\/\/anysphere\.cursor-mcp\/oauth\/callback\?state=cursor-state&code=/,
+    );
   });
 });
 
