@@ -22,6 +22,7 @@ export const compactTask = (task: TaskCard, statusNames: Map<string, string>) =>
   status: statusNames.get(task.statusId) ?? task.statusCategory,
   statusCategory: task.statusCategory,
   priority: task.priority,
+  ...(task.escalation && { escalation: `${task.escalation.from} → ${task.escalation.to}` }),
   ...(task.severity && { severity: task.severity }),
   assignee: task.assignee?.name ?? null,
   dueDate: task.dueDate,

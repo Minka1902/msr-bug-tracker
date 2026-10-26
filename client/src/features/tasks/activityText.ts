@@ -1,3 +1,4 @@
+import { PRIORITY_RANK, type Priority } from '@msr/shared/enums';
 import type { ActivityEntry } from '@msr/shared/types';
 
 const FIELD_LABELS: Record<string, string> = {
@@ -11,6 +12,7 @@ const FIELD_LABELS: Record<string, string> = {
   labels: 'labels',
   startDate: 'start date',
   dueDate: 'due date',
+  escalation: 'priority schedule',
   isBlocked: 'blocked flag',
   blockedReason: 'blocked reason',
   stepsToReproduce: 'steps to reproduce',
@@ -43,6 +45,8 @@ export const activityText = (entry: ActivityEntry) => {
   if (entry.action === 'attachment_removed') return `removed attachment ${show(entry.oldValue)}`;
   if (entry.action === 'relation_added') return `linked ${show(entry.newValue)}`;
   if (entry.action === 'relation_removed') return `unlinked ${show(entry.oldValue)}`;
+  if (entry.action === 'escalated')
+    return `${PRIORITY_RANK[entry.newValue as Priority] < PRIORITY_RANK[entry.oldValue as Priority] ? 'raised' : 'lowered'} the priority from ${show(entry.oldValue)} to ${show(entry.newValue)}`;
   const field = FIELD_LABELS[entry.field ?? ''] ?? entry.field ?? 'something';
   if (entry.field === 'labels' && entry.oldValue === null) return `added label ${show(entry.newValue)}`;
   if (entry.field === 'labels' && entry.newValue === null) return `removed label ${show(entry.oldValue)}`;

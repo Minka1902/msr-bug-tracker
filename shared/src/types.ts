@@ -135,6 +135,7 @@ export interface TaskCard {
   startDate: string | null;
   dueDate: string | null;
   recurrence: TaskRecurrence | null;
+  escalation: TaskEscalation | null;
   isBlocked: boolean;
   position: string;
   commentCount: number;
@@ -306,6 +307,15 @@ export interface TaskRecurrence {
   freq: RecurrenceFrequency;
   interval: number;
   rotate: string[];
+}
+
+export interface EscalationRange {
+  from: Priority;
+  to: Priority;
+}
+
+export interface TaskEscalation extends EscalationRange {
+  since: string;
 }
 
 export interface ShoppingItem {

@@ -1,53 +1,26 @@
-import { Bot, Copy, Link2, LogIn, MessageSquarePlus, Plug, Settings2, ToggleRight } from 'lucide-react';
-import { useState } from 'react';
+import { Bot, Plug } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
+import { CodeBlock } from '../../../components/ui/CodeBlock';
 import { EmptyState } from '../../../components/ui/EmptyState';
-import { IconButton } from '../../../components/ui/IconButton';
-import { SegmentedControl } from '../../../components/ui/SegmentedControl';
+import { Field } from '../../../components/ui/Field';
+import { OptionPicker } from '../../../components/ui/OptionPicker';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useConfirm } from '../../../hooks/useConfirm';
+import { useLocalState } from '../../../hooks/useLocalState';
 import { errorMessage } from '../../../lib/api';
-import { copyText } from '../../../lib/clipboard';
 import { formatRelative, formatShortDate } from '../../../lib/dates';
+import { AGENT_GUIDES, type AgentId } from '../../connector/agentGuides';
 import { mcpUrl, useConnectedApps, useDisconnectApp } from '../../connector/api';
 import { SettingsSection } from '../components/SettingsSection';
-import { StepList, type Step } from '../components/StepList';
+import { StepList } from '../components/StepList';
 
-type Assistant = 'claude' | 'chatgpt';
-
-const ASSISTANTS = [
-  { value: 'claude' as const, label: 'Claude' },
-  { value: 'chatgpt' as const, label: 'ChatGPT' },
-];
-
-const stepsFor = (assistant: Assistant, url: string): Step[] =>
-  assistant === 'claude'
-    ? [
-        {
-          icon: <Settings2 />,
-          text: 'In Claude, open Settings → Connectors and choose Add custom connector.',
-        },
-        { icon: <Link2 />, text: <>Name it MSR Tracker and paste {url} as the URL.</> },
-        { icon: <LogIn />, text: 'Choose Connect, sign in to MSR if asked, then Allow.' },
-        { icon: <MessageSquarePlus />, text: 'In a chat, switch MSR Tracker on from the tools menu.' },
-      ]
-    : [
-        {
-          icon: <ToggleRight />,
-          text: 'In ChatGPT, open Settings → Apps & Connectors → Advanced settings and turn on Developer mode.',
-        },
-        {
-          icon: <Link2 />,
-          text: <>Choose Create, name it MSR Tracker, paste {url} as the MCP server URL and pick OAuth.</>,
-        },
-        { icon: <LogIn />, text: 'Create it, sign in to MSR if asked, then Allow.' },
-        {
-          icon: <MessageSquarePlus />,
-          text: 'In a chat, pick Developer mode from the + menu and add MSR Tracker.',
-        },
-      ];
+const AGENT_OPTIONS = AGENT_GUIDES.map((guide) => ({
+  value: guide.id,
+  label: guide.label,
+  group: guide.group,
+}));
 
 export function ConnectedAppsSettings() {
   const disconnect = async (id: string, name: string) => {
@@ -67,31 +40,28 @@ export function ConnectedAppsSettings() {
   const confirm = useConfirm();
   const apps = useConnectedApps();
   const disconnectApp = useDisconnectApp();
-  const [assistant, setAssistant] = useState<Assistant>('claude');
+  const [agent, setAgent] = useLocalState<AgentId>('connector-agent', 'claude');
   const url = mcpUrl();
+  const guide = AGENT_GUIDES.find((item) => item.id === agent) ?? AGENT_GUIDES[0]!;
 
   return (
     <div className="flex flex-col gap-4">
       <SettingsSection
         title="Connect an AI assistant"
-        description="Let Claude or ChatGPT read and update your projects, tasks, shopping lists and calendar for you."
+        description="Let Claude, ChatGPT or your coding agent read and update your projects, tasks, shopping lists and calendar for you."
       >
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2 rounded-control border border-border bg-surface-muted/60 py-1 pr-1 pl-3">
-            <code className="min-w-0 flex-1 font-mono text-xs break-all">{url}</code>
-            <IconButton
-              icon={<Copy />}
-              label="Copy connector URL"
-              onClick={() => copyText(url, 'Connector URL')}
+          <CodeBlock code={url} copyLabel="Connector URL" wrap />
+          <Field label="Your AI app">
+            <OptionPicker
+              aria-label="Your AI app"
+              value={guide.id}
+              onChange={(value) => value && setAgent(value)}
+              options={AGENT_OPTIONS}
+              className="w-full sm:w-64"
             />
-          </div>
-          <SegmentedControl
-            label="Assistant"
-            options={ASSISTANTS}
-            value={assistant}
-            onChange={setAssistant}
-          />
-          <StepList steps={stepsFor(assistant, url)} />
+          </Field>
+          <StepList steps={guide.steps(url)} />
         </div>
       </SettingsSection>
       <SettingsSection
@@ -136,7 +106,7 @@ export function ConnectedAppsSettings() {
             compact
             icon={<Plug />}
             title="No apps connected"
-            description="Follow the steps above to connect Claude or ChatGPT."
+            description="Follow the steps above to connect your AI app."
           />
         )}
       </SettingsSection>

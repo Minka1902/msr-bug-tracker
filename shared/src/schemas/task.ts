@@ -18,6 +18,10 @@ export const recurrenceSchema = z.object({
   rotate: z.array(uuidSchema).max(20).default([]),
 });
 
+export const escalationSchema = z
+  .object({ from: z.enum(PRIORITIES), to: z.enum(PRIORITIES) })
+  .refine((value) => value.from !== value.to, 'Pick two different priorities');
+
 const longText = z.string().max(20000);
 const shortText = z.string().trim().max(120);
 
@@ -44,11 +48,13 @@ const taskFields = {
   fixVersion: shortText,
   reproducibility: z.enum(REPRODUCIBILITY).nullable(),
   recurrence: recurrenceSchema.nullable(),
+  escalation: escalationSchema.nullable(),
 };
 
 const datesInOrder = (value: { startDate?: string | null; dueDate?: string | null }) =>
   !value.startDate || !value.dueDate || value.startDate <= value.dueDate;
 const DATE_ORDER = { message: 'Start date must be on or before the due date', path: ['dueDate'] };
+const SCHEDULE_NEEDS_DUE = { message: 'Set a due date to schedule the priority', path: ['escalation'] };
 
 export const createTaskSchema = z
   .object({
@@ -59,7 +65,8 @@ export const createTaskSchema = z
   })
   .partial()
   .required({ title: true })
-  .refine(datesInOrder, DATE_ORDER);
+  .refine(datesInOrder, DATE_ORDER)
+  .refine((value) => !value.escalation || !!value.dueDate, SCHEDULE_NEEDS_DUE);
 
 export const updateTaskSchema = z
   .object({ ...taskFields, position: positionSchema })
