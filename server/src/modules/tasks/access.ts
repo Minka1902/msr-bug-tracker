@@ -1,8 +1,11 @@
 import type { RequestHandler } from 'express';
 import { prepared } from '../../db/pool';
-import { canEditTask, isOwnTask } from '@msr/shared/permissions';
+import { parseIdentifier } from '@msr/shared/identifiers';
+import { canEditTask, isOwnTask, missingTaskPermissions } from '@msr/shared/permissions';
+import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import { forbidden, notFound } from '../../lib/httpError';
 import { assertWritable, toProjectContext, type ProjectContext } from '../projects/access';
+import { resolveIdentifier } from './service';
 
 export interface TaskContext {
   id: string;
@@ -56,6 +59,14 @@ export const loadTaskAccess = async (taskId: string, userId: string) => {
   };
 };
 
+export const findTaskByIdentifier = async (identifier: string, userId: string) => {
+  const parsed = parseIdentifier(identifier);
+  const taskId = parsed && (await resolveIdentifier(parsed.key, parsed.number));
+  const access = taskId && (await loadTaskAccess(taskId, userId));
+  if (!access) throw notFound('Task not found');
+  return access;
+};
+
 export const loadTask: RequestHandler = async (req, _res, next) => {
   const access = await loadTaskAccess(String(req.params.taskId), req.user!.id);
   if (!access) throw notFound('Task not found');
@@ -70,4 +81,30 @@ export const assertCanEditTask = (project: ProjectContext, task: TaskContext, us
     throw forbidden(`Your role (${project.roleName}) can't edit this task`, {
       missing: [isOwnTask(task, userId) ? 'task.edit_own' : 'task.edit_any'],
     });
+};
+
+export const assertCanPatchTask = (
+  project: ProjectContext,
+  task: TaskContext,
+  patch: UpdateTaskInput,
+  userId: string,
+) => {
+  assertWritable(project);
+  const missing = missingTaskPermissions(project.permissions, task, patch, userId);
+  if (missing.length) throw forbidden(`Your role (${project.roleName}) can't do that`, { missing });
+};
+
+export const assertCanAssignOnCreate = (
+  project: ProjectContext,
+  assigneeId: string | null | undefined,
+  userId: string,
+) => {
+  if (!assigneeId) return;
+  const missing = missingTaskPermissions(
+    project.permissions,
+    { reporterId: userId, assigneeId: null },
+    { assigneeId },
+    userId,
+  );
+  if (missing.length) throw forbidden(`Your role (${project.roleName}) can't assign this task`, { missing });
 };

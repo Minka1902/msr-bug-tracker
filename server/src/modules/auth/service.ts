@@ -16,8 +16,9 @@ const INSERT_SESSION = `
   INSERT INTO sessions (token_hash, user_id, impersonator_id, expires_at, user_agent, ip)
   VALUES ($1, $2, $3, now() + make_interval(days => $4), $5, $6) RETURNING id`;
 const DELETE_SESSION = 'DELETE FROM sessions WHERE id = $1';
-const DELETE_USER_SESSIONS =
-  'DELETE FROM sessions WHERE (user_id = $1 OR impersonator_id = $1) AND id IS DISTINCT FROM $2';
+const DELETE_USER_SESSIONS = `
+  WITH grants AS (DELETE FROM oauth_grants WHERE user_id = $1)
+  DELETE FROM sessions WHERE (user_id = $1 OR impersonator_id = $1) AND id IS DISTINCT FROM $2`;
 const INSERT_TOKEN = `
   INSERT INTO auth_tokens (user_id, type, token_hash, email, expires_at)
   VALUES ($1, $2, $3, $4, now() + make_interval(mins => $5))`;

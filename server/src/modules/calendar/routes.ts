@@ -14,7 +14,7 @@ import { logger } from '../../lib/logger';
 import { openSecret, sealSecret } from '../../lib/secretBox';
 import { hashToken, randomToken } from '../../lib/tokens';
 import type { RateLimits } from '../../middleware/rateLimits';
-import { assertCan, assertCanWrite, assertWritable, findProjectContext } from '../projects/access';
+import { assertCan, assertWritable, findProjectContext } from '../projects/access';
 import { timezoneOf } from '../projects/routes';
 import { buildFeed, feedUrlOf } from './feed';
 import {
@@ -35,7 +35,6 @@ import {
   getCalendarItem,
   getConnection,
   getEvent,
-  insertEvent,
   listCalendarItems,
   listConnections,
   normalizeRange,
@@ -48,6 +47,7 @@ import {
   visiblePeople,
   type EventRow,
 } from './service';
+import { createEvent } from './events';
 import { connectionClient, syncConnection, syncStaleConnections } from './sync';
 
 const STATE_COOKIE = 'gcal_state';
@@ -97,40 +97,7 @@ export const createCalendarRouter = (limits: RateLimits) => {
   });
 
   router.post('/events', async (req, res) => {
-    const input = createEventSchema.parse(req.body);
-    const range = normalizeRange(input.startsAt, input.endsAt, input.allDay);
-    const fields = { ...input, ...range };
-    let projectId: string | null = null;
-    if (input.projectKey) {
-      const project = await findProjectContext(input.projectKey, userOf(req));
-      assertCanWrite(project, 'task.create');
-      if (input.calendar)
-        throw badRequest('Project events stay in MSR. Only personal events can go to Google or iCloud.');
-      if (!(await assertProjectAttendees(project.id, input.attendeeIds)))
-        throw badRequest('Attendees must be members of the project');
-      projectId = project.id;
-    } else if (input.attendeeIds.length) throw badRequest('Pick a project to invite people to an event');
-    let external = null;
-    if (input.calendar) {
-      const connection = await getConnection(input.calendar.connectionId, userOf(req));
-      const calendar = connection?.calendars.find(
-        (item) => item.id === input.calendar!.calendarId && item.writable,
-      );
-      if (!connection || !calendar) throw badRequest('Pick a calendar you can write to');
-      const { provider, credentials } = connectionClient(connection);
-      external = {
-        connectionId: connection.id,
-        calendarId: calendar.id,
-        ...(await provider.createEvent(credentials, calendar.id, fields)),
-      };
-    }
-    const id = await insertEvent({
-      ...fields,
-      ownerId: projectId ? null : userOf(req),
-      projectId,
-      createdBy: userOf(req),
-      external,
-    });
+    const id = await createEvent(userOf(req), createEventSchema.parse(req.body));
     res.status(201).json({ event: await getCalendarItem(userOf(req), id) });
   });
 

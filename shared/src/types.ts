@@ -1,5 +1,6 @@
 import type {
   AiProvider,
+  ConnectorScope,
   NavLayout,
   Priority,
   ProjectKind,
@@ -316,4 +317,19 @@ export interface ShoppingList {
   name: string;
   position: string;
   items: ShoppingItem[];
+}
+
+export interface ConnectorRequestPreview {
+  clientName: string;
+  redirectHost: string;
+  scopes: ConnectorScope[];
+}
+
+export interface ConnectedApp {
+  id: string;
+  name: string;
+  host: string;
+  scopes: ConnectorScope[];
+  connectedAt: string;
+  lastUsedAt: string;
 }
