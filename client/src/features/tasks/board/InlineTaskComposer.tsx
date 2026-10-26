@@ -5,7 +5,9 @@ import type { TaskType } from '@msr/shared/enums';
 import type { CreateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
+import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { errorMessage } from '../../../lib/api';
+import { useConflictGuard } from '../../calendar/useConflictGuard';
 import { useCreateTask } from '../api';
 import { TaskCreateFields, type TaskCreateValues } from '../components/TaskCreateFields';
 
@@ -18,10 +20,12 @@ interface InlineTaskComposerProps {
 const POPOVER_SELECTOR = '[data-radix-popper-content-wrapper]';
 
 export function InlineTaskComposer({ project, defaults, types }: InlineTaskComposerProps) {
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const text = title.trim();
     if (!text) return;
+    if (fields.dueDate && !(await guard({ userIds: [fields.assigneeId ?? user.id], date: fields.dueDate })))
+      return;
     setTitle('');
     create.mutate(
       {
@@ -50,6 +54,8 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
     setOpen(false);
   };
 
+  const user = useCurrentUser();
+  const guard = useConflictGuard();
   const create = useCreateTask();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');

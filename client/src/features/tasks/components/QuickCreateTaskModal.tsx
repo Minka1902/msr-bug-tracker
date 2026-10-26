@@ -12,8 +12,10 @@ import { ProjectAvatar } from '../../../components/ui/ProjectAvatar';
 import { RichTextEditor } from '../../../components/ui/RichTextEditor';
 import { SegmentedControl } from '../../../components/ui/SegmentedControl';
 import { Switch } from '../../../components/ui/Switch';
+import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { useLocalState } from '../../../hooks/useLocalState';
 import { errorMessage } from '../../../lib/api';
+import { useConflictGuard } from '../../calendar/useConflictGuard';
 import { useProject, useProjects } from '../../projects/api';
 import { useCreateTask } from '../api';
 import { uploadFiles } from '../collabApi';
@@ -58,9 +60,11 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
     create.reset();
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!title.trim() || !projectKey) return;
+    if (fields.dueDate && !(await guard({ userIds: [fields.assigneeId ?? user.id], date: fields.dueDate })))
+      return;
     create.mutate(
       {
         projectKey,
@@ -97,6 +101,8 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
   const patchFields = (patch: Partial<TaskCreateValues>) =>
     setFields((current) => ({ ...current, ...patch }));
 
+  const user = useCurrentUser();
+  const guard = useConflictGuard();
   const peek = useTaskPeek();
   const create = useCreateTask();
   const projects = useProjects();

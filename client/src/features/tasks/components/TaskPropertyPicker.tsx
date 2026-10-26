@@ -22,6 +22,7 @@ import { Tooltip } from '../../../components/ui/Tooltip';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { errorMessage } from '../../../lib/api';
 import { cn } from '../../../lib/cn';
+import { useConflictGuard } from '../../calendar/useConflictGuard';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { useUpdateTask } from '../api';
 import { PriorityIcon, TypeIcon } from '../taskMeta';
@@ -95,12 +96,17 @@ export function TaskPropertyPicker({
     </button>
   );
 
+  const clashFree = (userId: string | null, date: string | null) =>
+    !date || !userId ? Promise.resolve(true) : guard({ userIds: [userId], date });
+
   const user = useCurrentUser();
+  const guard = useConflictGuard();
   const options = useTaskOptions(project);
   const permissions = useProjectPermissions(project);
   const update = useUpdateTask();
 
   const ownership = { reporterId: task.reporterId, assigneeId: task.assignee?.id ?? null };
+  const deadlineOwner = task.assignee?.id ?? task.reporterId;
   const canEdit = permissions.canEditTask(ownership);
   const canAssignOthers = permissions.canAssign(task.assignee?.id ?? null, '__other__');
   const canAssignSelf = permissions.canAssign(task.assignee?.id ?? null, user.id);
@@ -122,7 +128,9 @@ export function TaskPropertyPicker({
             disabled={disabled}
             min={field === 'dueDate' ? task.startDate : null}
             max={field === 'startDate' ? task.dueDate : null}
-            onChange={(next) => save({ [field]: next })}
+            onChange={async (next) => {
+              if (field === 'startDate' || (await clashFree(deadlineOwner, next))) save({ [field]: next });
+            }}
             renderTrigger={() =>
               trigger(
                 value ? (
@@ -187,8 +195,10 @@ export function TaskPropertyPicker({
         disabled={disabled}
         disabledReason={reason}
         options={choices}
-        onChange={(id) => {
+        onChange={async (id) => {
           const member = project.memberList.find((item) => item.id === id);
+          const owner = member?.id ?? task.reporterId;
+          if (owner !== deadlineOwner && !(await clashFree(owner, task.dueDate))) return;
           save(
             { assigneeId: member?.id ?? null },
             { assignee: member ? { id: member.id, name: member.name, avatarUrl: member.avatarUrl } : null },

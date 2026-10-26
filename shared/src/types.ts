@@ -234,3 +234,59 @@ export interface InvitePreview {
   roleName: string | null;
   expiresAt: string;
 }
+
+export type CalendarSource = 'app' | 'google' | 'icloud';
+
+export interface CalendarItem {
+  id: string;
+  kind: 'event' | 'task';
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  important: boolean;
+  source: CalendarSource;
+  calendarName: string;
+  color: string;
+  project: { key: string; name: string } | null;
+  taskIdentifier: string | null;
+  description: string;
+  location: string;
+  attendees: UserRef[];
+  editable: boolean;
+  connectionId: string | null;
+}
+
+export interface CalendarConflict {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  calendarName: string;
+  personName: string;
+}
+
+export interface UpcomingConflict {
+  item: { kind: 'task' | 'event'; id: string; title: string; date: string; identifier: string | null };
+  clashes: CalendarConflict[];
+}
+
+export interface ExternalCalendarSettings {
+  id: string;
+  name: string;
+  color: string;
+  writable: boolean;
+  show: boolean;
+  important: boolean;
+}
+
+export interface CalendarConnection {
+  id: string;
+  provider: 'google' | 'icloud';
+  accountEmail: string;
+  calendars: ExternalCalendarSettings[];
+  defaultCalendarId: string | null;
+  lastSyncedAt: string | null;
+  syncError: string | null;
+}

@@ -35,6 +35,8 @@ export const createRateLimits = (enabled: boolean) => {
     invites: make(60 * MINUTE, 50, userKey),
     invitePreview: make(15 * MINUTE, 60),
     migrations: make(60 * MINUTE, 60, userKey),
+    calendarConnect: make(60 * MINUTE, 30, userKey),
+    calendarFeed: make(15 * MINUTE, 120),
   };
 };
 

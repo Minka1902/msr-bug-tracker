@@ -10,6 +10,8 @@ import { originCheck } from './middleware/originCheck';
 import { createRateLimits } from './middleware/rateLimits';
 import { loadSession, requireAuth } from './middleware/session';
 import { createAuthRouter } from './modules/auth/routes';
+import { createCalendarFeedRouter, createCalendarRouter } from './modules/calendar/routes';
+import { googleConfigured } from './modules/calendar/google';
 import { createDevRouter } from './modules/dev/routes';
 import { createProjectsRouter } from './modules/projects/routes';
 import { createTasksRouter } from './modules/tasks/routes';
@@ -70,9 +72,10 @@ export const createApp = ({
     res.json({ ok: true });
   });
   api.get('/config', (_req, res) => {
-    res.json({ features: { demoData } });
+    res.json({ features: { demoData, googleCalendar: googleConfigured() } });
   });
   api.use('/auth', createAuthRouter(limits));
+  api.use('/calendar-feed', createCalendarFeedRouter(limits));
   if (config.devMailbox) api.use('/dev', createDevRouter());
   api.use(requireAuth);
   api.use(createUsersRouter());
@@ -81,6 +84,7 @@ export const createApp = ({
   api.use('/invites', createInvitesRouter(limits));
   api.use('/import', createImportTemplateRouter());
   api.use('/migrations', createMigrationsRouter(limits));
+  api.use('/calendar', createCalendarRouter(limits));
   api.use('/projects', createProjectsRouter());
   api.use(createAttachmentsRouter());
   api.use(createCommentsRouter());

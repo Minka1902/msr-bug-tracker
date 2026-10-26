@@ -23,6 +23,8 @@ export const envSchema = z
     MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
     SMTP_URL: optional(z.string()),
     RESEND_API_KEY: optional(z.string()),
+    GOOGLE_CLIENT_ID: optional(z.string()),
+    GOOGLE_CLIENT_SECRET: optional(z.string()),
     ENCRYPTION_KEY: optional(
       z
         .string()

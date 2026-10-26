@@ -56,7 +56,9 @@ export function Modal({
                   <Dialog.Title className="sr-only">Dialog</Dialog.Title>
                 )}
                 {description ? (
-                  <Dialog.Description className="mt-1 text-sm text-muted">{description}</Dialog.Description>
+                  <Dialog.Description asChild>
+                    <div className="mt-1 text-sm text-muted">{description}</div>
+                  </Dialog.Description>
                 ) : (
                   <Dialog.Description className="sr-only">{title}</Dialog.Description>
                 )}

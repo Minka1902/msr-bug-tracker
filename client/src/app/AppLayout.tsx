@@ -89,13 +89,13 @@ export function AppLayout({ user, children }: AppLayoutProps) {
       <CreateProjectModal open={creatingProject} onOpenChange={setCreatingProject} />
       <Suspense fallback={null}>
         <QuickCreateTaskModal
-          key={quickCreate.version}
+          key={`quick-create-${quickCreate.version}`}
           open={quickCreate.open}
           defaults={quickCreate.defaults}
           onOpenChange={(open) => setQuickCreate((current) => ({ ...current, open }))}
         />
         <InviteDialog
-          key={invite.version}
+          key={`invite-${invite.version}`}
           open={invite.open}
           project={invite.target}
           defaultEmail={invite.target?.email}

@@ -66,6 +66,12 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/calendar',
+            lazy: lazyRoute(() =>
+              import('../features/calendar/pages/CalendarPage').then((m) => m.CalendarPage),
+            ),
+          },
+          {
             path: '/t/:identifier',
             lazy: lazyRoute(() =>
               import('../features/tasks/pages/IdentifierRedirect').then((m) => m.IdentifierRedirect),
@@ -187,6 +193,12 @@ export const router = createBrowserRouter([
                 path: 'ai',
                 lazy: lazyRoute(() =>
                   import('../features/settings/pages/AiSettings').then((m) => m.AiSettings),
+                ),
+              },
+              {
+                path: 'calendars',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/CalendarSettings').then((m) => m.CalendarSettings),
                 ),
               },
               {
