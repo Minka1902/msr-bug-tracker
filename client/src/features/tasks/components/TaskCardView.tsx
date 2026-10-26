@@ -7,6 +7,7 @@ import { Avatar } from '../../../components/ui/Avatar';
 import { Badge } from '../../../components/ui/Badge';
 import { PriorityIcon, TypeIcon } from '../taskMeta';
 import { DueDate } from './DueDate';
+import { EscalationMark } from './EscalationMark';
 
 interface TaskCardViewProps extends Omit<ComponentProps<'div'>, 'onClick'> {
   task: TaskCard;
@@ -90,6 +91,7 @@ export function TaskCardView({
         <div className="flex items-center gap-3">
           {task.dueDate && <DueDate date={task.dueDate} done={done} />}
           {task.recurrence && <Repeat className="size-3.5 text-subtle" aria-label="Repeats" />}
+          {task.escalation && <EscalationMark escalation={task.escalation} />}
           {task.subtaskTotal > 0 && (
             <Counter
               icon={<GitBranch />}

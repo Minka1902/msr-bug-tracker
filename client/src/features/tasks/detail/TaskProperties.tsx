@@ -8,6 +8,7 @@ import { errorMessage } from '../../../lib/api';
 import { formatDateTime } from '../../../lib/dates';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { useUpdateTask } from '../api';
+import { EscalationPicker } from '../components/EscalationPicker';
 import { RecurrencePicker } from '../components/RecurrencePicker';
 import { TaskPropertyPicker } from '../components/TaskPropertyPicker';
 import { PropertyRow } from './PropertyRow';
@@ -65,6 +66,18 @@ export function TaskProperties({ task, project }: TaskPropertiesProps) {
       <PropertyRow label="Due date">
         <TaskPropertyPicker task={task} field="dueDate" project={project} variant="field" />
       </PropertyRow>
+      {task.dueDate && (
+        <PropertyRow label="Escalate">
+          <EscalationPicker
+            value={task.escalation}
+            onChange={(escalation) => save({ escalation })}
+            startDate={task.startDate}
+            dueDate={task.dueDate}
+            disabled={!canEdit}
+            className="h-9 w-full border-transparent bg-transparent px-2.5"
+          />
+        </PropertyRow>
+      )}
       <PropertyRow label="Repeat">
         <RecurrencePicker
           value={task.recurrence}

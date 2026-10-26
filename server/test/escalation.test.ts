@@ -131,7 +131,8 @@ describe('priority schedule', () => {
     await shiftDates(task.id, -7, 2);
     await escalatePriorities(null, true);
     expect((await getTask(owner, task.id)).priority).toBe('low');
-    const reopened = (await owner.post(`/api/tasks/${task.id}/reopen`).expect(200)).body.task as ScheduledTask;
+    const reopened = (await owner.post(`/api/tasks/${task.id}/reopen`).expect(200)).body
+      .task as ScheduledTask;
     expect(reopened.priority).toBe('urgent');
   });
 

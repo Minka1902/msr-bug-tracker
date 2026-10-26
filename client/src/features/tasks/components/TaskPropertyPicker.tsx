@@ -28,6 +28,7 @@ import { useUpdateTask } from '../api';
 import { PriorityIcon, TypeIcon } from '../taskMeta';
 import { UNASSIGNED, useTaskOptions } from '../useTaskOptions';
 import { DueDate } from './DueDate';
+import { EscalationMark } from './EscalationMark';
 
 export type TaskField =
   | 'status'
@@ -271,9 +272,13 @@ export function TaskPropertyPicker({
         <span className="flex items-center gap-2">
           <PriorityIcon priority={task.priority} decorative />
           {PRIORITY_META[task.priority].label}
+          {task.escalation && <EscalationMark escalation={task.escalation} />}
         </span>
       ),
-      patch: (value: string) => ({ priority: value as Priority }),
+      patch: (value: string) => ({
+        priority: value as Priority,
+        ...(task.escalation && { escalation: null }),
+      }),
     },
     type: {
       value: task.type as string,

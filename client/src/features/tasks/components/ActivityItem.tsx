@@ -9,16 +9,21 @@ interface ActivityItemProps {
 }
 
 export function ActivityItem({ entry, showTask }: ActivityItemProps) {
+  const automatic = !entry.actor && entry.action === 'escalated';
+
   return (
     <div className="flex items-start gap-2.5 text-sm">
       <Avatar
-        name={entry.actor?.name ?? 'Deleted user'}
+        name={entry.actor?.name ?? (automatic ? 'Priority schedule' : 'Deleted user')}
         src={entry.actor?.avatarUrl}
         size="sm"
         className="mt-0.5"
       />
       <p className="min-w-0 flex-1 leading-relaxed text-muted">
-        <span className="font-medium text-text">{entry.actor?.name ?? 'Someone'}</span> {activityText(entry)}
+        <span className="font-medium text-text">
+          {entry.actor?.name ?? (automatic ? 'Priority schedule' : 'Someone')}
+        </span>{' '}
+        {activityText(entry)}
         {showTask && entry.task && (
           <>
             {' '}

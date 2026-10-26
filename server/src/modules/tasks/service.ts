@@ -1,5 +1,11 @@
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
-import { workflowOf, type Priority, type StatusCategory, type TaskType, type Workflow } from '@msr/shared/enums';
+import {
+  workflowOf,
+  type Priority,
+  type StatusCategory,
+  type TaskType,
+  type Workflow,
+} from '@msr/shared/enums';
 import { describeEscalation } from '@msr/shared/escalation';
 import { formatIdentifier } from '@msr/shared/identifiers';
 import { missingTaskPermissions } from '@msr/shared/permissions';
