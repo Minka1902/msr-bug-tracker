@@ -25,7 +25,7 @@ const INSTRUCTIONS = [
   'How to fill in the import template',
   '',
   'Title is the only required column. Leave any other cell empty to use the default.',
-  'Type: task, bug, feature or improvement (default task).',
+  'Type: task, bug, feature, improvement, chore or errand (default task).',
   'Status: the name of a status in the project, for example To Do or Done. Unknown names go to the first matching column, guessed from the word (done, progress, backlog).',
   'Priority: urgent, high, medium or low (default medium). Severity is used for bugs only.',
   'Assignee email: must belong to a project member. Anyone else is left unassigned.',

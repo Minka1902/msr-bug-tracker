@@ -83,7 +83,34 @@ export const router = createBrowserRouter([
               import('../features/projects/pages/ProjectLayout').then((m) => m.ProjectLayout),
             ),
             children: [
-              { index: true, element: <Navigate to="board" replace /> },
+              {
+                index: true,
+                lazy: lazyRoute(() =>
+                  import('../features/projects/pages/ProjectIndexRedirect').then(
+                    (m) => m.ProjectIndexRedirect,
+                  ),
+                ),
+              },
+              {
+                path: 'home',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/HouseholdHomePage').then((m) => m.HouseholdHomePage),
+                ),
+              },
+              {
+                path: 'shopping',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/ShoppingPage').then((m) => m.ShoppingPage),
+                ),
+              },
+              {
+                path: 'calendar',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/HouseholdCalendarPage').then(
+                    (m) => m.HouseholdCalendarPage,
+                  ),
+                ),
+              },
               {
                 path: 'overview',
                 lazy: lazyRoute(() =>

@@ -2,6 +2,8 @@ import type {
   AiProvider,
   NavLayout,
   Priority,
+  ProjectKind,
+  RecurrenceFrequency,
   RelationType,
   Reproducibility,
   Severity,
@@ -46,6 +48,7 @@ export interface ProjectStats {
 export interface ProjectSummary {
   id: string;
   key: string;
+  kind: ProjectKind;
   name: string;
   description: string;
   color: string;
@@ -124,6 +127,7 @@ export interface TaskCard {
   labels: Label[];
   startDate: string | null;
   dueDate: string | null;
+  recurrence: TaskRecurrence | null;
   isBlocked: boolean;
   position: string;
   commentCount: number;
@@ -289,4 +293,27 @@ export interface CalendarConnection {
   defaultCalendarId: string | null;
   lastSyncedAt: string | null;
   syncError: string | null;
+}
+
+export interface TaskRecurrence {
+  freq: RecurrenceFrequency;
+  interval: number;
+  rotate: string[];
+}
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity: string;
+  isChecked: boolean;
+  checkedBy: UserRef | null;
+  addedBy: string | null;
+  position: string;
+}
+
+export interface ShoppingList {
+  id: string;
+  name: string;
+  position: string;
+  items: ShoppingItem[];
 }

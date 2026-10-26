@@ -18,7 +18,7 @@ interface BoardCellProps {
   onLoadMore?: () => void;
   composer?: Omit<CreateTaskInput, 'title'> | null;
   composerTypes: readonly TaskType[];
-  dragDisabled?: boolean;
+  canDrag?: (task: TaskCard) => boolean;
   onOpen: (task: TaskCard) => void;
 }
 
@@ -32,7 +32,7 @@ export function BoardCell({
   onLoadMore,
   composer,
   composerTypes,
-  dragDisabled,
+  canDrag,
   onOpen,
 }: BoardCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id, data: { containerId: id } });
@@ -53,7 +53,7 @@ export function BoardCell({
             key={task.id}
             task={task}
             containerId={id}
-            disabled={dragDisabled}
+            disabled={canDrag ? !canDrag(task) : false}
             onOpen={onOpen}
           />
         ))}

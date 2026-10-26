@@ -2,8 +2,9 @@ import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
 import { workflowOf, type StatusCategory, type TaskType, type Workflow } from '@msr/shared/enums';
 import { formatIdentifier } from '@msr/shared/identifiers';
 import { missingTaskPermissions } from '@msr/shared/permissions';
+import { describeRecurrence, nextAssignee, nextOccurrence } from '@msr/shared/recurrence';
 import type { BulkPatch, CreateTaskInput, TaskFilters, UpdateTaskInput } from '@msr/shared/schemas/task';
-import type { BoardColumn, ProjectStatus } from '@msr/shared/types';
+import type { BoardColumn, ProjectStatus, TaskRecurrence } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { badRequest, forbidden, notFound } from '../../lib/httpError';
 import { assertValidPosition, positionAfter } from '../../lib/position';
@@ -40,6 +41,7 @@ interface CurrentRow {
   reporter_id: string | null;
   start_date: string | null;
   due_date: string | null;
+  recurrence: TaskRecurrence | null;
   is_blocked: boolean;
   blocked_reason: string | null;
   completed_at: Date | null;
@@ -95,9 +97,9 @@ const PARENT = 'SELECT id, parent_id FROM tasks WHERE id = $1 AND project_id = $
 const INSERT_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
-                     actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility)
+                     actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, recurrence)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $14 THEN now() END, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26)
+          $23, $24, $25, $26, $27)
   RETURNING id`;
 const INSERT_LABELS =
   'INSERT INTO task_labels (task_id, label_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING';
@@ -123,10 +125,12 @@ const DELETE_TASKS = 'DELETE FROM tasks WHERE id = ANY($1::uuid[])';
 const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
-                     actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total)
+                     actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
+                     recurrence)
   SELECT project_id, $2, parent_id, type, left(title || ' (copy)', 300), description, status_id, priority, severity, assignee_id, $3,
          start_date, due_date, CASE WHEN completed_at IS NOT NULL THEN now() END, is_blocked, blocked_reason, $4, steps_to_reproduce,
-         expected_behavior, actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total
+         expected_behavior, actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
+         recurrence
   FROM tasks WHERE id = $1
   RETURNING id`;
 const COPY_LABELS =
@@ -150,6 +154,28 @@ const RESOLVE_IDENTIFIER = `
   LEFT JOIN task_aliases al ON al.project_id = p.id AND al.number = $2
   WHERE p.key = $1`;
 const SUBTASKS = `${cardSelect()} WHERE t.parent_id = $1 ORDER BY t.position, t.number`;
+const RESERVE_NUMBERS = 'UPDATE projects SET task_seq = task_seq + $2 WHERE id = $1 RETURNING task_seq';
+const ACTOR_TODAY = `SELECT (now() AT TIME ZONE coalesce(preferences->>'timezone', 'UTC'))::date::text AS today FROM users WHERE id = $1`;
+const SPAWN_RECURRENCES = `
+  INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
+                     start_date, due_date, recurrence, position, steps_to_reproduce, expected_behavior, actual_behavior, env_os,
+                     env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total)
+  SELECT t.project_id, x.number, t.parent_id, t.type, t.title, t.description, x.status_id, t.priority, t.severity, x.assignee_id,
+         t.reporter_id, x.start_date, x.due_date, t.recurrence, x.position, t.steps_to_reproduce, t.expected_behavior,
+         t.actual_behavior, t.env_os, t.env_browser, t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility,
+         t.checklist_total
+  FROM unnest($1::uuid[], $2::int[], $3::uuid[], $4::uuid[], $5::date[], $6::date[], $7::text[])
+    AS x(source_id, number, status_id, assignee_id, start_date, due_date, position)
+  JOIN tasks t ON t.id = x.source_id
+  RETURNING id, number`;
+const COPY_SPAWNED_LABELS = `
+  INSERT INTO task_labels (task_id, label_id)
+  SELECT x.id, tl.label_id FROM unnest($1::uuid[], $2::uuid[]) AS x(id, source_id) JOIN task_labels tl ON tl.task_id = x.source_id`;
+const COPY_SPAWNED_CHECKLIST = `
+  INSERT INTO task_checklist_items (task_id, text, is_done, position)
+  SELECT x.id, c.text, false, c.position FROM unnest($1::uuid[], $2::uuid[]) AS x(id, source_id)
+  JOIN task_checklist_items c ON c.task_id = x.source_id`;
+const CLEAR_RECURRENCE = 'UPDATE tasks SET recurrence = NULL WHERE id = ANY($1::uuid[])';
 
 export const pickStatus = (statuses: ProjectStatus[], workflow: Workflow, category: StatusCategory) => {
   for (const candidate of CATEGORY_FALLBACK[category]) {
@@ -190,6 +216,89 @@ const refreshParents = (db: Db, parentIds: (string | null)[]) => {
 
 const lockTasks = (db: Db, projectId: string, ids: string[]) =>
   query<CurrentRow>(CURRENT_TASK, [ids, projectId], db);
+
+const assertRecurrence = (db: Db, projectId: string, recurrence: TaskRecurrence | null | undefined) =>
+  recurrence?.rotate.length ? assertMembers(db, projectId, recurrence.rotate) : Promise.resolve();
+
+const shiftDate = (date: string | null, from: string | null, to: string) =>
+  date && from
+    ? new Date(Date.parse(to) - (Date.parse(from) - Date.parse(date))).toISOString().slice(0, 10)
+    : null;
+
+const spawnRecurrences = async (
+  db: Db,
+  project: ProjectContext,
+  completed: Pick<
+    CurrentRow,
+    'id' | 'workflow' | 'assignee_id' | 'start_date' | 'due_date' | 'parent_id' | 'recurrence'
+  >[],
+  actorId: string,
+) => {
+  const sources = completed.filter((row) => row.recurrence);
+  if (!sources.length) return;
+  const { today } = (await queryOne<{ today: string }>(ACTOR_TODAY, [actorId], db))!;
+  const statuses = await listStatuses(project.id, db);
+  const candidates = sources.map((row) => nextAssignee(row.recurrence!, row.assignee_id));
+  const members = new Set(
+    (
+      await query<{ user_id: string }>(
+        MEMBER_IDS,
+        [project.id, [...new Set(candidates.filter((id): id is string => !!id))]],
+        db,
+      )
+    ).map((row) => row.user_id),
+  );
+  const plans = sources.map((row, index) => {
+    const dueDate = nextOccurrence(row.recurrence!, row.due_date, today);
+    return {
+      row,
+      status: pickStatus(statuses, row.workflow, 'todo'),
+      assigneeId: candidates[index] && members.has(candidates[index]) ? candidates[index] : null,
+      dueDate,
+      startDate: shiftDate(row.start_date, row.due_date, dueDate),
+    };
+  });
+  const positions = new Map<string, string[]>();
+  for (const statusId of new Set(plans.map((plan) => plan.status.id))) {
+    const count = plans.filter((plan) => plan.status.id === statusId).length;
+    positions.set(statusId, generateNKeysBetween(await lastPosition(db, statusId), null, count));
+  }
+  const last = (await queryOne<{ task_seq: number }>(RESERVE_NUMBERS, [project.id, plans.length], db))!
+    .task_seq;
+  const numbers = plans.map((_, index) => last - plans.length + 1 + index);
+  const created = await query<{ id: string; number: number }>(
+    SPAWN_RECURRENCES,
+    [
+      plans.map((plan) => plan.row.id),
+      numbers,
+      plans.map((plan) => plan.status.id),
+      plans.map((plan) => plan.assigneeId),
+      plans.map((plan) => plan.startDate),
+      plans.map((plan) => plan.dueDate),
+      plans.map((plan) => positions.get(plan.status.id)!.shift()!),
+    ],
+    db,
+  );
+  const sourceOf = new Map(numbers.map((number, index) => [number, plans[index]!.row.id]));
+  const pairs = [created.map((row) => row.id), created.map((row) => sourceOf.get(row.number)!)];
+  await query(COPY_SPAWNED_LABELS, pairs, db);
+  await query(COPY_SPAWNED_CHECKLIST, pairs, db);
+  await query(CLEAR_RECURRENCE, [pairs[1]], db);
+  await refreshParents(
+    db,
+    plans.map((plan) => plan.row.parent_id),
+  );
+  await recordActivity(
+    created.map((row) => ({
+      projectId: project.id,
+      taskId: row.id,
+      actorId,
+      action: 'created',
+      field: 'recurrence',
+    })),
+    db,
+  );
+};
 
 export const getTaskDetail = async (taskId: string, db?: Db) => {
   const row = await queryOne<DetailRow>(`${DETAIL_SELECT} WHERE t.id = $1`, [taskId], db);
@@ -274,6 +383,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
       if (parent.parent_id) throw badRequest('Subtasks cannot have their own subtasks');
     }
     await assertMembers(db, project.id, [input.assigneeId]);
+    await assertRecurrence(db, project.id, input.recurrence);
     const labels = await projectLabels(db, project.id, input.labelIds ?? []);
     if (input.position) assertValidPosition(input.position);
 
@@ -308,6 +418,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
         input.foundInVersion ?? '',
         input.fixVersion ?? '',
         input.reproducibility ?? null,
+        input.recurrence ?? null,
       ],
       db,
     );
@@ -380,6 +491,19 @@ export const updateTask = (
       else log(field, current[column] ?? null, value);
     }
 
+    if (
+      patch.recurrence !== undefined &&
+      JSON.stringify(patch.recurrence) !== JSON.stringify(current.recurrence)
+    ) {
+      await assertRecurrence(db, project.id, patch.recurrence);
+      sets.recurrence = patch.recurrence;
+      log(
+        'recurrence',
+        current.recurrence && describeRecurrence(current.recurrence),
+        patch.recurrence && describeRecurrence(patch.recurrence),
+      );
+    }
+
     const start = 'start_date' in sets ? (sets.start_date as string | null) : current.start_date;
     const due = 'due_date' in sets ? (sets.due_date as string | null) : current.due_date;
     if (start && due && start > due) throw badRequest('Start date must be on or before the due date');
@@ -420,6 +544,19 @@ export const updateTask = (
     }
     if ('completed_at' in sets) await refreshParents(db, [current.parent_id]);
     await recordActivity(activity, db);
+    if (sets.completed_at)
+      await spawnRecurrences(
+        db,
+        project,
+        [
+          {
+            ...current,
+            recurrence:
+              'recurrence' in sets ? (sets.recurrence as TaskRecurrence | null) : current.recurrence,
+          },
+        ],
+        actorId,
+      );
     return getTaskDetail(taskId, db);
   });
 
@@ -620,6 +757,14 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
         await refreshParents(
           db,
           ordered.map((move) => move.row.parent_id),
+        );
+        await spawnRecurrences(
+          db,
+          project,
+          ordered
+            .filter(({ row, status }) => status.category === 'done' && row.category !== 'done')
+            .map(({ row }) => row),
+          actorId,
         );
       }
     }

@@ -34,6 +34,7 @@ import {
   VERSIONS,
   type ProjectTemplate,
 } from './content';
+import { generateDemoHousehold } from './household';
 import { createRandom, type Random } from './random';
 
 export type DemoSize = 'small' | 'large';
@@ -57,7 +58,9 @@ const QA_PERMISSIONS = maskOf(
   'project.manage_labels',
 );
 
-const TYPE_WEIGHTS: Record<TaskType, number> = { task: 35, bug: 35, feature: 18, improvement: 12 };
+const TYPE_WEIGHTS = { task: 35, bug: 35, feature: 18, improvement: 12 } satisfies Partial<
+  Record<TaskType, number>
+>;
 const PRIORITY_WEIGHTS = { urgent: 8, high: 22, medium: 45, low: 25 };
 const SEVERITY_WEIGHTS = { critical: 10, major: 30, minor: 40, trivial: 20 };
 const REPRO_WEIGHTS = { always: 50, sometimes: 35, rarely: 15 };
@@ -104,7 +107,7 @@ const pickCategory = (random: Random, ageDays: number, workflow: Workflow): Stat
   return workflow === 'bug' && category === 'backlog' ? 'todo' : category;
 };
 
-export const availableKeys = async (db: Db, templates: ProjectTemplate[]) => {
+export const availableKeys = async (db: Db, templates: Pick<ProjectTemplate, 'key'>[]) => {
   const candidates = templates.flatMap((template) => [
     template.key,
     ...Array.from(
@@ -714,9 +717,10 @@ export const generateDemoData = async (db: Db, ownerId: string, size: DemoSize, 
     [projectIds],
     db,
   );
+  const household = await generateDemoHousehold(db, ownerId, tag, now);
   return {
     copiedKeys: copies.map((copy) => copy.key),
-    projectCount: rows.projects.length,
-    taskCount: rows.tasks.length,
+    projectCount: rows.projects.length + 1,
+    taskCount: rows.tasks.length + household.taskCount,
   };
 };

@@ -25,18 +25,22 @@ export function BoardPage() {
   const options = useTaskOptions(project);
   const [params, setParams] = useSearchParams();
   const { filters, update, clear } = useUrlFilters();
-  const [groupBy, setGroupBy] = useLocalState<GroupBy>(`msr-board-group-${project.key}`, 'none');
-  const workflow = params.get('workflow') === 'bug' ? 'bug' : 'task';
+  const household = project.kind === 'household';
+  const [groupBy, setGroupBy] = useLocalState<GroupBy>(
+    `msr-board-group-${project.key}`,
+    household ? 'assignee' : 'none',
+  );
+  const workflow = !household && params.get('workflow') === 'bug' ? 'bug' : 'task';
   const defs = useMemo(
-    () => taskFilterDefs(options).filter((def) => def.key !== 'status' && def.key !== 'type'),
-    [options],
+    () => taskFilterDefs(options).filter((def) => def.key !== 'status' && (household || def.key !== 'type')),
+    [options, household],
   );
 
   return (
     <div className="flex flex-col gap-3">
       <FilterBar defs={defs} values={filters} onChange={update} onClear={clear}>
         <BoardToolbar
-          workflow={workflow}
+          workflow={household ? undefined : workflow}
           onWorkflowChange={setWorkflow}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}

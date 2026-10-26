@@ -112,7 +112,7 @@ export function TaskPropertyPicker({
   const canAssignSelf = permissions.canAssign(task.assignee?.id ?? null, user.id);
   const disabled =
     field === 'status'
-      ? !permissions.can('task.transition')
+      ? !permissions.canTransition(ownership)
       : field === 'assignee'
         ? !canAssignOthers && !canAssignSelf
         : !canEdit;

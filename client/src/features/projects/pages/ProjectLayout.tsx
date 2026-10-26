@@ -1,4 +1,17 @@
-import { Archive, Bug, ChartPie, History, KanbanSquare, List, Plus, Settings, Star } from 'lucide-react';
+import {
+  Archive,
+  Bug,
+  CalendarDays,
+  ChartPie,
+  History,
+  House,
+  KanbanSquare,
+  List,
+  Plus,
+  Settings,
+  ShoppingCart,
+  Star,
+} from 'lucide-react';
 import { Outlet, useParams } from 'react-router';
 import { can } from '@msr/shared/permissions';
 import { toast } from 'sonner';
@@ -18,6 +31,27 @@ import { useArchiveProject, useProject, useToggleFavorite } from '../api';
 import { ProjectLinks } from '../components/ProjectLinks';
 import { ProjectSwitcher } from '../components/ProjectSwitcher';
 import { useProjectPermissions } from '../useProjectPermissions';
+
+const TABS = {
+  software: [
+    { path: 'overview', label: 'Overview', icon: <ChartPie /> },
+    { path: 'board', label: 'Board', icon: <KanbanSquare /> },
+    { path: 'list', label: 'List', icon: <List /> },
+    { path: 'bugs', label: 'Bugs', icon: <Bug /> },
+    { path: 'activity', label: 'Activity', icon: <History /> },
+    { path: 'settings', label: 'Settings', icon: <Settings /> },
+  ],
+  household: [
+    { path: 'home', label: 'Home', icon: <House /> },
+    { path: 'board', label: 'Chores', icon: <KanbanSquare /> },
+    { path: 'list', label: 'All tasks', icon: <List /> },
+    { path: 'shopping', label: 'Shopping', icon: <ShoppingCart /> },
+    { path: 'calendar', label: 'Calendar', icon: <CalendarDays /> },
+    { path: 'activity', label: 'Activity', icon: <History /> },
+    { path: 'settings', label: 'Settings', icon: <Settings /> },
+  ],
+};
+const ADD_LABEL = { software: 'Add task', household: 'Add chore' };
 
 export function ProjectLayout() {
   const restore = () =>
@@ -67,8 +101,13 @@ export function ProjectLayout() {
         <ProjectLinks project={data} />
         <div className="flex-1" />
         {permissions.can('task.create') && (
-          <Button leftIcon={<Plus />} onClick={() => openQuickCreate({ projectKey: data.key })}>
-            Add task
+          <Button
+            leftIcon={<Plus />}
+            onClick={() =>
+              openQuickCreate({ projectKey: data.key, ...(data.kind === 'household' && { type: 'chore' }) })
+            }
+          >
+            {ADD_LABEL[data.kind]}
           </Button>
         )}
       </div>
@@ -89,14 +128,11 @@ export function ProjectLayout() {
       )}
       <TabLinks
         label="Project views"
-        items={[
-          { to: `${base}/overview`, label: 'Overview', icon: <ChartPie /> },
-          { to: `${base}/board`, label: 'Board', icon: <KanbanSquare /> },
-          { to: `${base}/list`, label: 'List', icon: <List /> },
-          { to: `${base}/bugs`, label: 'Bugs', icon: <Bug /> },
-          { to: `${base}/activity`, label: 'Activity', icon: <History /> },
-          { to: `${base}/settings`, label: 'Settings', icon: <Settings /> },
-        ]}
+        items={TABS[data.kind].map((tab) => ({
+          to: `${base}/${tab.path}`,
+          label: tab.label,
+          icon: tab.icon,
+        }))}
       />
       <Outlet context={{ project: data }} />
     </div>

@@ -1,4 +1,4 @@
-export const TASK_TYPES = ['task', 'bug', 'feature', 'improvement'] as const;
+export const TASK_TYPES = ['task', 'bug', 'feature', 'improvement', 'chore', 'errand'] as const;
 export const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 export const SEVERITIES = ['critical', 'major', 'minor', 'trivial'] as const;
 export const REPRODUCIBILITY = ['always', 'sometimes', 'rarely'] as const;
@@ -9,6 +9,8 @@ export const THEME_STYLES = ['aurora', 'clean'] as const;
 export const THEME_MODES = ['light', 'dark', 'system'] as const;
 export const NAV_LAYOUTS = ['sidebar', 'rail'] as const;
 export const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'xai'] as const;
+export const PROJECT_KINDS = ['software', 'household'] as const;
+export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
 
 export type TaskType = (typeof TASK_TYPES)[number];
 export type Priority = (typeof PRIORITIES)[number];
@@ -21,6 +23,8 @@ export type ThemeStyle = (typeof THEME_STYLES)[number];
 export type ThemeMode = (typeof THEME_MODES)[number];
 export type NavLayout = (typeof NAV_LAYOUTS)[number];
 export type AiProvider = (typeof AI_PROVIDERS)[number];
+export type ProjectKind = (typeof PROJECT_KINDS)[number];
+export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
 
 export type Tone = 'neutral' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'violet';
 
@@ -34,6 +38,28 @@ export const TYPE_META: Record<TaskType, EnumMeta> = {
   bug: { label: 'Bug', tone: 'danger' },
   feature: { label: 'Feature', tone: 'violet' },
   improvement: { label: 'Improvement', tone: 'success' },
+  chore: { label: 'Chore', tone: 'accent' },
+  errand: { label: 'Errand', tone: 'warning' },
+};
+
+export const PROJECT_KIND_META: Record<ProjectKind, { label: string; description: string; icon: string }> = {
+  software: { label: 'Software', description: 'Tasks, bugs and features for a team', icon: 'hexagon' },
+  household: {
+    label: 'Household',
+    description: 'Chores, errands, shopping and a family calendar',
+    icon: 'house',
+  },
+};
+
+export const KIND_TASK_TYPES: Record<ProjectKind, readonly TaskType[]> = {
+  software: ['task', 'bug', 'feature', 'improvement'],
+  household: ['chore', 'errand', 'task'],
+};
+
+export const RECURRENCE_META: Record<RecurrenceFrequency, { label: string; unit: string }> = {
+  daily: { label: 'Daily', unit: 'day' },
+  weekly: { label: 'Weekly', unit: 'week' },
+  monthly: { label: 'Monthly', unit: 'month' },
 };
 
 export const PRIORITY_META: Record<Priority, EnumMeta> = {
@@ -111,4 +137,21 @@ export const DEFAULT_STATUSES: Record<Workflow, { name: string; color: string; c
     ],
   };
 
+export const HOUSEHOLD_STATUSES: Record<
+  Workflow,
+  { name: string; color: string; category: StatusCategory }[]
+> = {
+  task: [
+    { name: 'To do', color: '#64748b', category: 'todo' },
+    { name: 'Doing', color: '#3b82f6', category: 'in_progress' },
+    { name: 'Done', color: '#22c55e', category: 'done' },
+  ],
+  bug: DEFAULT_STATUSES.bug,
+};
+
+export const HOUSEHOLD_LABELS = ['Kitchen', 'Laundry', 'Outdoor', 'School', 'Pets'];
+
 export const workflowOf = (type: TaskType): Workflow => (type === 'bug' ? 'bug' : 'task');
+
+export const typesFor = (kind: ProjectKind, workflow?: Workflow) =>
+  KIND_TASK_TYPES[kind].filter((type) => !workflow || workflowOf(type) === workflow);

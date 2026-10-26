@@ -116,7 +116,9 @@ export function TaskDetailHeader({ task, project, onClose, onNavigate }: TaskDet
           {
             label: 'Reopen',
             icon: <RotateCcw />,
-            hidden: task.statusCategory !== 'done' || !permissions.can('task.transition'),
+            hidden:
+              task.statusCategory !== 'done' ||
+              !permissions.canTransition({ assigneeId: task.assignee?.id ?? null }),
             onSelect: () => reopen.mutate(task.id, { onError }),
           },
           {

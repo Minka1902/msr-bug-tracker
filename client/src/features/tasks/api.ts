@@ -11,6 +11,7 @@ import type { BulkPatch, CreateTaskInput, UpdateTaskInput } from '@msr/shared/sc
 import type { FilterValues } from '../../hooks/useUrlFilters';
 import type { ActivityEntry, BoardColumn, Page, TaskCard, TaskDetail } from '@msr/shared/types';
 import { api } from '../../lib/api';
+import { calendarKeys } from '../calendar/api';
 import { projectKeys } from '../projects/api';
 
 export const taskKeys = {
@@ -119,6 +120,7 @@ export const invalidateTaskData = (client: QueryClient) =>
   Promise.all([
     client.invalidateQueries({ queryKey: taskKeys.all }),
     client.invalidateQueries({ queryKey: projectKeys.all }),
+    client.invalidateQueries({ queryKey: calendarKeys.all }),
   ]);
 
 export const useCreateTask = () => {

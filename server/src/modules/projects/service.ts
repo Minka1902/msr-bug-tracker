@@ -1,6 +1,19 @@
 import { generateNKeysBetween } from 'fractional-indexing';
-import { DEFAULT_STATUSES, WORKFLOWS } from '@msr/shared/enums';
-import { DEFAULT_ROLE_PERMISSIONS, SYSTEM_ROLE_LABELS, SYSTEM_ROLES } from '@msr/shared/permissions';
+import {
+  DEFAULT_STATUSES,
+  HOUSEHOLD_LABELS,
+  HOUSEHOLD_STATUSES,
+  LABEL_COLORS,
+  WORKFLOWS,
+  type ProjectKind,
+} from '@msr/shared/enums';
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  HOUSEHOLD_ROLE_LABELS,
+  HOUSEHOLD_ROLE_PERMISSIONS,
+  SYSTEM_ROLE_LABELS,
+  SYSTEM_ROLES,
+} from '@msr/shared/permissions';
 import type { CreateProjectInput, UpdateProjectInput } from '@msr/shared/schemas/project';
 import type { ProjectDetail, ProjectSummary } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
@@ -15,6 +28,7 @@ export type ArchivedFilter = 'active' | 'archived' | 'all';
 interface SummaryRow {
   id: string;
   key: string;
+  kind: ProjectKind;
   name: string;
   description: string;
   color: string;
@@ -40,7 +54,7 @@ interface SummaryRow {
 }
 
 const SUMMARY_SQL = `
-  SELECT p.id, p.key, p.name, p.description, p.color, p.icon, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
+  SELECT p.id, p.key, p.kind, p.name, p.description, p.color, p.icon, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
          my.is_favorite, r.name AS role_name, r.permissions,
          st.total, st.completed, st.active, st.overdue, st.next_due, st.last_task_update, mc.member_count, mem.members
   FROM project_members my
@@ -74,8 +88,8 @@ const TOUCH_OPENED = `
   UPDATE project_members SET last_opened_at = now()
   WHERE project_id = $1 AND user_id = $2 AND (last_opened_at IS NULL OR last_opened_at < now() - interval '1 minute')`;
 const INSERT_PROJECT = `
-  INSERT INTO projects (key, name, description, color, icon, live_url, repo_url, owner_id)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
+  INSERT INTO projects (key, kind, name, description, color, icon, live_url, repo_url, owner_id)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`;
 const INSERT_ROLES = `
   INSERT INTO project_roles (project_id, name, system_key, permissions, position)
   SELECT $1, name, system_key::system_role, permissions, position
@@ -87,6 +101,9 @@ const INSERT_STATUSES = `
   INSERT INTO project_statuses (project_id, workflow, name, color, category, position)
   SELECT $1, workflow::workflow, name, color, category::status_category, position
   FROM unnest($2::text[], $3::text[], $4::text[], $5::text[], $6::text[]) AS s(workflow, name, color, category, position)`;
+const INSERT_LABELS = `
+  INSERT INTO labels (project_id, name, color) SELECT $1, name, color FROM unnest($2::text[], $3::text[]) AS l(name, color)`;
+const INSERT_LIST = 'INSERT INTO shopping_lists (project_id, name, position) VALUES ($1, $2, $3)';
 const UPDATE_PROJECT = `
   UPDATE projects SET name = COALESCE($2, name), description = COALESCE($3, description), color = COALESCE($4, color),
          icon = COALESCE($5, icon), live_url = CASE WHEN $6 THEN $7 ELSE live_url END,
@@ -100,9 +117,24 @@ const DELETE_PROJECT = 'DELETE FROM projects WHERE id = $1';
 const SET_FAVORITE = 'UPDATE project_members SET is_favorite = $3 WHERE project_id = $1 AND user_id = $2';
 const TAKEN_KEYS = 'SELECT key::text FROM projects WHERE key = ANY($1::citext[])';
 
+const KIND_SETUP = {
+  software: {
+    roleLabels: SYSTEM_ROLE_LABELS,
+    rolePermissions: DEFAULT_ROLE_PERMISSIONS,
+    statuses: DEFAULT_STATUSES,
+  },
+  household: {
+    roleLabels: HOUSEHOLD_ROLE_LABELS,
+    rolePermissions: HOUSEHOLD_ROLE_PERMISSIONS,
+    statuses: HOUSEHOLD_STATUSES,
+  },
+};
+const FIRST_POSITION = 'a0';
+
 const toSummary = (row: SummaryRow, userId: string): ProjectSummary => ({
   id: row.id,
   key: row.key,
+  kind: row.kind,
   name: row.name,
   description: row.description,
   color: row.color,
@@ -165,10 +197,12 @@ export const getProjectDetail = async (
 
 export const createProject = (input: CreateProjectInput, ownerId: string) =>
   transaction(async (db) => {
+    const setup = KIND_SETUP[input.kind];
     const project = await queryOne<{ id: string }>(
       INSERT_PROJECT,
       [
         input.key,
+        input.kind,
         input.name,
         input.description,
         input.color,
@@ -183,9 +217,9 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
       INSERT_ROLES,
       [
         project!.id,
-        SYSTEM_ROLES.map((role) => SYSTEM_ROLE_LABELS[role]),
+        SYSTEM_ROLES.map((role) => setup.roleLabels[role]),
         [...SYSTEM_ROLES],
-        SYSTEM_ROLES.map((role) => DEFAULT_ROLE_PERMISSIONS[role]),
+        SYSTEM_ROLES.map((role) => setup.rolePermissions[role]),
         SYSTEM_ROLES.map((_, index) => index),
       ],
       db,
@@ -196,8 +230,8 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
       db,
     );
     const statuses = WORKFLOWS.flatMap((workflow) => {
-      const positions = generateNKeysBetween(null, null, DEFAULT_STATUSES[workflow].length);
-      return DEFAULT_STATUSES[workflow].map((status, index) => ({
+      const positions = generateNKeysBetween(null, null, setup.statuses[workflow].length);
+      return setup.statuses[workflow].map((status, index) => ({
         ...status,
         workflow,
         position: positions[index]!,
@@ -215,6 +249,18 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
       ],
       db,
     );
+    if (input.kind === 'household') {
+      await query(
+        INSERT_LABELS,
+        [
+          project!.id,
+          HOUSEHOLD_LABELS,
+          HOUSEHOLD_LABELS.map((_, index) => LABEL_COLORS[index % LABEL_COLORS.length]!),
+        ],
+        db,
+      );
+      await query(INSERT_LIST, [project!.id, 'Groceries', FIRST_POSITION], db);
+    }
     return project!.id;
   });
 

@@ -40,7 +40,7 @@ describe('task import', () => {
     await workbook.xlsx.load(xlsx.body);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Tasks', 'Instructions']);
     expect(workbook.getWorksheet('Tasks')!.getCell('B2').dataValidation.formulae).toEqual([
-      '"task,bug,feature,improvement"',
+      '"task,bug,feature,improvement,chore,errand"',
     ]);
   });
 

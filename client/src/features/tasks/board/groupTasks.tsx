@@ -1,6 +1,6 @@
 import { UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { PRIORITIES, PRIORITY_META, TASK_TYPES, TYPE_META } from '@msr/shared/enums';
+import { KIND_TASK_TYPES, PRIORITIES, PRIORITY_META, TYPE_META } from '@msr/shared/enums';
 import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Avatar } from '../../../components/ui/Avatar';
@@ -39,13 +39,15 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
   const byKey = (key: string) => tasks.filter((task) => laneKeyOf(task, groupBy) === key);
 
   if (groupBy === 'type')
-    return TASK_TYPES.map((type) => ({
-      key: type,
-      label: TYPE_META[type].label,
-      icon: <TypeIcon type={type} />,
-      tasks: byKey(type),
-      patch: { input: { type }, optimistic: { type } },
-    })).filter((lane) => lane.tasks.length);
+    return KIND_TASK_TYPES[project.kind]
+      .map((type) => ({
+        key: type,
+        label: TYPE_META[type].label,
+        icon: <TypeIcon type={type} />,
+        tasks: byKey(type),
+        patch: { input: { type }, optimistic: { type } },
+      }))
+      .filter((lane) => lane.tasks.length);
 
   if (groupBy === 'priority')
     return PRIORITIES.map((priority) => ({

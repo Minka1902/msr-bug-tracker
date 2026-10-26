@@ -1,4 +1,4 @@
-import { Ban, CheckSquare, CornerDownRight, GitBranch, MessageSquare, Paperclip } from 'lucide-react';
+import { Ban, CheckSquare, CornerDownRight, GitBranch, MessageSquare, Paperclip, Repeat } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { PRIORITY_META } from '@msr/shared/enums';
 import type { TaskCard } from '@msr/shared/types';
@@ -89,6 +89,7 @@ export function TaskCardView({
         )}
         <div className="flex items-center gap-3">
           {task.dueDate && <DueDate date={task.dueDate} done={done} />}
+          {task.recurrence && <Repeat className="size-3.5 text-subtle" aria-label="Repeats" />}
           {task.subtaskTotal > 0 && (
             <Counter
               icon={<GitBranch />}

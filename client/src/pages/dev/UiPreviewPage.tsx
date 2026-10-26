@@ -52,6 +52,7 @@ const project = (
 ): ProjectSummary => ({
   id: key,
   key,
+  kind: 'software',
   name,
   description: `Designing and shipping the ${name.toLowerCase()} with a focus on clarity and speed.`,
   color,
@@ -109,6 +110,7 @@ const task = (
   labels: [],
   startDate: null,
   dueDate: day((number % 9) - 3),
+  recurrence: null,
   isBlocked: false,
   position: 'a0',
   commentCount: number % 3,

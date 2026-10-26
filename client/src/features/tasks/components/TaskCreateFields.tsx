@@ -1,15 +1,17 @@
 import type { ReactNode } from 'react';
 import { workflowOf, type Priority, type Severity, type TaskType } from '@msr/shared/enums';
 import { canAssign } from '@msr/shared/permissions';
-import type { ProjectDetail } from '@msr/shared/types';
+import type { ProjectDetail, TaskRecurrence } from '@msr/shared/types';
 import { DatePicker } from '../../../components/ui/DatePicker';
 import { Field } from '../../../components/ui/Field';
 import { OptionPicker } from '../../../components/ui/OptionPicker';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { cn } from '../../../lib/cn';
 import { UNASSIGNED, useTaskOptions } from '../useTaskOptions';
+import { RecurrencePicker } from './RecurrencePicker';
 
-export type TaskCreateField = 'type' | 'status' | 'priority' | 'assignee' | 'dueDate' | 'labels' | 'severity';
+export type TaskCreateField =
+  'type' | 'status' | 'priority' | 'assignee' | 'dueDate' | 'recurrence' | 'labels' | 'severity';
 
 export interface TaskCreateValues {
   type: TaskType;
@@ -17,6 +19,7 @@ export interface TaskCreateValues {
   priority: Priority;
   assigneeId: string | null;
   dueDate: string | null;
+  recurrence: TaskRecurrence | null;
   labelIds: string[];
   severity: Severity | null;
 }
@@ -37,6 +40,7 @@ const ALL_FIELDS: TaskCreateField[] = [
   'priority',
   'assignee',
   'dueDate',
+  'recurrence',
   'labels',
   'severity',
 ];
@@ -46,6 +50,7 @@ const LABELS: Record<TaskCreateField, string> = {
   priority: 'Priority',
   assignee: 'Assignee',
   dueDate: 'Due date',
+  recurrence: 'Repeat',
   labels: 'Labels',
   severity: 'Severity',
 };
@@ -133,6 +138,16 @@ export function TaskCreateFields({
         placeholder={layout === 'grid' ? 'Set date' : 'Due date'}
         value={values.dueDate}
         onChange={(dueDate) => onChange({ dueDate })}
+        className={controlClass}
+      />
+    ),
+    recurrence: () => (
+      <RecurrencePicker
+        aria-label={LABELS.recurrence}
+        value={values.recurrence}
+        onChange={(recurrence) => onChange({ recurrence })}
+        members={project.memberList}
+        placeholder={layout === 'grid' ? "Doesn't repeat" : 'Repeat'}
         className={controlClass}
       />
     ),

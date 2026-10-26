@@ -1,7 +1,7 @@
 import { CircleAlert } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { TASK_TYPES, TYPE_META, workflowOf, type TaskType } from '@msr/shared/enums';
+import { KIND_TASK_TYPES, TYPE_META, workflowOf, type TaskType } from '@msr/shared/enums';
 import { can } from '@msr/shared/permissions';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
@@ -41,6 +41,7 @@ const BLANK_FIELDS: Omit<TaskCreateValues, 'type'> = {
   priority: 'medium',
   assigneeId: null,
   dueDate: null,
+  recurrence: null,
   labelIds: [],
   severity: null,
 };
@@ -70,13 +71,14 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
         projectKey,
         title: title.trim(),
         description,
-        type: fields.type,
+        type,
         priority: fields.priority,
         statusId: effectiveStatus ?? undefined,
         assigneeId: fields.assigneeId,
         dueDate: fields.dueDate,
+        recurrence: fields.recurrence,
         labelIds: fields.labelIds,
-        severity: fields.type === 'bug' ? fields.severity : null,
+        severity: type === 'bug' ? fields.severity : null,
         attachmentIds,
       },
       {
@@ -128,9 +130,12 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
   });
   const [createMore, setCreateMore] = useState(false);
   const projectData = project.data ?? EMPTY_PROJECT;
+  const types = KIND_TASK_TYPES[project.data?.kind ?? 'software'];
+  const type = types.includes(fields.type) ? fields.type : types[0]!;
+  const noun = project.data?.kind === 'household' ? TYPE_META[type].label.toLowerCase() : 'task';
   const mask = projectData.permissions;
   const effectiveStatus = projectData.statuses.some(
-    (status) => status.id === fields.statusId && status.workflow === workflowOf(fields.type),
+    (status) => status.id === fields.statusId && status.workflow === workflowOf(type),
   )
     ? fields.statusId
     : null;
@@ -139,7 +144,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
     <Modal
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
-      title="New task"
+      title={`New ${noun}`}
       size="lg"
       footer={
         <>
@@ -159,7 +164,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
             loading={create.isPending}
             disabled={!title.trim() || !projectKey}
           >
-            Create task
+            Create {noun}
           </Button>
         </>
       }
@@ -193,9 +198,9 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
           <SegmentedControl
             label="Type"
             size="sm"
-            value={fields.type}
+            value={type}
             onChange={(type) => patchFields({ type })}
-            options={TASK_TYPES.map((value) => ({
+            options={types.map((value) => ({
               value,
               label: TYPE_META[value].label,
               icon: <TypeIcon type={value} />,
@@ -206,7 +211,13 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
           autoFocus
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder={fields.type === 'bug' ? 'What is broken?' : 'Task title'}
+          placeholder={
+            type === 'bug'
+              ? 'What is broken?'
+              : type === 'task'
+                ? 'Task title'
+                : `${TYPE_META[type].label} title`
+          }
           maxLength={300}
           size="lg"
           aria-label="Title"
@@ -218,7 +229,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
           onChange={setDescription}
           onUpload={can(mask, 'attachment.upload') ? upload : undefined}
           placeholder={
-            fields.type === 'bug'
+            type === 'bug'
               ? 'Steps to reproduce, expected vs actual… paste screenshots here'
               : 'Add a description… paste screenshots here'
           }
@@ -226,9 +237,9 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
         />
         <TaskCreateFields
           project={projectData}
-          values={fields}
+          values={{ ...fields, type }}
           onChange={patchFields}
-          fields={['status', 'priority', 'assignee', 'dueDate', 'labels', 'severity']}
+          fields={['status', 'priority', 'assignee', 'dueDate', 'recurrence', 'labels', 'severity']}
         />
       </form>
     </Modal>

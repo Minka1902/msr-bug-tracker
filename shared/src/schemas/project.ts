@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { STATUS_CATEGORIES, WORKFLOWS } from '../enums';
+import { PROJECT_KINDS, STATUS_CATEGORIES, WORKFLOWS } from '../enums';
 import { PROJECT_KEY_REGEX } from '../identifiers';
 import { ALL_PERMISSIONS } from '../permissions';
 import { emailSchema } from './auth';
@@ -33,6 +33,7 @@ const projectFields = {
 export const createProjectSchema = z.object({
   ...projectFields,
   key: projectKeySchema,
+  kind: z.enum(PROJECT_KINDS).default('software'),
   description: projectFields.description.default(''),
 });
 export const projectDetailsSchema = z.object(projectFields);
