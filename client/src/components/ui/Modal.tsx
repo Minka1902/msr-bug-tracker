@@ -1,8 +1,11 @@
 import { X } from 'lucide-react';
 import { Dialog } from 'radix-ui';
 import type { ReactNode } from 'react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { cn } from '../../lib/cn';
+import { PHONE } from '../../lib/media';
 import { IconButton } from './IconButton';
+import { Sheet } from './Sheet';
 
 const SIZES = { sm: 'max-w-md', md: 'max-w-xl', lg: 'max-w-3xl', xl: 'max-w-5xl' };
 
@@ -33,6 +36,25 @@ export function Modal({
   hideClose,
   role = 'dialog',
 }: ModalProps) {
+  const phone = useMediaQuery(PHONE);
+
+  if (phone)
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={onOpenChange}
+        title={title}
+        description={description}
+        footer={footer}
+        hideClose={hideClose}
+        role={role}
+        className={className}
+        bodyClassName={bodyClassName}
+      >
+        {children}
+      </Sheet>
+    );
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -42,7 +64,6 @@ export function Modal({
           className={cn(
             'fixed z-50 flex max-h-[min(90dvh,860px)] w-[calc(100vw-24px)] flex-col overflow-hidden rounded-card border border-border bg-surface-raised shadow-pop outline-none',
             'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-            'max-md:top-auto max-md:bottom-0 max-md:w-full max-md:max-w-none max-md:translate-y-0 max-md:rounded-b-none max-md:pb-safe',
             SIZES[size],
             className,
           )}

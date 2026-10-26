@@ -1,11 +1,23 @@
-import { Monitor, Moon, PanelLeft, PanelsLeftBottom, Sparkles, Square, Sun } from 'lucide-react';
+import {
+  Hand,
+  Monitor,
+  Moon,
+  PanelLeft,
+  PanelsLeftBottom,
+  Pointer,
+  Sparkles,
+  Square,
+  Sun,
+  ZoomIn,
+} from 'lucide-react';
 import { ChoiceGroup } from '../../../components/ui/ChoiceGroup';
 import { useTheme } from '../../../hooks/useTheme';
 import { SettingsSection } from '../components/SettingsSection';
+import { PhonePreview } from '../components/PhonePreview';
 import { ThemePreview } from '../components/ThemePreview';
 
 export function AppearanceSettings() {
-  const { style, mode, nav, resolvedMode, setTheme } = useTheme();
+  const { style, mode, nav, hand, touch, resolvedMode, setTheme } = useTheme();
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,6 +99,57 @@ export function AppearanceSettings() {
             },
           ]}
         />
+      </SettingsSection>
+      <SettingsSection
+        title="Phone & tablet"
+        description="Put the + button, sheet buttons and swipe actions under the thumb you use, and pick how big buttons are on touch screens."
+      >
+        <div className="flex flex-col gap-4">
+          <ChoiceGroup
+            label="Hand"
+            columns={2}
+            value={hand}
+            onChange={(value) => setTheme({ hand: value })}
+            choices={[
+              {
+                value: 'right',
+                label: 'Right hand',
+                description: 'Swipe left to finish a task',
+                icon: <Hand />,
+                preview: <PhonePreview hand="right" touch={touch} />,
+              },
+              {
+                value: 'left',
+                label: 'Left hand',
+                description: 'Swipe right to finish a task',
+                icon: <Hand className="-scale-x-100" />,
+                preview: <PhonePreview hand="left" touch={touch} />,
+              },
+            ]}
+          />
+          <ChoiceGroup
+            label="Touch size"
+            columns={2}
+            value={touch}
+            onChange={(value) => setTheme({ touch: value })}
+            choices={[
+              {
+                value: 'standard',
+                label: 'Standard',
+                description: '44 px targets',
+                icon: <Pointer />,
+                preview: <PhonePreview hand={hand} touch="standard" />,
+              },
+              {
+                value: 'large',
+                label: 'Large',
+                description: '52 px targets and bigger text',
+                icon: <ZoomIn />,
+                preview: <PhonePreview hand={hand} touch="large" />,
+              },
+            ]}
+          />
+        </div>
       </SettingsSection>
     </div>
   );

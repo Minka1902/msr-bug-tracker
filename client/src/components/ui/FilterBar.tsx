@@ -23,7 +23,7 @@ interface FilterBarProps {
 }
 
 const chipClass =
-  'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft pr-1 pl-3 text-sm text-accent-text [&_svg]:size-3.5';
+  'inline-flex h-8 cursor-pointer items-center pointer-coarse:h-(--tap) gap-1.5 rounded-full border border-accent/40 bg-accent-soft pr-1 pl-3 text-sm text-accent-text [&_svg]:size-3.5';
 
 const isOn = (value: string | undefined) => !!value && value !== 'false';
 
@@ -79,7 +79,7 @@ export function FilterBar({ defs, values, onChange, onClear, search, children, c
               remove(def);
               setOpenKey(null);
             }}
-            className="flex size-6 items-center justify-center rounded-full hover:bg-accent/15"
+            className="flex size-6 tap-target items-center justify-center rounded-full hover:bg-accent/15"
           >
             <X />
           </span>
@@ -150,6 +150,7 @@ export function FilterBar({ defs, values, onChange, onClear, search, children, c
       {available.length > 0 && (
         <Menu
           align="start"
+          title="Add a filter"
           trigger={
             <Button variant="ghost" size="sm" leftIcon={<ListFilter />}>
               Filter

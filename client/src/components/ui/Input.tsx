@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 
 export const fieldVariants = cva(
-  'w-full rounded-control border bg-surface text-text placeholder:text-subtle transition-[border-color,box-shadow] outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger',
+  'w-full rounded-control border bg-surface text-text tap-size placeholder:text-subtle transition-[border-color,box-shadow] outline-none focus-visible:border-accent focus-visible:ring-3 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 aria-invalid:border-danger',
   {
     variants: {
       size: { sm: 'h-8 text-sm', md: 'h-9.5 text-sm', lg: 'h-11 text-base' },

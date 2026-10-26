@@ -1,6 +1,7 @@
 import type {
   AiProvider,
   ConnectorScope,
+  Hand,
   NavLayout,
   Priority,
   ProjectKind,
@@ -12,6 +13,7 @@ import type {
   TaskType,
   ThemeMode,
   ThemeStyle,
+  TouchSize,
   Workflow,
 } from './enums';
 
@@ -25,6 +27,8 @@ export interface UserPreferences {
   style: ThemeStyle;
   mode: ThemeMode;
   nav: NavLayout;
+  hand: Hand;
+  touch: TouchSize;
   timezone: string;
   aiProvider: AiProvider | null;
 }

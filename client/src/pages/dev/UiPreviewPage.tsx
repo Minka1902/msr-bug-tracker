@@ -162,13 +162,7 @@ export function UiPreviewPage() {
   return (
     <AppShell
       user={{ name: 'Adham Haddad', email: 'adham@msr.dev' }}
-      projects={PROJECTS.map(({ key, name, color, icon, isFavorite }) => ({
-        key,
-        name,
-        color,
-        icon,
-        isFavorite,
-      }))}
+      projects={PROJECTS}
       actions={{ onLogout: NOOP, onSearch: NOOP, onQuickCreate: NOOP, onCreateProject: NOOP, onInvite: NOOP }}
       banners={
         <Banner

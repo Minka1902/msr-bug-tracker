@@ -35,6 +35,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   style: 'aurora',
   mode: 'system',
   nav: 'sidebar',
+  hand: 'right',
+  touch: 'standard',
   timezone: 'UTC',
   aiProvider: null,
 };

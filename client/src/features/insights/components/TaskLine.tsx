@@ -18,7 +18,7 @@ export function TaskLine({ task, onOpen, showAssignee = true, trailing }: TaskLi
     <button
       type="button"
       onClick={() => onOpen(task)}
-      className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-left text-sm transition-colors hover:bg-surface-muted"
+      className="flex w-full min-w-0 tap-size cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-left text-sm transition-colors hover:bg-surface-muted"
     >
       <PriorityIcon priority={task.priority} className="shrink-0" />
       <TypeIcon type={task.type} className="size-3.5" />

@@ -24,7 +24,7 @@ export const tabListVariants = cva('flex items-center overflow-x-auto no-scrollb
 });
 
 export const tabVariants = cva(
-  'relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-sm font-medium whitespace-nowrap text-muted transition-colors hover:text-text disabled:opacity-50 [&_svg]:size-4',
+  'relative inline-flex shrink-0 cursor-pointer items-center gap-1.5 text-sm tap-size font-medium whitespace-nowrap text-muted transition-colors hover:text-text disabled:opacity-50 [&_svg]:size-4',
   {
     variants: {
       variant: {

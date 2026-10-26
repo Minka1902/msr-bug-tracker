@@ -5,7 +5,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { setSystemDark } from '../../test/setup';
 import { ThemeProvider } from '../ThemeProvider';
 
-const NEXT = { style: 'clean', mode: 'dark', nav: 'rail' } as const;
+const NEXT = { style: 'clean', mode: 'dark', nav: 'rail', hand: 'left', touch: 'large' } as const;
 
 function Probe({ onChange, silent }: { onChange?: (prefs: unknown) => void; silent?: boolean }) {
   const { resolvedMode, setTheme, subscribe } = useTheme();
@@ -33,6 +33,8 @@ describe('ThemeProvider', () => {
       style: 'aurora',
       mode: 'light',
       nav: 'sidebar',
+      hand: 'right',
+      touch: 'standard',
     });
     act(() => setSystemDark(true));
     expect(screen.getByTestId('mode')).toHaveTextContent('dark');
@@ -47,13 +49,9 @@ describe('ThemeProvider', () => {
       </ThemeProvider>,
     );
     act(() => screen.getByTestId('mode').click());
-    expect(document.documentElement.dataset).toMatchObject({ style: 'clean', mode: 'dark', nav: 'rail' });
-    expect(JSON.parse(localStorage.getItem('msr-theme')!)).toEqual({
-      style: 'clean',
-      mode: 'dark',
-      nav: 'rail',
-    });
-    expect(onChange).toHaveBeenCalledWith({ style: 'clean', mode: 'dark', nav: 'rail' });
+    expect(document.documentElement.dataset).toMatchObject(NEXT);
+    expect(JSON.parse(localStorage.getItem('msr-theme')!)).toEqual(NEXT);
+    expect(onChange).toHaveBeenCalledWith(NEXT);
   });
 
   it('applies silent changes without notifying listeners', () => {

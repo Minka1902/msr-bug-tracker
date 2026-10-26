@@ -33,7 +33,7 @@ export function Switch({
       disabled={disabled}
       aria-label={typeof label === 'string' ? label : ariaLabel}
       className={cn(
-        'relative inline-flex shrink-0 cursor-pointer items-center rounded-full bg-border-strong transition-colors data-[state=checked]:bg-accent disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex shrink-0 cursor-pointer items-center rounded-full tap-target bg-border-strong transition-colors data-[state=checked]:bg-accent disabled:cursor-not-allowed disabled:opacity-50',
         size === 'sm' ? 'h-4.5 w-8' : 'h-5.5 w-10',
       )}
     >

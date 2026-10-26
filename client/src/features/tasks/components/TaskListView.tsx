@@ -18,6 +18,7 @@ import { useTaskOptions } from '../useTaskOptions';
 import { useTaskPeek } from '../useTaskPeek';
 import { BulkActionBar } from './BulkActionBar';
 import { TaskRowCard } from './TaskRowCard';
+import { TaskSwipeRow } from './TaskSwipeRow';
 
 interface TaskListViewProps {
   project: ProjectDetail;
@@ -90,11 +91,13 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
           })
         }
         renderMobile={(task) => (
-          <TaskRowCard
-            task={task}
-            status={project.statuses.find((status) => status.id === task.statusId)}
-            onOpen={onOpen}
-          />
+          <TaskSwipeRow task={task}>
+            <TaskRowCard
+              task={task}
+              status={project.statuses.find((status) => status.id === task.statusId)}
+              onOpen={onOpen}
+            />
+          </TaskSwipeRow>
         )}
         empty={
           <EmptyState

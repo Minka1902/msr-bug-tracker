@@ -80,7 +80,7 @@ export function RecurrencePicker({
             disabled={disabled}
             aria-label={ariaLabel}
             className={cn(
-              'inline-flex h-9.5 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60',
+              'inline-flex h-9.5 tap-size cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60',
               className,
             )}
           >

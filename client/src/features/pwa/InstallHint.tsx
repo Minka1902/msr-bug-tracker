@@ -15,7 +15,7 @@ export function InstallHint() {
   return (
     <Banner tone="accent" icon={<Share />} onDismiss={() => setDismissed(true)}>
       Install MSR on your iPhone: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.{' '}
-      <Link to={INSTALL_PATH} className="font-medium underline underline-offset-2">
+      <Link to={INSTALL_PATH} className="tap-target font-medium underline underline-offset-2">
         Show me how
       </Link>
     </Banner>

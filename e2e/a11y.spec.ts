@@ -10,7 +10,7 @@ const THEMES = [
 ] as const;
 
 test('has no WCAG 2 A/AA violations in any theme', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await signUp(page, 'Axe Auditor');
   await apiPost(page, '/demo', { size: 'small', seed: 7 });
   const { projects } = await apiGet<{

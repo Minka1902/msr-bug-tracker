@@ -7,6 +7,11 @@
 @custom-variant aurora (&:where([data-style='aurora'], [data-style='aurora'] *));
 @custom-variant clean (&:where([data-style='clean'], [data-style='clean'] *));
 @custom-variant rail (&:where([data-nav='rail'], [data-nav='rail'] *));
+@custom-variant lefty (&:where([data-hand='left'], [data-hand='left'] *));
+
+@theme {
+  --breakpoint-md: 46.5rem;
+}
 
 @theme inline {
   --font-sans: 'Inter Variable', system-ui, sans-serif;
@@ -110,6 +115,38 @@
   color: color-mix(in oklab, var(--c, var(--tone-neutral)) var(--c-tint-mix), var(--c-text));
 }
 
+@utility tap-size {
+  @media (pointer: coarse) {
+    min-height: var(--tap);
+    min-width: var(--tap);
+  }
+}
+
+@utility tap-target {
+  @media (pointer: coarse) {
+    &:not(.absolute, .fixed, .sticky) {
+      position: relative;
+    }
+    &::before {
+      content: '';
+      position: absolute;
+      inset: min(0px, calc((100% - var(--tap)) / 2));
+    }
+  }
+}
+
+@utility animate-sheet-in {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: sheet-in 220ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
 @utility pt-safe {
   padding-top: env(safe-area-inset-top);
 }
@@ -139,6 +176,13 @@
   --rdp-day_button-width: 34px;
   --rdp-today-color: var(--c-accent-text);
   font-size: 0.875rem;
+
+  @media (pointer: coarse) {
+    --rdp-day-height: min(44px, calc((100vw - 48px) / 7));
+    --rdp-day-width: min(44px, calc((100vw - 48px) / 7));
+    --rdp-day_button-height: min(42px, calc((100vw - 52px) / 7));
+    --rdp-day_button-width: min(42px, calc((100vw - 52px) / 7));
+  }
 }
 
 .rich-text {

@@ -2,8 +2,11 @@ import { Command } from 'cmdk';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 import { Popover as RadixPopover } from 'radix-ui';
 import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { cn } from '../../lib/cn';
+import { PHONE } from '../../lib/media';
 import { popoverSurface } from './Popover';
+import { Sheet } from './Sheet';
 import { Tooltip } from './Tooltip';
 
 export interface PickerOption<V extends string = string> {
@@ -113,6 +116,7 @@ export function OptionPicker<V extends string>(props: OptionPickerProps<V>) {
     setOpen(false);
   };
 
+  const phone = useMediaQuery(PHONE);
   const [innerOpen, setInnerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const open = props.open ?? innerOpen;
@@ -125,7 +129,7 @@ export function OptionPicker<V extends string>(props: OptionPickerProps<V>) {
       disabled={disabled}
       aria-label={props['aria-label']}
       className={cn(
-        'inline-flex h-9.5 min-w-0 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface px-3 text-sm transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60',
+        'inline-flex h-9.5 min-w-0 cursor-pointer items-center tap-size gap-2 rounded-control border border-border bg-surface px-3 text-sm transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60',
         className,
       )}
     >
@@ -143,6 +147,68 @@ export function OptionPicker<V extends string>(props: OptionPickerProps<V>) {
 
   if (disabled) return <Tooltip content={disabledReason}>{trigger}</Tooltip>;
 
+  const body = (
+    <Command loop>
+      {searchable && (
+        <Command.Input
+          value={query}
+          onValueChange={setQuery}
+          placeholder={searchPlaceholder}
+          className="h-10 w-full border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-subtle pointer-coarse:h-(--tap)"
+        />
+      )}
+      <Command.List className={cn('overflow-y-auto p-1 scrollbar-thin', !phone && 'max-h-72')}>
+        <Command.Empty className="px-3 py-6 text-center text-sm text-muted">{emptyText}</Command.Empty>
+        {groups.map((group) => (
+          <Command.Group
+            key={group}
+            heading={group || undefined}
+            className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-subtle"
+          >
+            {options
+              .filter((option) => (option.group ?? '') === group)
+              .map((option) => (
+                <Command.Item
+                  key={option.value}
+                  value={option.value}
+                  keywords={[option.label, ...(option.keywords ?? [])]}
+                  disabled={option.disabled}
+                  onSelect={() => toggle(option.value)}
+                  className="flex min-h-8.5 cursor-pointer items-center gap-2.5 rounded-[calc(var(--r-control)-4px)] px-2 py-1 text-sm outline-none pointer-coarse:min-h-(--tap) data-[disabled=true]:opacity-50 data-[selected=true]:bg-surface-muted [&_svg]:size-4"
+                >
+                  {renderOption(option)}
+                  {selectedValues.includes(option.value) && <Check className="shrink-0 text-accent-text" />}
+                </Command.Item>
+              ))}
+          </Command.Group>
+        ))}
+        {onCreate && query.trim() && (
+          <Command.Item
+            value={`__create__${query}`}
+            onSelect={create}
+            className="flex min-h-8.5 cursor-pointer items-center gap-2.5 rounded-[calc(var(--r-control)-4px)] px-2 text-sm text-accent-text outline-none pointer-coarse:min-h-(--tap) data-[selected=true]:bg-surface-muted [&_svg]:size-4"
+          >
+            <Plus />
+            {createLabel(query.trim())}
+          </Command.Item>
+        )}
+      </Command.List>
+    </Command>
+  );
+
+  if (phone)
+    return (
+      <Sheet
+        trigger={trigger}
+        open={open}
+        onOpenChange={setOpen}
+        title={props['aria-label'] ?? placeholder}
+        bodyClassName="px-2"
+      >
+        {body}
+      </Sheet>
+    );
+
   return (
     <RadixPopover.Root open={open} onOpenChange={setOpen}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
@@ -154,54 +220,7 @@ export function OptionPicker<V extends string>(props: OptionPickerProps<V>) {
           onClick={(event) => event.stopPropagation()}
           className={cn(popoverSurface, 'w-64 overflow-hidden p-0', contentClassName)}
         >
-          <Command loop>
-            {searchable && (
-              <Command.Input
-                value={query}
-                onValueChange={setQuery}
-                placeholder={searchPlaceholder}
-                className="h-10 w-full border-b border-border bg-transparent px-3 text-sm outline-none placeholder:text-subtle"
-              />
-            )}
-            <Command.List className="max-h-72 overflow-y-auto p-1 scrollbar-thin">
-              <Command.Empty className="px-3 py-6 text-center text-sm text-muted">{emptyText}</Command.Empty>
-              {groups.map((group) => (
-                <Command.Group
-                  key={group}
-                  heading={group || undefined}
-                  className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-subtle"
-                >
-                  {options
-                    .filter((option) => (option.group ?? '') === group)
-                    .map((option) => (
-                      <Command.Item
-                        key={option.value}
-                        value={option.value}
-                        keywords={[option.label, ...(option.keywords ?? [])]}
-                        disabled={option.disabled}
-                        onSelect={() => toggle(option.value)}
-                        className="flex min-h-8.5 cursor-pointer items-center gap-2.5 rounded-[calc(var(--r-control)-4px)] px-2 py-1 text-sm outline-none data-[disabled=true]:opacity-50 data-[selected=true]:bg-surface-muted [&_svg]:size-4"
-                      >
-                        {renderOption(option)}
-                        {selectedValues.includes(option.value) && (
-                          <Check className="shrink-0 text-accent-text" />
-                        )}
-                      </Command.Item>
-                    ))}
-                </Command.Group>
-              ))}
-              {onCreate && query.trim() && (
-                <Command.Item
-                  value={`__create__${query}`}
-                  onSelect={create}
-                  className="flex h-8.5 cursor-pointer items-center gap-2.5 rounded-[calc(var(--r-control)-4px)] px-2 text-sm text-accent-text outline-none data-[selected=true]:bg-surface-muted [&_svg]:size-4"
-                >
-                  <Plus />
-                  {createLabel(query.trim())}
-                </Command.Item>
-              )}
-            </Command.List>
-          </Command>
+          {body}
         </RadixPopover.Content>
       </RadixPopover.Portal>
     </RadixPopover.Root>

@@ -68,7 +68,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
         actions={{
           onLogout: handleLogout,
           onSearch: shell.openSearch,
-          onQuickCreate: () => shell.openQuickCreate(),
+          onQuickCreate: (defaults) => shell.openQuickCreate(defaults),
           onCreateProject: shell.openCreateProject,
           onInvite: () => shell.openInvite(),
         }}

@@ -275,7 +275,7 @@ export function RichTextEditor({
               aria-pressed={activeTools?.[index] ?? false}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => tool.run(editor)}
-              className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted hover:bg-surface-muted hover:text-text aria-pressed:bg-accent-soft aria-pressed:text-accent-text [&_svg]:size-3.5"
+              className="flex size-7 tap-target cursor-pointer items-center justify-center rounded-md text-muted hover:bg-surface-muted hover:text-text aria-pressed:bg-accent-soft aria-pressed:text-accent-text [&_svg]:size-3.5"
             >
               {tool.icon}
             </button>

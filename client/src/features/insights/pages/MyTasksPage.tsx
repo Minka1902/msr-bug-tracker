@@ -17,6 +17,7 @@ import { useTaskPeek } from '../../tasks/useTaskPeek';
 import { useTaskOptions } from '../../tasks/useTaskOptions';
 import { taskFilterDefs } from '../../tasks/taskFilterDefs';
 import { groupMyTasks, type MyTasksGrouping } from '../groupMyTasks';
+import { TaskSwipeRow } from '../../tasks/components/TaskSwipeRow';
 import { TaskLine } from '../components/TaskLine';
 
 const DEFAULTS: FilterValues = { hideDone: 'true', sort: 'due', dir: 'asc' };
@@ -101,17 +102,18 @@ export function MyTasksPage() {
             <span className="text-xs text-subtle">{group.tasks.length}</span>
           </div>
           {group.tasks.map((task) => (
-            <TaskLine
-              key={task.id}
-              task={task}
-              onOpen={(item) => peek.open(item.identifier)}
-              showAssignee={false}
-              trailing={
-                grouping !== 'project' && (
-                  <span className="hidden text-xs text-subtle sm:inline">{task.projectKey}</span>
-                )
-              }
-            />
+            <TaskSwipeRow key={task.id} task={task}>
+              <TaskLine
+                task={task}
+                onOpen={(item) => peek.open(item.identifier)}
+                showAssignee={false}
+                trailing={
+                  grouping !== 'project' && (
+                    <span className="hidden text-xs text-subtle sm:inline">{task.projectKey}</span>
+                  )
+                }
+              />
+            </TaskSwipeRow>
           ))}
         </Card>
       ))}

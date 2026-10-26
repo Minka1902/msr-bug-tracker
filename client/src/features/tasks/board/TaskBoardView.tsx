@@ -1,13 +1,15 @@
 import {
   closestCorners,
   DndContext,
+  pointerWithin,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   useSensor,
   useSensors,
   type Announcements,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -24,13 +26,17 @@ import type { BoardColumn, ProjectDetail, TaskCard } from '@msr/shared/types';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { Skeleton } from '../../../components/ui/Skeleton';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import type { FilterValues } from '../../../hooks/useUrlFilters';
 import { errorMessage } from '../../../lib/api';
 import { cn } from '../../../lib/cn';
+import { PHONE } from '../../../lib/media';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { fetchBoardColumn, taskKeys, useBoard, useUpdateTask } from '../api';
 import { TaskCardView } from '../components/TaskCardView';
 import { BoardCell } from './BoardCell';
+import { BoardColumnPager } from './BoardColumnPager';
+import { PILL_PREFIX } from './BoardColumnPill';
 import { boardKeyboardCoordinates } from './boardKeyboardCoordinates';
 import { groupTasks, laneKeyOf, type GroupBy, type Lane } from './groupTasks';
 
@@ -54,6 +60,14 @@ const containerId = (laneKey: string, statusId: string) => `${laneKey}${SEPARATO
 const parseContainer = (id: string) => {
   const [laneKey, statusId] = id.split(SEPARATOR);
   return { laneKey: laneKey!, statusId: statusId! };
+};
+
+const collisionDetection: CollisionDetection = (args) => {
+  const pills = pointerWithin({
+    ...args,
+    droppableContainers: args.droppableContainers.filter((item) => String(item.id).startsWith(PILL_PREFIX)),
+  });
+  return pills.length ? pills : closestCorners(args);
 };
 
 const positionBetween = (previous: string | null, next: string | null) => {
@@ -116,12 +130,33 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
     });
   };
 
+  const moveToStatus = (task: TaskCard, statusId: string) => {
+    if (statusId === task.statusId) return;
+    const target = baseContainers[containerId(laneKeyOf(task, groupBy), statusId)] ?? [];
+    const last = taskById.get(target[target.length - 1] ?? '') ?? null;
+    const position = positionBetween(last?.position ?? null, null);
+    const status = project.statuses.find((item) => item.id === statusId)!;
+    update.mutate(
+      {
+        id: task.id,
+        patch: { statusId, position },
+        optimistic: { statusId, statusCategory: status.category, position },
+      },
+      {
+        onSuccess: () => toast.success(`${task.identifier} moved to ${status.name}`),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    );
+  };
+
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     const containers = dragContainers;
     setActiveId(null);
     setDragContainers(null);
     if (!over || !containers) return;
     const id = String(active.id);
+    if (String(over.id).startsWith(PILL_PREFIX))
+      return moveToStatus(taskById.get(id)!, String(over.id).slice(PILL_PREFIX.length));
     const to = findContainer(containers, String(over.id));
     if (!to) return;
     let list = containers[to]!;
@@ -192,7 +227,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   };
 
   const renderLane = (lane: Lane) =>
-    statuses.map((status) => {
+    visibleStatuses.map((status) => {
       const column = columns.find((item) => item.statusId === status.id);
       const id = containerId(lane.key, status.id);
       return (
@@ -206,6 +241,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           loadingMore={loadingColumn === status.id}
           onLoadMore={column ? () => loadMore(column) : undefined}
           canDrag={canDrag}
+          swipe={phone}
           onOpen={onOpen}
           composer={canCreate ? { statusId: status.id, type: composerTypes[0], ...lane.patch?.input } : null}
           composerTypes={composerTypes}
@@ -216,6 +252,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   const canDrag = (task: TaskCard) => permissions.canTransition({ assigneeId: task.assignee?.id ?? null });
 
   const client = useQueryClient();
+  const phone = useMediaQuery(PHONE);
   const permissions = useProjectPermissions(project);
   const update = useUpdateTask();
   const board = useBoard(project.key, workflow, filters);
@@ -223,8 +260,9 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   const [dragContainers, setDragContainers] = useState<Containers | null>(null);
   const [loadingColumn, setLoadingColumn] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [pickedStatus, setPickedStatus] = useState<string | null>(null);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, {
       coordinateGetter: boardKeyboardCoordinates,
@@ -235,6 +273,8 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
     () => project.statuses.filter((status) => status.workflow === workflow),
     [project.statuses, workflow],
   );
+  const activeStatusId = statuses.find((status) => status.id === pickedStatus)?.id ?? statuses[0]?.id ?? '';
+  const visibleStatuses = phone ? statuses.filter((status) => status.id === activeStatusId) : statuses;
   const columns = useMemo(() => board.data ?? [], [board.data]);
   const allTasks = useMemo(() => columns.flatMap((column) => column.tasks), [columns]);
   const taskById = useMemo(() => new Map(allTasks.map((task) => [task.id, task])), [allTasks]);
@@ -268,23 +308,23 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={collisionDetection}
       accessibility={{ announcements, screenReaderInstructions: SCREEN_READER_INSTRUCTIONS }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setDragContainers(null)}
     >
-      <div className="-mx-4 overflow-x-auto px-4 pb-4 scrollbar-thin max-md:snap-x max-md:snap-mandatory md:-mx-6 md:px-6">
-        <div className="flex w-max flex-col gap-3">
-          <div className="sticky top-0 z-10 flex gap-4 bg-app/90 py-1 backdrop-blur">
+      <div className="-mx-4 overflow-x-auto px-4 pb-4 scrollbar-thin max-lg:snap-x max-lg:snap-mandatory md:-mx-6 md:px-6">
+        <div className="flex w-max flex-col gap-3 max-md:w-full">
+          <div className="sticky top-0 z-10 flex gap-4 bg-app/90 py-1 backdrop-blur max-md:hidden">
             {statuses.map((status) => {
               const column = columns.find((item) => item.statusId === status.id);
               return (
                 <div
                   key={status.id}
                   style={{ '--c': status.color } as CSSProperties}
-                  className="flex w-72 shrink-0 items-center gap-2 border-b-[3px] border-(--c) px-1 pb-2 max-md:w-[82vw]"
+                  className="flex w-72 shrink-0 items-center gap-2 border-b-[3px] border-(--c) px-1 pb-2 md:max-lg:w-[calc((100vw-8rem)/2)]"
                 >
                   <span className="truncate text-xs font-bold tracking-wide uppercase tint">
                     {status.name}
@@ -325,6 +365,14 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           )}
         </div>
       </div>
+      {phone && (
+        <BoardColumnPager
+          statuses={statuses}
+          counts={Object.fromEntries(columns.map((column) => [column.statusId, column.total]))}
+          value={activeStatusId}
+          onChange={setPickedStatus}
+        />
+      )}
       <DragOverlay>
         {activeId && taskById.get(activeId) ? (
           <TaskCardView task={taskById.get(activeId)!} dragging className="w-72 cursor-grabbing" />

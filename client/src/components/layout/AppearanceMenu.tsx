@@ -1,15 +1,29 @@
-import { Monitor, Moon, PanelLeft, PanelsLeftBottom, Sparkles, Square, Sun } from 'lucide-react';
+import { Hand, Monitor, Moon, PanelLeft, PanelsLeftBottom, Sparkles, Square, Sun } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { IconButton } from '../ui/IconButton';
 import { Menu } from '../ui/Menu';
 
-export function AppearanceMenu() {
-  const { style, mode, nav, resolvedMode, setTheme } = useTheme();
+interface AppearanceMenuProps {
+  trigger?: ReactNode;
+  className?: string;
+}
+
+export function AppearanceMenu({ trigger, className }: AppearanceMenuProps) {
+  const { style, mode, nav, hand, resolvedMode, setTheme } = useTheme();
 
   return (
     <Menu
+      title="Appearance"
       trigger={
-        <IconButton icon={resolvedMode === 'dark' ? <Moon /> : <Sun />} label="Appearance" size="md" />
+        trigger ?? (
+          <IconButton
+            icon={resolvedMode === 'dark' ? <Moon /> : <Sun />}
+            label="Appearance"
+            size="md"
+            className={className}
+          />
+        )
       }
       items={[
         { type: 'label', label: 'Mode' },
@@ -58,6 +72,20 @@ export function AppearanceMenu() {
           icon: <PanelsLeftBottom />,
           checked: nav === 'rail',
           onSelect: () => setTheme({ nav: 'rail' }),
+        },
+        { type: 'separator' },
+        { type: 'label', label: 'Hand' },
+        {
+          label: 'Right hand',
+          icon: <Hand />,
+          checked: hand === 'right',
+          onSelect: () => setTheme({ hand: 'right' }),
+        },
+        {
+          label: 'Left hand',
+          icon: <Hand className="-scale-x-100" />,
+          checked: hand === 'left',
+          onSelect: () => setTheme({ hand: 'left' }),
         },
       ]}
     />

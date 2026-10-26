@@ -20,7 +20,7 @@ export function NavLinkItem({ item, variant = 'row', onNavigate }: NavLinkItemPr
           end={item.end}
           aria-label={item.label}
           onClick={onNavigate}
-          className="flex size-10 items-center justify-center rounded-control text-muted transition-colors hover:bg-surface-muted hover:text-text aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text"
+          className="flex size-10 tap-size items-center justify-center rounded-control text-muted transition-colors hover:bg-surface-muted hover:text-text aria-[current=page]:bg-accent-soft aria-[current=page]:text-accent-text"
         >
           <Icon className="size-5" />
         </NavLink>
@@ -33,7 +33,7 @@ export function NavLinkItem({ item, variant = 'row', onNavigate }: NavLinkItemPr
       end={item.end}
       onClick={onNavigate}
       className={cn(
-        'flex h-10 items-center gap-3 rounded-control px-3 text-sm font-medium text-muted transition-colors hover:bg-surface-muted hover:text-text',
+        'flex h-10 tap-size items-center gap-3 rounded-control px-3 text-sm font-medium text-muted transition-colors hover:bg-surface-muted hover:text-text',
         'aria-[current=page]:bg-nav-active aria-[current=page]:text-nav-active-text aria-[current=page]:shadow-[0_8px_20px_-10px_var(--c-accent)] clean:aria-[current=page]:shadow-none',
       )}
     >

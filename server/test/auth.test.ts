@@ -182,13 +182,15 @@ describe('account settings', () => {
       .expect(200);
     const { body } = await agent
       .patch('/api/me')
-      .send({ preferences: { style: 'clean', timezone: 'Asia/Jerusalem' } })
+      .send({ preferences: { style: 'clean', timezone: 'Asia/Jerusalem', hand: 'left' } })
       .expect(200);
     expect(body.user.name).toBe('Renamed');
     expect(body.user.preferences).toEqual({
       style: 'clean',
       mode: 'dark',
       nav: 'sidebar',
+      hand: 'left',
+      touch: 'standard',
       timezone: 'Asia/Jerusalem',
       aiProvider: null,
     });

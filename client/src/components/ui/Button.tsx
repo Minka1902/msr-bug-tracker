@@ -29,7 +29,19 @@ export const buttonVariants = cva(
       },
       block: { true: 'w-full' },
     },
-    compoundVariants: [{ variant: 'link', className: 'h-auto px-0' }],
+    compoundVariants: [
+      { variant: 'link', className: 'h-auto px-0 tap-target' },
+      {
+        variant: ['primary', 'secondary', 'ghost', 'soft', 'danger', 'danger-ghost'],
+        size: ['sm', 'md', 'lg', 'icon-sm', 'icon-md', 'icon-lg'],
+        className: 'tap-size',
+      },
+      {
+        variant: ['primary', 'secondary', 'ghost', 'soft', 'danger', 'danger-ghost'],
+        size: ['xs', 'icon-xs'],
+        className: 'tap-target',
+      },
+    ],
     defaultVariants: { variant: 'primary', size: 'md' },
   },
 );

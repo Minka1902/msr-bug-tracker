@@ -31,7 +31,7 @@ export function ProjectNavList({
           key={project.key}
           to={`/p/${project.key}`}
           onClick={onNavigate}
-          className="group flex h-9 items-center gap-2.5 rounded-control px-3 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-text aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-text clean:aria-[current=page]:bg-nav-active clean:aria-[current=page]:text-nav-active-text"
+          className="group flex h-9 tap-size items-center gap-2.5 rounded-control px-3 text-sm text-muted transition-colors hover:bg-surface-muted hover:text-text aria-[current=page]:bg-accent-soft aria-[current=page]:font-medium aria-[current=page]:text-accent-text clean:aria-[current=page]:bg-nav-active clean:aria-[current=page]:text-nav-active-text"
         >
           <ProjectAvatar color={project.color} icon={project.icon} size="xs" />
           <span className="flex-1 truncate">{project.name}</span>
@@ -41,7 +41,7 @@ export function ProjectNavList({
       <button
         type="button"
         onClick={onCreateProject}
-        className="flex h-9 cursor-pointer items-center gap-2.5 rounded-control px-3 text-sm text-subtle transition-colors hover:bg-surface-muted hover:text-text"
+        className="flex h-9 tap-size cursor-pointer items-center gap-2.5 rounded-control px-3 text-sm text-subtle transition-colors hover:bg-surface-muted hover:text-text"
       >
         <Plus className="size-4" />
         Add project

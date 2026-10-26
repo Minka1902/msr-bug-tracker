@@ -140,7 +140,7 @@ export function DataTable<T>({
                 <button
                   type="button"
                   onClick={() => onSortChange(nextSort(sort, column.id))}
-                  className="inline-flex cursor-pointer items-center gap-1 uppercase hover:text-text"
+                  className="inline-flex tap-target cursor-pointer items-center gap-1 uppercase hover:text-text"
                 >
                   {column.header}
                   {sort?.id === column.id ? (

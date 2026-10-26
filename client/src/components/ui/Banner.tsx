@@ -24,7 +24,7 @@ export function Banner({ tone = 'info', icon, children, action, onDismiss, class
       )}
     >
       {icon}
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1 [overflow-wrap:anywhere]">{children}</div>
       {action}
       {onDismiss && (
         <IconButton

@@ -1,6 +1,9 @@
 import { Popover as RadixPopover } from 'radix-ui';
 import type { ReactNode } from 'react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { cn } from '../../lib/cn';
+import { PHONE } from '../../lib/media';
+import { Sheet } from './Sheet';
 
 interface PopoverProps {
   trigger: ReactNode;
@@ -11,6 +14,7 @@ interface PopoverProps {
   align?: 'start' | 'center' | 'end';
   className?: string;
   modal?: boolean;
+  title?: string;
 }
 
 export const popoverSurface =
@@ -25,7 +29,17 @@ export function Popover({
   align = 'start',
   className,
   modal,
+  title,
 }: PopoverProps) {
+  const phone = useMediaQuery(PHONE);
+
+  if (phone)
+    return (
+      <Sheet trigger={trigger} open={open} onOpenChange={onOpenChange} title={title}>
+        <div className="mx-auto w-full max-w-sm">{children}</div>
+      </Sheet>
+    );
+
   return (
     <RadixPopover.Root open={open} onOpenChange={onOpenChange} modal={modal}>
       <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>

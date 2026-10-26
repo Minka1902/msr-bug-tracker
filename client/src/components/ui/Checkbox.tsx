@@ -20,7 +20,7 @@ export function Checkbox({ checked, onCheckedChange, label, disabled, className,
       disabled={disabled}
       onClick={(event) => event.stopPropagation()}
       className={cn(
-        'flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-[5px] border border-border-strong bg-surface transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent disabled:opacity-50',
+        'flex size-4.5 shrink-0 cursor-pointer items-center justify-center tap-target rounded-[5px] border border-border-strong bg-surface transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent data-[state=indeterminate]:border-accent data-[state=indeterminate]:bg-accent disabled:opacity-50',
         !label && className,
       )}
       {...aria}
