@@ -1,9 +1,12 @@
 import { useState, type ReactNode } from 'react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useTheme } from '../../hooks/useTheme';
 import { readLocal, writeLocal } from '../../lib/localStore';
-import { Drawer } from '../ui/Drawer';
+import { PHONE, TABLET_PORTRAIT } from '../../lib/media';
 import { BottomTabBar } from './BottomTabBar';
+import { FloatingCreateButton } from './FloatingCreateButton';
 import { IconRail } from './IconRail';
+import { MenuSheet } from './MenuSheet';
 import { ProjectPanel } from './ProjectPanel';
 import type { ShellActions, ShellProject, ShellUser } from './shellTypes';
 import { Sidebar } from './Sidebar';
@@ -26,16 +29,20 @@ export function AppShell({ user, projects, actions, banners, children }: AppShel
   };
 
   const { nav } = useTheme();
+  const phone = useMediaQuery(PHONE);
+  const tablet = useMediaQuery(TABLET_PORTRAIT);
   const [collapsed, setCollapsedState] = useState(
     () => readLocal(STORAGE_KEY, { collapsed: false }).collapsed,
   );
   const [menuOpen, setMenuOpen] = useState(false);
+  const showSidebar = !tablet && nav === 'sidebar' && !collapsed;
+  const showPanel = !tablet && nav === 'rail' && !collapsed;
 
   return (
-    <div className="md:h-dvh md:p-(--shell-margin)">
-      <div className="flex min-h-dvh md:h-full md:min-h-0 md:overflow-hidden md:rounded-(--shell-radius) md:bg-app md:shadow-[0_30px_80px_-30px_rgb(15_23_42/0.5)] clean:md:shadow-none">
+    <div className="md:h-dvh md:p-(--shell-margin) max-lg:md:p-0">
+      <div className="flex min-h-dvh md:h-full md:min-h-0 md:overflow-hidden md:rounded-(--shell-radius) md:bg-app md:shadow-[0_30px_80px_-30px_rgb(15_23_42/0.5)] max-lg:md:rounded-none clean:md:shadow-none">
         <div className="hidden md:flex">
-          {nav === 'sidebar' && !collapsed && (
+          {showSidebar && (
             <Sidebar
               user={user}
               projects={projects}
@@ -43,15 +50,15 @@ export function AppShell({ user, projects, actions, banners, children }: AppShel
               onCollapse={() => setCollapsed(true)}
             />
           )}
-          {(nav === 'rail' || collapsed) && (
+          {!showSidebar && (
             <IconRail
               user={user}
               actions={actions}
-              panelOpen={nav === 'rail' && !collapsed}
-              onTogglePanel={() => setCollapsed(false)}
+              panelOpen={showPanel}
+              onTogglePanel={tablet ? undefined : () => setCollapsed(false)}
             />
           )}
-          {nav === 'rail' && !collapsed && (
+          {showPanel && (
             <ProjectPanel
               projects={projects}
               onCreateProject={actions.onCreateProject}
@@ -60,17 +67,26 @@ export function AppShell({ user, projects, actions, banners, children }: AppShel
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-app md:overflow-hidden">
-          <Topbar actions={actions} onOpenMenu={() => setMenuOpen(true)} />
-          <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:overflow-y-auto md:px-6 md:pb-6 scrollbar-thin">
+          <Topbar actions={actions} phone={phone} />
+          <main className="flex-1 px-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] max-[375px]:px-3 md:overflow-y-auto md:px-6 md:pb-6 scrollbar-thin">
             {banners && <div className="mb-4 flex flex-col gap-2 empty:hidden">{banners}</div>}
             {children}
           </main>
         </div>
       </div>
-      <BottomTabBar actions={actions} />
-      <Drawer open={menuOpen} onOpenChange={setMenuOpen} side="left" title="Navigation" className="bg-app">
-        <Sidebar user={user} projects={projects} actions={actions} onNavigate={() => setMenuOpen(false)} />
-      </Drawer>
+      {phone && (
+        <>
+          <FloatingCreateButton projects={projects} onCreate={actions.onQuickCreate} />
+          <BottomTabBar actions={actions} menuOpen={menuOpen} onOpenMenu={() => setMenuOpen(true)} />
+          <MenuSheet
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            user={user}
+            projects={projects}
+            actions={actions}
+          />
+        </>
+      )}
     </div>
   );
 }

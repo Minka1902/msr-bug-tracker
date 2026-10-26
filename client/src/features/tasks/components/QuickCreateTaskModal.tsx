@@ -191,7 +191,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
               value: item.key,
               label: item.name,
               description: item.key,
-              icon: <ProjectAvatar color={item.color} icon={item.icon} size="xs" />,
+              icon: <ProjectAvatar appearance={item} size="xs" />,
             }))}
             className="h-9"
           />

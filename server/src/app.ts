@@ -18,6 +18,7 @@ import { createTasksRouter } from './modules/tasks/routes';
 import { createAttachmentsRouter } from './modules/attachments/routes';
 import { createChecklistRouter } from './modules/checklist/routes';
 import { createCommentsRouter } from './modules/comments/routes';
+import { createConnectorApiRouter, createConnectorRouter } from './modules/connector/routes';
 import { createRelationsRouter } from './modules/relations/routes';
 import { createInsightsRouter } from './modules/insights/routes';
 import { createSearchRouter } from './modules/search/routes';
@@ -79,6 +80,7 @@ export const createApp = ({
   if (config.devMailbox) api.use('/dev', createDevRouter());
   api.use(requireAuth);
   api.use(createUsersRouter());
+  api.use(createConnectorApiRouter());
   api.use('/me/2fa', createTwoFactorRouter(limits));
   api.use('/me/ai-keys', createAiKeysRouter(limits));
   api.use('/invites', createInvitesRouter(limits));
@@ -98,6 +100,7 @@ export const createApp = ({
     throw notFound();
   });
 
+  app.use(createConnectorRouter(rateLimit));
   app.use('/api', api);
 
   if (clientDist && fs.existsSync(clientDist)) {

@@ -9,15 +9,15 @@ export const useThemeSync = (user: CurrentUser) => {
   const { setTheme, subscribe } = useTheme();
   const updateMe = useUpdateMe();
   const appliedFor = useRef<string | null>(null);
-  const { style, mode, nav, timezone } = user.preferences;
+  const { style, mode, nav, hand, touch, timezone } = user.preferences;
 
   useEffect(() => {
     if (appliedFor.current === user.id || user.impersonator) return;
     appliedFor.current = user.id;
-    setTheme({ style, mode, nav }, { silent: true });
+    setTheme({ style, mode, nav, hand, touch }, { silent: true });
     if (timezone !== BROWSER_TIMEZONE && !user.impersonator)
       updateMe.mutate({ preferences: { timezone: BROWSER_TIMEZONE } });
-  }, [user.id, user.impersonator, style, mode, nav, timezone, setTheme, updateMe]);
+  }, [user.id, user.impersonator, style, mode, nav, hand, touch, timezone, setTheme, updateMe]);
 
   useEffect(
     () => (user.impersonator ? undefined : subscribe((prefs) => updateMe.mutate({ preferences: prefs }))),

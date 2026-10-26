@@ -19,6 +19,7 @@ interface BoardCellProps {
   composer?: Omit<CreateTaskInput, 'title'> | null;
   composerTypes: readonly TaskType[];
   canDrag?: (task: TaskCard) => boolean;
+  swipe?: boolean;
   onOpen: (task: TaskCard) => void;
 }
 
@@ -33,6 +34,7 @@ export function BoardCell({
   composer,
   composerTypes,
   canDrag,
+  swipe,
   onOpen,
 }: BoardCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id, data: { containerId: id } });
@@ -43,7 +45,7 @@ export function BoardCell({
       role="group"
       aria-label={label}
       className={cn(
-        'flex w-72 shrink-0 flex-col gap-2.5 rounded-card p-1 transition-colors max-md:w-[82vw] max-md:snap-start',
+        'flex w-72 shrink-0 flex-col gap-2.5 rounded-card p-1 transition-colors max-md:w-full max-lg:snap-start md:max-lg:w-[calc((100vw-8rem)/2)]',
         isOver && 'bg-accent-soft/50',
       )}
     >
@@ -54,6 +56,7 @@ export function BoardCell({
             task={task}
             containerId={id}
             disabled={canDrag ? !canDrag(task) : false}
+            swipe={swipe}
             onOpen={onOpen}
           />
         ))}

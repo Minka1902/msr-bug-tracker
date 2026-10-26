@@ -7,6 +7,7 @@ import { AvatarGroup } from '../../../components/ui/AvatarGroup';
 import { Badge } from '../../../components/ui/Badge';
 import { Card } from '../../../components/ui/Card';
 import { ProgressBar } from '../../../components/ui/ProgressBar';
+import { ProjectAvatar } from '../../../components/ui/ProjectAvatar';
 import { ProjectIcon } from '../../../components/ui/ProjectIcon';
 import { DueDate } from '../../tasks/components/DueDate';
 import { ProjectHealthBadge } from './ProjectHealthBadge';
@@ -30,11 +31,15 @@ export function ProjectCard({ project, onToggleFavorite, className }: ProjectCar
         style={{ '--c': project.color } as CSSProperties}
         className="relative flex aspect-[16/8] items-center justify-center overflow-hidden rounded-[calc(var(--r-card)-6px)] bg-[radial-gradient(circle_at_30%_20%,color-mix(in_oklab,var(--c)_22%,transparent),transparent_60%),linear-gradient(135deg,color-mix(in_oklab,var(--c)_14%,var(--c-surface)),color-mix(in_oklab,var(--c)_30%,var(--c-surface)))]"
       >
-        <ProjectIcon
-          name={project.icon}
-          className="size-12 text-(--c) drop-shadow-[0_8px_14px_color-mix(in_oklab,var(--c)_45%,transparent)]"
-          strokeWidth={1.6}
-        />
+        {project.emblem ? (
+          <ProjectAvatar appearance={project} size="xl" />
+        ) : (
+          <ProjectIcon
+            name={project.icon}
+            className="size-12 text-(--c) drop-shadow-[0_8px_14px_color-mix(in_oklab,var(--c)_45%,transparent)]"
+            strokeWidth={1.6}
+          />
+        )}
         <Badge
           size="xs"
           className="absolute top-2 left-2 bg-surface/90 font-mono text-text"
@@ -56,7 +61,7 @@ export function ProjectCard({ project, onToggleFavorite, className }: ProjectCar
             aria-pressed={project.isFavorite}
             onClick={() => onToggleFavorite(project)}
             className={cn(
-              'absolute top-2 right-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-full bg-surface/90 text-subtle transition-opacity hover:text-highlight',
+              'absolute top-2 right-2 z-10 flex size-7 tap-target cursor-pointer items-center justify-center rounded-full bg-surface/90 text-subtle transition-opacity hover:text-highlight',
               !project.isFavorite &&
                 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 max-md:opacity-100',
             )}

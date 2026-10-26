@@ -10,7 +10,7 @@ export function ProjectProgressRow({ project }: { project: ProjectSummary }) {
       to={`/p/${project.key}`}
       className="flex items-center gap-3 rounded-control px-2 py-2 transition-colors hover:bg-surface-muted"
     >
-      <ProjectAvatar color={project.color} icon={project.icon} size="sm" />
+      <ProjectAvatar appearance={project} size="sm" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{project.name}</span>

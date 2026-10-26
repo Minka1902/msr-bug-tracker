@@ -44,7 +44,7 @@ interface TaskPropertyPickerProps {
   task: TaskCard & Partial<Pick<TaskDetail, 'reproducibility'>>;
   field: TaskField;
   project: ProjectDetail;
-  variant?: 'cell' | 'field';
+  variant?: 'cell' | 'field' | 'bar';
   className?: string;
 }
 
@@ -61,8 +61,9 @@ const FIELD_LABELS: Record<TaskField, string> = {
 };
 
 const TRIGGER = {
-  cell: 'h-8 max-w-full rounded-[calc(var(--r-control)-3px)] px-2 hover:bg-surface-muted',
-  field: 'h-9 w-full rounded-control px-2.5 hover:bg-surface-muted',
+  cell: 'h-8 max-w-full rounded-[calc(var(--r-control)-3px)] px-2 tap-target hover:bg-surface-muted',
+  field: 'h-9 w-full rounded-control px-2.5 tap-size hover:bg-surface-muted',
+  bar: 'h-(--tap) w-full flex-col justify-center gap-0.5 overflow-hidden rounded-control px-1 text-xs active:bg-surface-muted',
 };
 
 const EMPTY = <span className="text-subtle">None</span>;
@@ -92,7 +93,18 @@ export function TaskPropertyPicker({
       )}
     >
       <span className="sr-only">{`${FIELD_LABELS[field]} of ${task.identifier}: `}</span>
-      {content}
+      {variant === 'bar' ? (
+        <>
+          <span className="flex max-w-full min-w-0 items-center justify-center [&>*]:max-w-full">
+            {content}
+          </span>
+          <span aria-hidden className="text-[11px] text-muted">
+            {FIELD_LABELS[field]}
+          </span>
+        </>
+      ) : (
+        content
+      )}
     </button>
   );
 
@@ -209,8 +221,10 @@ export function TaskPropertyPicker({
             task.assignee ? (
               <>
                 <Avatar name={task.assignee.name} src={task.assignee.avatarUrl} size="sm" decorative />
-                <span className="truncate">{task.assignee.name}</span>
+                {variant !== 'bar' && <span className="truncate">{task.assignee.name}</span>}
               </>
+            ) : variant === 'bar' ? (
+              <UserRound className="size-5 text-subtle" />
             ) : (
               <span className="flex items-center gap-1.5 text-subtle">
                 <UserRound className="size-4" />

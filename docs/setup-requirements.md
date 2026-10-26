@@ -17,6 +17,7 @@ Your live app is `https://msr-bug-tracker.onrender.com`. All the new work is on 
 | 5   | Google Cloud OAuth client              | "Connect Google Calendar"                                | Optional                                 |
 | 6   | Custom domain                          | A nicer URL, and verifying the Google app                | Optional                                 |
 | 7   | App Store and Play Store listings      | Native store apps (the PWA works without them)           | Optional                                 |
+| 8   | Connect Claude and ChatGPT             | Asking Claude or ChatGPT about your tasks, lists, events | Optional, after the merge                |
 
 Nothing is needed from you for:
 
@@ -127,6 +128,28 @@ Listing it in the stores would need:
 - a Google Play developer account (US$25 once)
 - a native wrapper, for example Capacitor, which I haven't built
 
+## 8. Connect Claude and ChatGPT (optional)
+
+The app is now an MCP server. Claude and ChatGPT sign in to it with OAuth, much like "Sign in with Google", and you approve each one on a consent page. Nothing needs to be configured on Render: the connector uses `APP_URL` (or Render's own address) and `ENCRYPTION_KEY`, which you already have.
+
+1. **Deploy.** Merge the branch and wait for Render to finish. Then open `https://msr-bug-tracker.onrender.com/.well-known/oauth-authorization-server`. It should show a short JSON document.
+2. **Keep the service awake** (step 3). A sleeping free instance takes up to a minute to wake, and Claude and ChatGPT give up before that.
+3. **Claude** (web, desktop and mobile share the connector):
+   1. **Settings → Connectors → Add custom connector.** On a Team or Enterprise plan, an owner adds it under the organization's connector settings instead.
+   2. Name it `MSR Tracker` and enter the URL `https://msr-bug-tracker.onrender.com/mcp`. Leave the advanced OAuth fields empty: Claude registers itself.
+   3. Choose **Connect**. A window opens on MSR. Sign in, choose **Read and write** (or **Read only**) and click **Allow**.
+   4. In a chat, switch **MSR Tracker** on from the tools menu and ask, for example, "What's overdue in my MSR projects?"
+4. **ChatGPT** (Plus, Pro, Business, Enterprise or Edu, on the web):
+   1. **Settings → Apps & Connectors → Advanced settings**: turn on **Developer mode**.
+   2. Back in **Apps & Connectors**, choose **Create**. Name it `MSR Tracker`, enter the MCP server URL `https://msr-bug-tracker.onrender.com/mcp`, choose **OAuth** for authentication, tick that you trust the app, and create it.
+   3. Sign in to MSR in the window that opens and click **Allow**.
+   4. In a chat, choose **Developer mode** from the **+** menu and add **MSR Tracker**. ChatGPT asks before each write.
+5. **Claude Code** (optional): `claude mcp add --transport http msr https://msr-bug-tracker.onrender.com/mcp`, then run `/mcp` and choose **Authenticate**.
+
+Both apps' menus get renamed from time to time. If a label above doesn't match, look for "connectors" or "apps" in their settings.
+
+Each person connects their own account and sees only what their roles allow. **Settings → Connected apps** in MSR shows the connector URL and the steps, lists every connected app with when it was last used, and disconnects it. Changing your password disconnects all of them.
+
 ---
 
 ## Things users set up themselves
@@ -138,6 +161,7 @@ Listing it in the stores would need:
 | Very important events    | Star the event in MSR. In Google, color it **Tomato**. Or switch on "Very important" for a whole calendar in Settings → Calendars                                                                                                                                                                                                           |
 | Two-factor sign-in       | Settings → Security, then scan the QR code with Google Authenticator or Microsoft Authenticator. Keep the recovery codes                                                                                                                                                                                                                    |
 | AI keys                  | Settings → AI, then paste a Claude, ChatGPT, Gemini or Grok API key. Each key is tested before it's saved                                                                                                                                                                                                                                   |
+| Claude / ChatGPT         | Add the connector in Claude or ChatGPT (step 8), sign in to MSR and click **Allow**. Settings → Connected apps disconnects it                                                                                                                                                                                                               |
 | Moving from another tool | Projects → Import. Each tool asks for the user's own token, and the dialog links to where to create it: ClickUp (Settings → Apps), Jira (Atlassian API tokens), Trello (Power-Up admin), Asana (developer console), Linear (Security & access) and GitHub (fine-grained token with read-only Issues). Tokens are used once and never stored |
 | Households               | New project → Household, then invite the family. **Parent** can do everything. **Child** can only take and finish their own chores and edit the shopping lists. **Guest** can only look                                                                                                                                                     |
 
@@ -161,6 +185,7 @@ The sandbox can't reach outside services. These parts were therefore built to ea
 - sending through Resend
 - Google and iCloud calendar sync
 - AI key checks
+- the Claude and ChatGPT connector handshake (the full OAuth and MCP flow is tested locally against the same endpoints)
 - the six migration APIs: ClickUp, Jira, Trello, Asana, Linear and GitHub
 
 After you complete steps 4 and 5, try each one once: send a test email, connect a calendar, add a key and import one small project. Send me any error from the Render log and I'll fix it.

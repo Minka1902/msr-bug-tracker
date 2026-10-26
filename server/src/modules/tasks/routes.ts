@@ -1,13 +1,12 @@
 import { Router } from 'express';
-import { parseIdentifier } from '@msr/shared/identifiers';
-import { canTransitionTask, missingTaskPermissions } from '@msr/shared/permissions';
+import { canTransitionTask } from '@msr/shared/permissions';
 import { moveTaskSchema, updateTaskSchema } from '@msr/shared/schemas/task';
 import { prepared } from '../../db/pool';
 import { forbidden, notFound } from '../../lib/httpError';
 import { removeStored } from '../../lib/storage';
 import { assertCanWrite, assertWritable, projectOf, toProjectContext } from '../projects/access';
 import { listTaskActivity } from './activity';
-import { loadTask, loadTaskAccess } from './access';
+import { assertCanPatchTask, findTaskByIdentifier, loadTask } from './access';
 import {
   deleteTasks,
   duplicateTask,
@@ -15,7 +14,6 @@ import {
   listSubtasks,
   moveTask,
   reopenTask,
-  resolveIdentifier,
   updateTask,
 } from './service';
 
@@ -31,10 +29,7 @@ export const createTasksRouter = () => {
   const scoped = Router({ mergeParams: true });
 
   router.get('/by-identifier/:identifier', async (req, res) => {
-    const parsed = parseIdentifier(req.params.identifier);
-    const taskId = parsed && (await resolveIdentifier(parsed.key, parsed.number));
-    const access = taskId && (await loadTaskAccess(taskId, req.user!.id));
-    if (!access) throw notFound('Task not found');
+    const access = await findTaskByIdentifier(req.params.identifier, req.user!.id);
     res.json({ task: await getTaskDetail(access.task.id) });
   });
 
@@ -44,10 +39,8 @@ export const createTasksRouter = () => {
 
   scoped.patch('/', async (req, res) => {
     const project = projectOf(req);
-    assertWritable(project);
     const patch = updateTaskSchema.parse(req.body);
-    const missing = missingTaskPermissions(project.permissions, req.task!, patch, req.user!.id);
-    if (missing.length) throw forbidden(`Your role (${project.roleName}) can't do that`, { missing });
+    assertCanPatchTask(project, req.task!, patch, req.user!.id);
     res.json({ task: await updateTask(project, req.task!.id, patch, req.user!.id) });
   });
 

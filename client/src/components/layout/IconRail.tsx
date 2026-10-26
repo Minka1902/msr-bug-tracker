@@ -48,7 +48,7 @@ export function IconRail({ user, actions, onTogglePanel, panelOpen }: IconRailPr
         side="right"
         align="end"
         trigger={
-          <button type="button" aria-label="Account" className="cursor-pointer rounded-full">
+          <button type="button" aria-label="Account" className="tap-target cursor-pointer rounded-full">
             <Avatar name={user.name} src={user.avatarUrl} size="md" />
           </button>
         }

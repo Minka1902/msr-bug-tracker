@@ -47,24 +47,27 @@ erDiagram
   calendar_events ||--o{ calendar_event_attendees : invites
   projects ||--o{ shopping_lists : has
   shopping_lists ||--o{ shopping_items : holds
+  oauth_clients ||--o{ oauth_codes : issues
+  oauth_clients ||--o{ oauth_grants : holds
+  users ||--o{ oauth_grants : authorizes
 ```
 
 ## Tables
 
 ### `users` — migration 001
 
-| Column                                             | Type                                               | Notes                                                                                                                       |
-| -------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `id`                                               | uuid PK                                            | `gen_random_uuid()`                                                                                                         |
-| `email`                                            | citext, unique                                     | Always stored lowercase. Case-insensitive uniqueness comes from `citext`.                                                   |
-| `password_hash`                                    | text, null                                         | argon2id. `NULL` for demo teammates, so they cannot log in with a password.                                                 |
-| `name`                                             | text                                               | 1–80 chars (CHECK).                                                                                                         |
-| `avatar_key`                                       | text, null                                         | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version.                      |
-| `email_verified_at`                                | timestamptz, null                                  | Reset to `NULL` when the email changes.                                                                                     |
-| `preferences`                                      | jsonb                                              | Partial `{style, mode, nav, timezone}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
-| `demo_owner_id`                                    | uuid FK → users, cascade                           | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values. |
-| `totp_secret`, `totp_enabled_at`, `totp_last_step` | text (sealed), timestamptz, bigint — migration 006 | Authenticator-app 2FA. The secret is sealed with `ENCRYPTION_KEY`. `totp_last_step` rejects a code that was already used.   |
-| `calendar_feed_hash`, `calendar_feed_token`        | bytea unique, text (sealed) — migration 009        | The private ICS feed link. Lookups go through the hash; the sealed token lets Settings show the link again.                 |
+| Column                                             | Type                                               | Notes                                                                                                                                                |
+| -------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                               | uuid PK                                            | `gen_random_uuid()`                                                                                                                                  |
+| `email`                                            | citext, unique                                     | Always stored lowercase. Case-insensitive uniqueness comes from `citext`.                                                                            |
+| `password_hash`                                    | text, null                                         | argon2id. `NULL` for demo teammates, so they cannot log in with a password.                                                                          |
+| `name`                                             | text                                               | 1–80 chars (CHECK).                                                                                                                                  |
+| `avatar_key`                                       | text, null                                         | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version.                                               |
+| `email_verified_at`                                | timestamptz, null                                  | Reset to `NULL` when the email changes.                                                                                                              |
+| `preferences`                                      | jsonb                                              | Partial `{style, mode, nav, hand, touch, timezone, aiProvider}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
+| `demo_owner_id`                                    | uuid FK → users, cascade                           | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values.                          |
+| `totp_secret`, `totp_enabled_at`, `totp_last_step` | text (sealed), timestamptz, bigint — migration 006 | Authenticator-app 2FA. The secret is sealed with `ENCRYPTION_KEY`. `totp_last_step` rejects a code that was already used.                            |
+| `calendar_feed_hash`, `calendar_feed_token`        | bytea unique, text (sealed) — migration 009        | The private ICS feed link. Lookups go through the hash; the sealed token lets Settings show the link again.                                          |
 
 ### `sessions` — migration 001
 
@@ -88,16 +91,17 @@ erDiagram
 
 ### `projects` — migration 002
 
-| Column                                 | Type                                         | Notes                                                                                                                              |
-| -------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `key`                                  | citext, unique, CHECK `^[A-Z][A-Z0-9]{1,5}$` | Globally unique and immutable. Used in URLs and task identifiers.                                                                  |
-| `name`, `description`, `color`, `icon` | text                                         | `icon` is a name from the client's curated lucide set.                                                                             |
-| `owner_id`                             | uuid FK users                                | Must match the single member who holds the `owner` system role.                                                                    |
-| `task_seq`                             | int                                          | The last allocated task number (see Invariants).                                                                                   |
-| `archived_at`                          | timestamptz, null                            | Archived projects are read-only: every mutation except restore and delete returns 409.                                             |
-| `is_demo`                              | bool                                         | Marks generated demo data.                                                                                                         |
-| `live_url`, `repo_url`                 | text, null — migration 005                   | Links shown in the project header. CHECK: `^https?://`, at most 2048 chars.                                                        |
-| `kind`                                 | `project_kind` — migration 010               | `software` (default) or `household`. It decides the seeded roles, statuses and labels, the task types offered, and the tabs shown. |
+| Column                                 | Type                                         | Notes                                                                                                                                                                                   |
+| -------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key`                                  | citext, unique, CHECK `^[A-Z][A-Z0-9]{1,5}$` | Globally unique and immutable. Used in URLs and task identifiers.                                                                                                                       |
+| `name`, `description`, `color`, `icon` | text                                         | `icon` is a name from the client's curated lucide set.                                                                                                                                  |
+| `owner_id`                             | uuid FK users                                | Must match the single member who holds the `owner` system role.                                                                                                                         |
+| `task_seq`                             | int                                          | The last allocated task number (see Invariants).                                                                                                                                        |
+| `archived_at`                          | timestamptz, null                            | Archived projects are read-only: every mutation except restore and delete returns 409.                                                                                                  |
+| `is_demo`                              | bool                                         | Marks generated demo data.                                                                                                                                                              |
+| `live_url`, `repo_url`                 | text, null — migration 005                   | Links shown in the project header. CHECK: `^https?://`, at most 2048 chars.                                                                                                             |
+| `kind`                                 | `project_kind` — migration 010               | `software` (default) or `household`. It decides the seeded roles, statuses and labels, the task types offered, and the tabs shown.                                                      |
+| `emblem`                               | jsonb, null — migration 012                  | The flag builder: `{shape, pattern, colors[], divider: {color, width 0–3}, iconColor, showIcon}`. `colors` has one entry per part of the pattern. `NULL` keeps the plain gradient icon. |
 
 ### `project_roles` — migration 002
 
@@ -227,6 +231,14 @@ Task deadlines are not stored here. They are read from `tasks.due_date` and belo
 | ---------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `shopping_lists` | `project_id`, `name` (1–60), `position`                                                                        | Every new household gets a "Groceries" list                                            |
 | `shopping_items` | `list_id`, `name` (1–120), `quantity` (≤ 40), `is_checked`, `checked_by`, `checked_at`, `added_by`, `position` | Read sorted by `(is_checked, position)`. New items go to the top of the unchecked ones |
+
+### Connector — migration 011
+
+| Table           | Key columns                                                                                                                              | Notes                                                                                                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `oauth_clients` | `id` (the client id), `secret_sealed`, `metadata` jsonb                                                                                  | Written by dynamic client registration (Claude, ChatGPT, Claude Code). The secret, if any, is sealed with `ENCRYPTION_KEY`.                                                               |
+| `oauth_codes`   | `code_hash` PK, `client_id`, `user_id`, `redirect_uri`, `code_challenge`, `scopes`, `resource`, `expires_at`                             | Five-minute, single-use authorization codes. Exchanging one deletes it and creates the grant in the same statement.                                                                       |
+| `oauth_grants`  | `client_id`, `user_id`, `scopes`, `access_hash` unique, `access_expires_at`, `refresh_hash` unique, `refresh_expires_at`, `last_used_at` | One row per connected app. Tokens are stored as sha256 only. A refresh rotates both hashes. Password changes delete the user's grants, and an hourly job purges expired codes and grants. |
 
 ## Invariants
 

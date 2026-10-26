@@ -45,7 +45,7 @@ export function ChoreCheckRow({ task, project, onOpen, className }: ChoreCheckRo
   return (
     <div
       className={cn(
-        'flex min-h-10 items-center gap-2.5 rounded-control px-2 hover:bg-surface-muted/60',
+        'flex min-h-10 tap-size items-center gap-2.5 rounded-control px-2 hover:bg-surface-muted/60',
         className,
       )}
     >

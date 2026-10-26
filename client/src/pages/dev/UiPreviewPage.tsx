@@ -57,6 +57,7 @@ const project = (
   description: `Designing and shipping the ${name.toLowerCase()} with a focus on clarity and speed.`,
   color,
   icon,
+  emblem: null,
   liveUrl: null,
   repoUrl: null,
   isFavorite: false,
@@ -162,13 +163,7 @@ export function UiPreviewPage() {
   return (
     <AppShell
       user={{ name: 'Adham Haddad', email: 'adham@msr.dev' }}
-      projects={PROJECTS.map(({ key, name, color, icon, isFavorite }) => ({
-        key,
-        name,
-        color,
-        icon,
-        isFavorite,
-      }))}
+      projects={PROJECTS}
       actions={{ onLogout: NOOP, onSearch: NOOP, onQuickCreate: NOOP, onCreateProject: NOOP, onInvite: NOOP }}
       banners={
         <Banner

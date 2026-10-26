@@ -8,9 +8,12 @@ export const RELATION_TYPES = ['relates', 'duplicates'] as const;
 export const THEME_STYLES = ['aurora', 'clean'] as const;
 export const THEME_MODES = ['light', 'dark', 'system'] as const;
 export const NAV_LAYOUTS = ['sidebar', 'rail'] as const;
+export const HANDS = ['right', 'left'] as const;
+export const TOUCH_SIZES = ['standard', 'large'] as const;
 export const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'xai'] as const;
 export const PROJECT_KINDS = ['software', 'household'] as const;
 export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
+export const CONNECTOR_SCOPES = ['read', 'write'] as const;
 
 export type TaskType = (typeof TASK_TYPES)[number];
 export type Priority = (typeof PRIORITIES)[number];
@@ -22,9 +25,12 @@ export type RelationType = (typeof RELATION_TYPES)[number];
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 export type ThemeMode = (typeof THEME_MODES)[number];
 export type NavLayout = (typeof NAV_LAYOUTS)[number];
+export type Hand = (typeof HANDS)[number];
+export type TouchSize = (typeof TOUCH_SIZES)[number];
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 export type ProjectKind = (typeof PROJECT_KINDS)[number];
 export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
+export type ConnectorScope = (typeof CONNECTOR_SCOPES)[number];
 
 export type Tone = 'neutral' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'violet';
 

@@ -5,13 +5,16 @@ import { logger } from './lib/logger';
 import { ensureStorage } from './lib/storage';
 import { purgePendingAttachments } from './modules/attachments/service';
 import { syncStaleConnections } from './modules/calendar/sync';
+import { purgeExpiredGrants } from './modules/connector/service';
 
 await migrate();
 await ensureStorage();
 const HOUR = 3_600_000;
 const CALENDAR_SYNC_MS = 5 * 60_000;
 const purge = () =>
-  purgePendingAttachments().catch((err) => logger.error({ err }, 'Pending attachment cleanup failed'));
+  Promise.all([purgePendingAttachments(), purgeExpiredGrants()]).catch((err) =>
+    logger.error({ err }, 'Hourly cleanup failed'),
+  );
 void purge();
 setInterval(purge, HOUR).unref();
 setInterval(

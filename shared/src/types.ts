@@ -1,5 +1,8 @@
+import type { Emblem } from './emblem';
 import type {
   AiProvider,
+  ConnectorScope,
+  Hand,
   NavLayout,
   Priority,
   ProjectKind,
@@ -11,6 +14,7 @@ import type {
   TaskType,
   ThemeMode,
   ThemeStyle,
+  TouchSize,
   Workflow,
 } from './enums';
 
@@ -24,6 +28,8 @@ export interface UserPreferences {
   style: ThemeStyle;
   mode: ThemeMode;
   nav: NavLayout;
+  hand: Hand;
+  touch: TouchSize;
   timezone: string;
   aiProvider: AiProvider | null;
 }
@@ -53,6 +59,7 @@ export interface ProjectSummary {
   description: string;
   color: string;
   icon: string;
+  emblem: Emblem | null;
   liveUrl: string | null;
   repoUrl: string | null;
   isFavorite: boolean;
@@ -234,7 +241,7 @@ export interface CreatedInvite extends InviteSummary {
 export interface InvitePreview {
   inviterName: string;
   email: string | null;
-  project: { key: string; name: string; color: string; icon: string } | null;
+  project: { key: string; name: string; color: string; icon: string; emblem: Emblem | null } | null;
   roleName: string | null;
   expiresAt: string;
 }
@@ -316,4 +323,19 @@ export interface ShoppingList {
   name: string;
   position: string;
   items: ShoppingItem[];
+}
+
+export interface ConnectorRequestPreview {
+  clientName: string;
+  redirectHost: string;
+  scopes: ConnectorScope[];
+}
+
+export interface ConnectedApp {
+  id: string;
+  name: string;
+  host: string;
+  scopes: ConnectorScope[];
+  connectedAt: string;
+  lastUsedAt: string;
 }

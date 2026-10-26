@@ -3,6 +3,11 @@ import type { CSSProperties } from 'react';
 import { cn } from '../../lib/cn';
 import { PROJECT_COLORS } from '../../lib/projectAppearance';
 
+const isLight = (hex: string) => {
+  const value = parseInt(hex.slice(1), 16);
+  return ((value >> 16) * 299 + ((value >> 8) & 255) * 587 + (value & 255) * 114) / 1000 > 186;
+};
+
 interface ColorPickerProps {
   value: string;
   onChange: (color: string) => void;
@@ -29,7 +34,10 @@ export function ColorPicker({
           aria-label={color}
           onClick={() => onChange(color)}
           style={{ '--c': color } as CSSProperties}
-          className="flex size-7 cursor-pointer items-center justify-center rounded-full bg-(--c) text-white ring-offset-2 ring-offset-surface transition-transform hover:scale-110 aria-checked:ring-2 aria-checked:ring-(--c)"
+          className={cn(
+            'flex size-7 cursor-pointer items-center justify-center rounded-full bg-(--c) text-white shadow-[inset_0_0_0_1px_var(--c-border-strong)] ring-offset-2 ring-offset-surface transition-transform hover:scale-110 aria-checked:ring-2 aria-checked:ring-(--c)',
+            isLight(color) && 'text-slate-900 aria-checked:ring-border-strong',
+          )}
         >
           {value.toLowerCase() === color && <Check className="size-3.5" strokeWidth={3} />}
         </button>

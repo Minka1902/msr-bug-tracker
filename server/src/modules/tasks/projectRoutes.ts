@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { missingTaskPermissions } from '@msr/shared/permissions';
 import {
   boardQuerySchema,
   bulkDeleteSchema,
@@ -7,10 +6,10 @@ import {
   createTaskSchema,
   taskFilterSchema,
 } from '@msr/shared/schemas/task';
-import { forbidden } from '../../lib/httpError';
 import { removeStored } from '../../lib/storage';
 import { assertCanWrite, projectOf } from '../projects/access';
 import { timezoneOf } from '../projects/routes';
+import { assertCanAssignOnCreate } from './access';
 import { bulkUpdateTasks, createTask, deleteTasks, getBoard, listTasks } from './service';
 
 export const createProjectTasksRouter = () => {
@@ -30,16 +29,7 @@ export const createProjectTasksRouter = () => {
     const project = projectOf(req);
     assertCanWrite(project, 'task.create');
     const input = createTaskSchema.parse(req.body);
-    if (input.assigneeId) {
-      const missing = missingTaskPermissions(
-        project.permissions,
-        { reporterId: req.user!.id, assigneeId: null },
-        { assigneeId: input.assigneeId },
-        req.user!.id,
-      );
-      if (missing.length)
-        throw forbidden(`Your role (${project.roleName}) can't assign this task`, { missing });
-    }
+    assertCanAssignOnCreate(project, input.assigneeId, req.user!.id);
     res.status(201).json({ task: await createTask(project, input, req.user!.id) });
   });
 

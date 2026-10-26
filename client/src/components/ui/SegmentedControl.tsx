@@ -47,7 +47,7 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(option.value)}
           className={cn(
             'inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[calc(var(--r-control)-4px)] font-medium text-muted transition-colors hover:text-text [&_svg]:size-4',
-            size === 'sm' ? 'h-6.5 px-2 text-xs' : 'h-8 px-3 text-sm',
+            size === 'sm' ? 'h-6.5 px-2 text-xs tap-target' : 'h-8 px-3 text-sm tap-size',
             block && 'flex-1',
             'aria-checked:bg-accent aria-checked:text-accent-contrast aria-checked:shadow-sm clean:aria-checked:bg-surface clean:aria-checked:text-text',
           )}

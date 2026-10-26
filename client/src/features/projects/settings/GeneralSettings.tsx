@@ -2,9 +2,7 @@ import type { FormEvent } from 'react';
 import { toast } from 'sonner';
 import { projectDetailsSchema } from '@msr/shared/schemas/project';
 import { Button } from '../../../components/ui/Button';
-import { ColorPicker } from '../../../components/ui/ColorPicker';
 import { Field } from '../../../components/ui/Field';
-import { IconPicker } from '../../../components/ui/IconPicker';
 import { Input } from '../../../components/ui/Input';
 import { Textarea } from '../../../components/ui/Textarea';
 import { useZodForm } from '../../../hooks/useZodForm';
@@ -12,7 +10,9 @@ import { errorMessage } from '../../../lib/api';
 import { formatDateTime } from '../../../lib/dates';
 import { SettingsSection } from '../../settings/components/SettingsSection';
 import { useUpdateProject } from '../api';
+import { ProjectAppearanceEditor } from '../components/ProjectAppearanceEditor';
 import { ProjectLinkFields } from '../components/ProjectLinkFields';
+import { useAppearanceField } from '../useAppearanceField';
 import { useProjectContext } from '../useProjectContext';
 import { useProjectPermissions } from '../useProjectPermissions';
 
@@ -36,11 +36,12 @@ export function GeneralSettings() {
     description: project.description,
     color: project.color,
     icon: project.icon,
+    emblem: project.emblem,
     liveUrl: project.liveUrl ?? '',
     repoUrl: project.repoUrl ?? '',
   });
+  const appearance = useAppearanceField(form);
   const { errors } = form.formState;
-  const [color, icon] = form.watch(['color', 'icon']);
   const editable = can('project.edit');
 
   return (
@@ -77,19 +78,8 @@ export function GeneralSettings() {
             repoUrl={form.register('repoUrl')}
             errors={{ liveUrl: errors.liveUrl?.message, repoUrl: errors.repoUrl?.message }}
           />
-          <Field label="Color">
-            <ColorPicker
-              value={color}
-              onChange={(value) => form.setValue('color', value, { shouldDirty: true })}
-            />
-          </Field>
-          <Field label="Icon">
-            <IconPicker
-              value={icon}
-              color={color}
-              onChange={(value) => form.setValue('icon', value, { shouldDirty: true })}
-              className="sm:grid-cols-10"
-            />
+          <Field label="Look">
+            <ProjectAppearanceEditor value={appearance.value} onChange={appearance.onChange} />
           </Field>
         </fieldset>
       </SettingsSection>

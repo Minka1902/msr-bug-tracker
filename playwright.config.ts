@@ -3,6 +3,14 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 4300;
 const BASE_URL = `http://localhost:${PORT}`;
 const DATABASE_URL = process.env.E2E_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/msr_e2e';
+const MOBILE_SPECS = /\.mobile\.spec\.ts/;
+const MOBILE_DEVICES = [
+  { name: 'small-phone', device: devices['iPhone SE'] },
+  { name: 'iphone-se', device: { ...devices['iPhone SE'], viewport: { width: 375, height: 667 } } },
+  { name: 'iphone', device: devices['iPhone 15'] },
+  { name: 'pro-max', device: devices['iPhone 15 Pro Max'] },
+  { name: 'ipad-mini', device: { ...devices['iPad Mini'], viewport: { width: 744, height: 1133 } } },
+];
 
 export default defineConfig({
   testDir: 'e2e',
@@ -15,14 +23,14 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop',
-      testIgnore: /\.mobile\.spec\.ts/,
+      testIgnore: MOBILE_SPECS,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
-    {
-      name: 'iphone',
-      testMatch: /\.mobile\.spec\.ts/,
-      use: { ...devices['iPhone 15'], browserName: 'chromium' },
-    },
+    ...MOBILE_DEVICES.map(({ name, device }) => ({
+      name,
+      testMatch: MOBILE_SPECS,
+      use: { ...device, browserName: 'chromium' as const },
+    })),
   ],
   webServer: {
     command: 'node e2e/prepare-db.mjs && pnpm build && node server/dist/index.js',

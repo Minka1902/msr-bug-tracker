@@ -75,7 +75,9 @@ test('fits phone screens without horizontal scrolling', async ({ page }) => {
     '/settings/calendars',
   ]) {
     await page.goto(path);
-    await expect(page.getByRole('navigation', { name: 'Tab bar' })).toBeVisible();
+    await expect(
+      page.getByRole('navigation', { name: page.viewportSize()!.width >= 744 ? 'Main' : 'Tab bar' }),
+    ).toBeVisible();
     await page.waitForLoadState('networkidle');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow, `${path} overflows by ${overflow}px`).toBeLessThanOrEqual(0);

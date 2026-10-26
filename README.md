@@ -1,12 +1,15 @@
 # MSR Bug Tracker
 
-A project and bug tracker with Kanban and List views, custom workflows, project roles, a dashboard and a command palette. It has two visual styles (Aurora and Clean), light and dark mode, and installs as an app on iPhone and Android.
+A project and bug tracker with Kanban and List views, custom workflows, project roles, a dashboard and a command palette. Each project gets a color and icon, or a flag-style emblem with its own shape, pattern, part colors and dividers. It has two visual styles (Aurora and Clean), light and dark mode, and installs as an app on iPhone and Android.
+
+On phones it is built for one hand: navigation, the + button and sheet buttons sit in the thumb zone, every tap target is at least 44 px, menus and pickers open as bottom sheets you swipe away, and task rows swipe to finish. Settings → Appearance has a left/right-hand mode and a Large touch size. Small tablets in portrait get an icon rail and a two-column board.
 
 It also covers:
 
 - **Households:** chores, errands, recurring tasks with turn-taking, Parent/Child/Guest roles and shared shopping lists.
 - **Calendar:** month, week and agenda views; two-way sync with Google Calendar and iCloud; a subscribable feed for any calendar app; and a warning whenever a deadline or meeting overlaps a very important event.
 - **Accounts:** email verification through Resend, two-factor sign-in with Google or Microsoft Authenticator, and saved Claude, ChatGPT, Gemini and Grok API keys.
+- **AI connector:** a remote MCP server with OAuth sign-in, so Claude and ChatGPT can read and update your projects, tasks, shopping lists and calendar (Settings → Connected apps).
 - **Sharing:** invite links over WhatsApp, Telegram, email or QR code, and an install QR code.
 - **Moving data:** CSV and Excel import and export with a template, plus direct migration from ClickUp, Jira, Trello, Asana, Linear and GitHub Issues.
 

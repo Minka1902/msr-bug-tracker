@@ -15,6 +15,7 @@ import { ErrorState } from '../../../components/ui/ErrorState';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useLocalState } from '../../../hooks/useLocalState';
 import { cn } from '../../../lib/cn';
+import { PHONE } from '../../../lib/media';
 import { useTaskPeek } from '../../tasks/useTaskPeek';
 import { useCalendarItems } from '../api';
 import { dayKey, weekStartsOn, type WeekStart } from '../calendarDates';
@@ -36,8 +37,6 @@ interface Editor {
   event: CalendarItem | null;
   defaults: EventDefaults;
 }
-
-const MOBILE_QUERY = '(max-width: 767px)';
 
 const rangeOf = (mode: CalendarMode, anchor: Date, weekStart: WeekStart, agendaDays: number) => {
   if (mode === 'month')
@@ -92,7 +91,7 @@ export function CalendarView({
   const weekStart = weekStartsOn();
   const [mode, setMode] = useLocalState<CalendarMode>(
     storageKey,
-    window.matchMedia(MOBILE_QUERY).matches ? 'agenda' : 'month',
+    window.matchMedia(PHONE).matches ? 'agenda' : 'month',
   );
   const [anchor, setAnchor] = useState(() => new Date());
   const [editor, setEditor] = useState<Editor>({ event: null, defaults: {} });

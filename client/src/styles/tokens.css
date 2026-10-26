@@ -184,3 +184,17 @@
   --f-display: 'Inter Variable', system-ui, sans-serif;
   --theme-color: #111317;
 }
+
+:root {
+  --tap: 44px;
+}
+
+:root[data-touch='large'] {
+  --tap: 52px;
+}
+
+@media (pointer: coarse) {
+  :root[data-touch='large'] {
+    font-size: 106.25%;
+  }
+}

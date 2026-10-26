@@ -113,6 +113,57 @@ describe('project links', () => {
   });
 });
 
+describe('project emblems', () => {
+  const flag = {
+    shape: 'shield',
+    pattern: 'stripes-3',
+    colors: ['#ef4444', '#ffffff', '#3b82f6'],
+    divider: { color: '#0f172a', width: 2 },
+    iconColor: '#0f172a',
+    showIcon: true,
+  };
+
+  it('stores a flag emblem on create and update, shows it in search and invites, and clears it', async () => {
+    const agent = agentFor();
+    await registerUser(agent);
+    const created = await createProject(agent, { emblem: flag });
+    expect((await agent.get(`/api/projects/${created.key}`)).body.project.emblem).toEqual(flag);
+
+    const quarters = { ...flag, pattern: 'quarters', colors: ['#000000', '#ffffff', '#ffffff', '#000000'] };
+    await agent.patch(`/api/projects/${created.key}`).send({ emblem: quarters }).expect(200);
+    await agent.patch(`/api/projects/${created.key}`).send({ name: 'Renamed' }).expect(200);
+    expect((await agent.get('/api/projects')).body.projects[0].emblem).toEqual(quarters);
+    expect((await agent.get('/api/search').query({ q: 'Renamed' })).body.projects[0].emblem).toEqual(
+      quarters,
+    );
+    const { invite } = (
+      await agent
+        .post(`/api/projects/${created.key}/invites`)
+        .send({ roleId: created.roles.find((role) => role.systemKey === 'member')!.id })
+        .expect(201)
+    ).body;
+    const token = new URL(invite.url).pathname.split('/').pop();
+    expect((await agentFor().get(`/api/auth/invites/${token}`)).body.invite.project.emblem).toEqual(quarters);
+
+    await agent.patch(`/api/projects/${created.key}`).send({ emblem: null }).expect(200);
+    expect((await agent.get(`/api/projects/${created.key}`)).body.project.emblem).toBeNull();
+  });
+
+  it('needs one color per part and known shapes, patterns and widths', async () => {
+    const agent = agentFor();
+    await registerUser(agent);
+    const { key } = await createProject(agent);
+    for (const emblem of [
+      { ...flag, colors: ['#ef4444', '#ffffff'] },
+      { ...flag, shape: 'star' },
+      { ...flag, pattern: 'plaid' },
+      { ...flag, divider: { color: '#000000', width: 5 } },
+      { ...flag, iconColor: 'red' },
+    ])
+      await agent.patch(`/api/projects/${key}`).send({ emblem }).expect(400);
+  });
+});
+
 describe('editing projects', () => {
   it('requires project.edit', async () => {
     const { project, admin, member } = await setupTeam();

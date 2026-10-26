@@ -7,6 +7,9 @@ import { getCards } from '../tasks/service';
 const TREND_DAYS = 14;
 const LIST_SIZE = 8;
 
+export const MY_TASKS_SCOPE = `t.assignee_id = $1 AND p.archived_at IS NULL
+  AND t.project_id IN (SELECT project_id FROM project_members WHERE user_id = $1)`;
+
 const scopedTasks = (projectFilter: string) => `
   scope AS (${projectFilter}),
   today AS (SELECT (now() AT TIME ZONE $2)::date AS d),

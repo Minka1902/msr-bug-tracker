@@ -62,6 +62,7 @@ export function InlineText({
     className: cn(
       'w-full min-w-0 rounded-[calc(var(--r-control)-3px)] border border-transparent bg-transparent px-2 text-sm outline-none transition-colors hover:border-border focus:border-accent focus:bg-surface disabled:cursor-default disabled:hover:border-transparent',
       multiline ? 'field-sizing-content resize-none py-1' : 'h-8',
+      'tap-size',
       className,
     ),
     ...aria,

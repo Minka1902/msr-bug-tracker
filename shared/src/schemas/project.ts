@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DIVIDER_WIDTHS, EMBLEM_PATTERNS, EMBLEM_SHAPES, PATTERN_PARTS } from '../emblem';
 import { PROJECT_KINDS, STATUS_CATEGORIES, WORKFLOWS } from '../enums';
 import { PROJECT_KEY_REGEX } from '../identifiers';
 import { ALL_PERMISSIONS } from '../permissions';
@@ -12,6 +13,22 @@ export const projectKeySchema = z
 export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Pick a color');
 export const iconSchema = z.string().regex(/^[a-z0-9-]{1,40}$/, 'Pick an icon');
 export const uuidSchema = z.uuid();
+export const emblemSchema = z
+  .object({
+    shape: z.enum(EMBLEM_SHAPES),
+    pattern: z.enum(EMBLEM_PATTERNS),
+    colors: z.array(colorSchema).min(1).max(4),
+    divider: z.object({
+      color: colorSchema,
+      width: z.literal([...DIVIDER_WIDTHS]),
+    }),
+    iconColor: colorSchema,
+    showIcon: z.boolean(),
+  })
+  .refine((emblem) => emblem.colors.length === PATTERN_PARTS[emblem.pattern], {
+    path: ['colors'],
+    message: 'Pick one color for each part',
+  });
 export const positionSchema = z.string().min(1).max(64);
 export const httpUrlSchema = z
   .union([
@@ -26,6 +43,7 @@ const projectFields = {
   description: z.string().trim().max(2000),
   color: colorSchema,
   icon: iconSchema,
+  emblem: emblemSchema.nullable().optional(),
   liveUrl: httpUrlSchema.optional(),
   repoUrl: httpUrlSchema.optional(),
 };

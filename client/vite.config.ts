@@ -27,14 +27,16 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],
         globIgnores: ['**/apple-splash-*'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/(oauth|mcp)(\/|$)/, /^\/\.well-known\//],
         cleanupOutdatedCaches: true,
       },
     }),
   ],
   server: {
     port: 5173,
-    proxy: { '/api': 'http://localhost:4000' },
+    proxy: Object.fromEntries(
+      ['/api', '/mcp', '/oauth', '/.well-known'].map((path) => [path, 'http://localhost:4000']),
+    ),
   },
   test: {
     environment: 'jsdom',

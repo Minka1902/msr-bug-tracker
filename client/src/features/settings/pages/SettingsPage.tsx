@@ -9,6 +9,7 @@ const TABS = [
   { to: '/settings/account', label: 'Account' },
   { to: '/settings/security', label: 'Security' },
   { to: '/settings/ai', label: 'AI' },
+  { to: '/settings/connected-apps', label: 'Connected apps' },
   { to: '/settings/calendars', label: 'Calendars' },
   { to: '/settings/appearance', label: 'Appearance' },
   { to: '/settings/install', label: 'Install app' },

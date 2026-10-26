@@ -17,6 +17,7 @@ import { SectionCard } from '../../insights/components/SectionCard';
 import { useProjectContext } from '../../projects/useProjectContext';
 import { useTaskList } from '../../tasks/api';
 import { useTaskPeek } from '../../tasks/useTaskPeek';
+import { TaskSwipeRow } from '../../tasks/components/TaskSwipeRow';
 import { ChoreCheckRow } from '../components/ChoreCheckRow';
 import { useShoppingLists } from '../shoppingApi';
 
@@ -93,7 +94,9 @@ export function HouseholdHomePage() {
                 <span className="font-normal text-subtle">{group.tasks.length}</span>
               </h3>
               {group.tasks.map((task) => (
-                <ChoreCheckRow key={task.id} task={task} project={project} onOpen={openTask} />
+                <TaskSwipeRow key={task.id} task={task}>
+                  <ChoreCheckRow task={task} project={project} onOpen={openTask} />
+                </TaskSwipeRow>
               ))}
             </section>
           ))}

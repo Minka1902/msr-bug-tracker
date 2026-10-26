@@ -54,7 +54,7 @@ const COLUMNS: DataColumn<ProjectSummary>[] = [
     sortable: true,
     cell: (project) => (
       <span className="flex min-w-0 items-center gap-3">
-        <ProjectAvatar color={project.color} icon={project.icon} size="sm" />
+        <ProjectAvatar appearance={project} size="sm" />
         <span className="truncate font-medium">{project.name}</span>
         <span className="font-mono text-xs text-subtle">{project.key}</span>
         {project.isFavorite && <Star className="size-3.5 shrink-0 fill-highlight text-highlight" />}
@@ -201,7 +201,7 @@ export function ProjectsPage() {
               type="button"
               aria-pressed={scope === item.value}
               onClick={() => setScope(item.value)}
-              className="h-8 cursor-pointer rounded-full border border-border bg-surface px-3.5 text-sm text-muted transition-colors hover:text-text aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-contrast"
+              className="h-8 tap-size cursor-pointer rounded-full border border-border bg-surface px-3.5 text-sm text-muted transition-colors hover:text-text aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-contrast"
             >
               {item.label}
             </button>

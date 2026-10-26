@@ -34,7 +34,10 @@ import {
 const listQuerySchema = z.object({ archived: z.enum(['true', 'false', 'all']).default('false') });
 const ARCHIVED_FILTER = { true: 'archived', false: 'active', all: 'all' } as const;
 
-export const timezoneOf = (req: Request) => req.user!.preferences.timezone ?? DEFAULT_PREFERENCES.timezone;
+export const userTimezone = (user: { preferences: { timezone?: string } }) =>
+  user.preferences.timezone ?? DEFAULT_PREFERENCES.timezone;
+
+export const timezoneOf = (req: Request) => userTimezone(req.user!);
 
 export const createProjectsRouter = () => {
   const router = Router();

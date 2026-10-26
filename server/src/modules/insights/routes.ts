@@ -4,15 +4,12 @@ import { taskFilterSchema } from '@msr/shared/schemas/task';
 import { projectOf } from '../projects/access';
 import { timezoneOf } from '../projects/routes';
 import { listTasks } from '../tasks/service';
-import { getDashboard, getProjectActivity, getProjectOverview } from './service';
+import { getDashboard, getProjectActivity, getProjectOverview, MY_TASKS_SCOPE } from './service';
 
 const activityQuerySchema = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
-
-const MY_TASKS_SCOPE = `t.assignee_id = $1 AND p.archived_at IS NULL
-  AND t.project_id IN (SELECT project_id FROM project_members WHERE user_id = $1)`;
 
 export const createInsightsRouter = () => {
   const router = Router();

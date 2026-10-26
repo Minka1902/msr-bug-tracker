@@ -3,15 +3,17 @@ import { CSS } from '@dnd-kit/utilities';
 import type { TaskCard } from '@msr/shared/types';
 import { cn } from '../../../lib/cn';
 import { TaskCardView } from '../components/TaskCardView';
+import { TaskSwipeRow } from '../components/TaskSwipeRow';
 
 interface SortableTaskCardProps {
   task: TaskCard;
   containerId: string;
   disabled?: boolean;
+  swipe?: boolean;
   onOpen: (task: TaskCard) => void;
 }
 
-export function SortableTaskCard({ task, containerId, disabled, onOpen }: SortableTaskCardProps) {
+export function SortableTaskCard({ task, containerId, disabled, swipe, onOpen }: SortableTaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: task.id,
     data: { containerId },
@@ -35,7 +37,13 @@ export function SortableTaskCard({ task, containerId, disabled, onOpen }: Sortab
         if (event.key === 'Enter' && !isDragging) onOpen(task);
       }}
     >
-      <TaskCardView task={task} />
+      {swipe ? (
+        <TaskSwipeRow task={task} className="rounded-[calc(var(--r-card)-4px)]">
+          <TaskCardView task={task} />
+        </TaskSwipeRow>
+      ) : (
+        <TaskCardView task={task} />
+      )}
     </div>
   );
 }

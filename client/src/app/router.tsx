@@ -33,6 +33,12 @@ export const router = createBrowserRouter([
         lazy: lazyRoute(() => import('../features/pwa/InstallPage').then((m) => m.InstallPage)),
       },
       {
+        path: '/connect/authorize',
+        lazy: lazyRoute(() =>
+          import('../features/connector/pages/ConnectorConsentPage').then((m) => m.ConnectorConsentPage),
+        ),
+      },
+      {
         path: '/invite/:token',
         lazy: lazyRoute(() => import('../features/invites/pages/InvitePage').then((m) => m.InvitePage)),
       },
@@ -220,6 +226,14 @@ export const router = createBrowserRouter([
                 path: 'ai',
                 lazy: lazyRoute(() =>
                   import('../features/settings/pages/AiSettings').then((m) => m.AiSettings),
+                ),
+              },
+              {
+                path: 'connected-apps',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/ConnectedAppsSettings').then(
+                    (m) => m.ConnectedAppsSettings,
+                  ),
                 ),
               },
               {

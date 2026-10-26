@@ -9,4 +9,6 @@
   root.dataset.style = stored.style || 'aurora';
   root.dataset.mode = dark ? 'dark' : 'light';
   root.dataset.nav = stored.nav || 'sidebar';
+  root.dataset.hand = stored.hand || 'right';
+  root.dataset.touch = stored.touch || 'standard';
 })();

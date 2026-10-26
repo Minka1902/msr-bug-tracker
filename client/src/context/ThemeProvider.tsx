@@ -20,11 +20,7 @@ const systemPrefersDark = () => matchMedia(DARK_QUERY).matches;
 
 export function ThemeProvider({ children, initial }: ThemeProviderProps) {
   const setTheme = (patch: Partial<ThemePrefs>, { silent = false } = {}) => {
-    const next = {
-      style: patch.style ?? prefs.style,
-      mode: patch.mode ?? prefs.mode,
-      nav: patch.nav ?? prefs.nav,
-    };
+    const next = { ...prefs, ...patch };
     setPrefs(next);
     writeLocal(STORAGE_KEY, next);
     if (!silent) listeners.current.forEach((listener) => listener(next));
@@ -38,6 +34,7 @@ export function ThemeProvider({ children, initial }: ThemeProviderProps) {
   };
 
   const [prefs, setPrefs] = useState<ThemePrefs>(() => ({
+    ...DEFAULT_THEME,
     ...readLocal(STORAGE_KEY, DEFAULT_THEME),
     ...initial,
   }));
@@ -50,9 +47,11 @@ export function ThemeProvider({ children, initial }: ThemeProviderProps) {
     root.dataset.style = prefs.style;
     root.dataset.mode = resolvedMode;
     root.dataset.nav = prefs.nav;
+    root.dataset.hand = prefs.hand;
+    root.dataset.touch = prefs.touch;
     const themeColor = getComputedStyle(root).getPropertyValue('--theme-color').trim();
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor);
-  }, [prefs.style, prefs.nav, resolvedMode]);
+  }, [prefs.style, prefs.nav, prefs.hand, prefs.touch, resolvedMode]);
 
   return <ThemeContext value={{ ...prefs, resolvedMode, setTheme, subscribe }}>{children}</ThemeContext>;
 }

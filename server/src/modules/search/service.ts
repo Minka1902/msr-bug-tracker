@@ -7,7 +7,7 @@ const TASK_LIMIT = 20;
 const PROJECT_LIMIT = 6;
 
 const SEARCH_PROJECTS = `
-  SELECT p.key::text AS key, p.name, p.color, p.icon
+  SELECT p.key::text AS key, p.name, p.color, p.icon, p.emblem
   FROM project_members m JOIN projects p ON p.id = m.project_id
   WHERE m.user_id = $1 AND (p.name ILIKE $2 OR p.key ILIKE $3 OR $4 <% p.name)
   ORDER BY p.archived_at IS NOT NULL, word_similarity($4, p.name) DESC, p.name
@@ -35,12 +35,15 @@ const like = (text: string) => `%${text.replace(/[\\%_]/g, '\\$&')}%`;
 export const search = async (
   userId: string,
   text: string,
-): Promise<{ projects: Pick<ProjectSummary, 'key' | 'name' | 'color' | 'icon'>[]; tasks: TaskCard[] }> => {
+): Promise<{
+  projects: Pick<ProjectSummary, 'key' | 'name' | 'color' | 'icon' | 'emblem'>[];
+  tasks: TaskCard[];
+}> => {
   const q = text.trim();
   if (!q) return { projects: [], tasks: [] };
   const identifier = parseIdentifier(q);
   const [projects, tasks] = await Promise.all([
-    query<{ key: string; name: string; color: string; icon: string }>(SEARCH_PROJECTS, [
+    query<Pick<ProjectSummary, 'key' | 'name' | 'color' | 'icon' | 'emblem'>>(SEARCH_PROJECTS, [
       userId,
       like(q),
       `${q.replace(/[\\%_]/g, '\\$&')}%`,
