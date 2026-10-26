@@ -1,16 +1,18 @@
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
-import { workflowOf, type StatusCategory, type TaskType, type Workflow } from '@msr/shared/enums';
+import { workflowOf, type Priority, type StatusCategory, type TaskType, type Workflow } from '@msr/shared/enums';
+import { describeEscalation } from '@msr/shared/escalation';
 import { formatIdentifier } from '@msr/shared/identifiers';
 import { missingTaskPermissions } from '@msr/shared/permissions';
 import { describeRecurrence, nextAssignee, nextOccurrence } from '@msr/shared/recurrence';
 import type { BulkPatch, CreateTaskInput, TaskFilters, UpdateTaskInput } from '@msr/shared/schemas/task';
-import type { BoardColumn, ProjectStatus, TaskRecurrence } from '@msr/shared/types';
+import type { BoardColumn, EscalationRange, ProjectStatus, TaskRecurrence } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { badRequest, forbidden, notFound } from '../../lib/httpError';
 import { assertValidPosition, positionAfter } from '../../lib/position';
 import type { ProjectContext } from '../projects/access';
 import { listStatuses } from '../statuses/service';
 import { recordActivity, type ActivityInput } from './activity';
+import { escalatePriorities } from './escalation';
 import { buildTaskFilter, sortSql, type FilterContext } from './filters';
 import {
   cardSelect,
@@ -34,7 +36,7 @@ interface CurrentRow {
   workflow: Workflow;
   category: StatusCategory;
   position: string;
-  priority: string;
+  priority: Priority;
   severity: string | null;
   assignee_id: string | null;
   assignee_name: string | null;
@@ -42,6 +44,8 @@ interface CurrentRow {
   start_date: string | null;
   due_date: string | null;
   recurrence: TaskRecurrence | null;
+  escalate_from: Priority | null;
+  escalate_to: Priority | null;
   is_blocked: boolean;
   blocked_reason: string | null;
   completed_at: Date | null;
@@ -97,9 +101,10 @@ const PARENT = 'SELECT id, parent_id FROM tasks WHERE id = $1 AND project_id = $
 const INSERT_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
-                     actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, recurrence)
+                     actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, recurrence,
+                     escalate_from, escalate_to, escalate_since)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $14 THEN now() END, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26, $27)
+          $23, $24, $25, $26, $27, $28, $29, $30)
   RETURNING id`;
 const INSERT_LABELS =
   'INSERT INTO task_labels (task_id, label_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING';
@@ -126,11 +131,11 @@ const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-                     recurrence)
+                     recurrence, escalate_from, escalate_to, escalate_since)
   SELECT project_id, $2, parent_id, type, left(title || ' (copy)', 300), description, status_id, priority, severity, assignee_id, $3,
          start_date, due_date, CASE WHEN completed_at IS NOT NULL THEN now() END, is_blocked, blocked_reason, $4, steps_to_reproduce,
          expected_behavior, actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-         recurrence
+         recurrence, escalate_from, escalate_to, escalate_since
   FROM tasks WHERE id = $1
   RETURNING id`;
 const COPY_LABELS =
@@ -159,11 +164,12 @@ const ACTOR_TODAY = `SELECT (now() AT TIME ZONE coalesce(preferences->>'timezone
 const SPAWN_RECURRENCES = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, recurrence, position, steps_to_reproduce, expected_behavior, actual_behavior, env_os,
-                     env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total)
+                     env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total, escalate_from,
+                     escalate_to, escalate_since)
   SELECT t.project_id, x.number, t.parent_id, t.type, t.title, t.description, x.status_id, t.priority, t.severity, x.assignee_id,
          t.reporter_id, x.start_date, x.due_date, t.recurrence, x.position, t.steps_to_reproduce, t.expected_behavior,
          t.actual_behavior, t.env_os, t.env_browser, t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility,
-         t.checklist_total
+         t.checklist_total, t.escalate_from, t.escalate_to, CASE WHEN t.escalate_from IS NOT NULL THEN $8::date END
   FROM unnest($1::uuid[], $2::int[], $3::uuid[], $4::uuid[], $5::date[], $6::date[], $7::text[])
     AS x(source_id, number, status_id, assignee_id, start_date, due_date, position)
   JOIN tasks t ON t.id = x.source_id
@@ -176,6 +182,9 @@ const COPY_SPAWNED_CHECKLIST = `
   SELECT x.id, c.text, false, c.position FROM unnest($1::uuid[], $2::uuid[]) AS x(id, source_id)
   JOIN task_checklist_items c ON c.task_id = x.source_id`;
 const CLEAR_RECURRENCE = 'UPDATE tasks SET recurrence = NULL WHERE id = ANY($1::uuid[])';
+const SET_PRIORITY = `
+  UPDATE tasks SET priority = $2, escalate_from = NULL, escalate_to = NULL, escalate_since = NULL, updated_at = now()
+  WHERE id = ANY($1::uuid[])`;
 
 export const pickStatus = (statuses: ProjectStatus[], workflow: Workflow, category: StatusCategory) => {
   for (const candidate of CATEGORY_FALLBACK[category]) {
@@ -214,6 +223,12 @@ const refreshParents = (db: Db, parentIds: (string | null)[]) => {
   return ids.length ? query(REFRESH_PARENTS, [ids], db) : Promise.resolve([]);
 };
 
+const actorToday = (db: Db, actorId: string) =>
+  queryOne<{ today: string }>(ACTOR_TODAY, [actorId], db).then((row) => row!.today);
+
+const scheduleOf = (row: Pick<CurrentRow, 'escalate_from' | 'escalate_to'>): EscalationRange | null =>
+  row.escalate_from ? { from: row.escalate_from, to: row.escalate_to! } : null;
+
 const lockTasks = (db: Db, projectId: string, ids: string[]) =>
   query<CurrentRow>(CURRENT_TASK, [ids, projectId], db);
 
@@ -236,7 +251,7 @@ const spawnRecurrences = async (
 ) => {
   const sources = completed.filter((row) => row.recurrence);
   if (!sources.length) return;
-  const { today } = (await queryOne<{ today: string }>(ACTOR_TODAY, [actorId], db))!;
+  const today = await actorToday(db, actorId);
   const statuses = await listStatuses(project.id, db);
   const candidates = sources.map((row) => nextAssignee(row.recurrence!, row.assignee_id));
   const members = new Set(
@@ -276,6 +291,7 @@ const spawnRecurrences = async (
       plans.map((plan) => plan.startDate),
       plans.map((plan) => plan.dueDate),
       plans.map((plan) => positions.get(plan.status.id)!.shift()!),
+      today,
     ],
     db,
   );
@@ -284,6 +300,7 @@ const spawnRecurrences = async (
   await query(COPY_SPAWNED_LABELS, pairs, db);
   await query(COPY_SPAWNED_CHECKLIST, pairs, db);
   await query(CLEAR_RECURRENCE, [pairs[1]], db);
+  await escalatePriorities(pairs[0]!, false, db);
   await refreshParents(
     db,
     plans.map((plan) => plan.row.parent_id),
@@ -419,6 +436,9 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
         input.fixVersion ?? '',
         input.reproducibility ?? null,
         input.recurrence ?? null,
+        input.escalation?.from ?? null,
+        input.escalation?.to ?? null,
+        input.escalation ? await actorToday(db, actorId) : null,
       ],
       db,
     );
@@ -427,6 +447,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
     if (input.attachmentIds?.length)
       await query(LINK_ATTACHMENTS, [taskId, input.attachmentIds, actorId], db);
     await refreshParents(db, [input.parentId ?? null]);
+    if (input.escalation) await escalatePriorities([taskId], false, db);
     await recordActivity([{ projectId: project.id, taskId, actorId, action: 'created' }], db);
     return getTaskDetail(taskId, db);
   });
@@ -508,6 +529,21 @@ export const updateTask = (
     const due = 'due_date' in sets ? (sets.due_date as string | null) : current.due_date;
     if (start && due && start > due) throw badRequest('Start date must be on or before the due date');
 
+    const scheduled = scheduleOf(current);
+    const escalation =
+      patch.escalation !== undefined
+        ? patch.escalation
+        : scheduled && ('priority' in sets || !due)
+          ? null
+          : scheduled;
+    if (escalation && !due) throw badRequest('Set a due date to schedule the priority');
+    if (describeEscalation(escalation) !== describeEscalation(scheduled)) {
+      sets.escalate_from = escalation?.from ?? null;
+      sets.escalate_to = escalation?.to ?? null;
+      sets.escalate_since = escalation ? await actorToday(db, actorId) : null;
+      log('escalation', describeEscalation(scheduled), describeEscalation(escalation));
+    }
+
     if (patch.labelIds) {
       const before = await query<{ id: string; name: string }>(TASK_LABELS, [taskId], db);
       const next = await projectLabels(db, project.id, patch.labelIds);
@@ -544,6 +580,7 @@ export const updateTask = (
     }
     if ('completed_at' in sets) await refreshParents(db, [current.parent_id]);
     await recordActivity(activity, db);
+    if (escalation) await escalatePriorities([taskId], true, db);
     if (sets.completed_at)
       await spawnRecurrences(
         db,
@@ -785,8 +822,16 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
       );
       changed.forEach((row) => log(row.id, field, display(row), next));
     };
-    if (patch.priority)
-      await scalar('priority', 'priority', patch.priority, (row) => row.priority, patch.priority);
+    if (patch.priority) {
+      const changed = rows.filter((row) => row.priority !== patch.priority);
+      if (changed.length) {
+        await query(SET_PRIORITY, [changed.map((row) => row.id), patch.priority], db);
+        changed.forEach((row) => {
+          log(row.id, 'priority', row.priority, patch.priority);
+          if (row.escalate_from) log(row.id, 'escalation', describeEscalation(scheduleOf(row)), null);
+        });
+      }
+    }
     if (patch.severity !== undefined)
       await scalar('severity', 'severity', patch.severity, (row) => row.severity, patch.severity);
     if (patch.assigneeId !== undefined) {
@@ -825,5 +870,9 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
       await query('UPDATE tasks SET updated_at = now() WHERE id = ANY($1::uuid[])', [uniqueIds], db);
 
     await recordActivity(activity, db);
+    if (patch.statusId || patch.statusCategory) {
+      const scheduledIds = rows.filter((row) => row.escalate_from).map((row) => row.id);
+      if (scheduledIds.length) await escalatePriorities(scheduledIds, true, db);
+    }
     return getCards(uniqueIds, db);
   });
