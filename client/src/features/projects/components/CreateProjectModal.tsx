@@ -1,11 +1,13 @@
-import { Check, CircleAlert, X } from 'lucide-react';
+import { Check, CircleAlert, FolderKanban, House, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
+import { PROJECT_KIND_META, PROJECT_KINDS, type ProjectKind } from '@msr/shared/enums';
 import { PROJECT_KEY_REGEX, suggestProjectKey } from '@msr/shared/identifiers';
 import { createProjectSchema } from '@msr/shared/schemas/project';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
+import { ChoiceGroup } from '../../../components/ui/ChoiceGroup';
 import { ColorPicker } from '../../../components/ui/ColorPicker';
 import { Field } from '../../../components/ui/Field';
 import { IconPicker } from '../../../components/ui/IconPicker';
@@ -18,13 +20,25 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
 import { useCreateProject, useKeyAvailability } from '../api';
+import { ProjectLinkFields } from './ProjectLinkFields';
 
 interface CreateProjectModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const DEFAULTS = { name: '', key: '', description: '', color: '#4f56f0', icon: 'hexagon' };
+const KIND_ICONS = { software: <FolderKanban />, household: <House /> };
+
+const DEFAULTS = {
+  kind: 'software' as ProjectKind,
+  name: '',
+  key: '',
+  description: '',
+  color: '#4f56f0',
+  icon: 'hexagon',
+  liveUrl: '',
+  repoUrl: '',
+};
 
 export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalProps) {
   const submit = (event: FormEvent) =>
@@ -38,6 +52,11 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
       }),
     )(event);
 
+  const changeKind = (next: ProjectKind) => {
+    form.setValue('kind', next);
+    if (icon === PROJECT_KIND_META[kind].icon) form.setValue('icon', PROJECT_KIND_META[next].icon);
+  };
+
   const close = () => {
     onOpenChange(false);
     form.reset(DEFAULTS);
@@ -49,7 +68,8 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
   const createProject = useCreateProject();
   const form = useZodForm(createProjectSchema, DEFAULTS);
   const [keyTouched, setKeyTouched] = useState(false);
-  const [name, key, color, icon] = form.watch(['name', 'key', 'color', 'icon']);
+  const [watchedKind, name, key, color, icon] = form.watch(['kind', 'name', 'key', 'color', 'icon']);
+  const kind = watchedKind ?? 'software';
   const normalizedKey = key.trim().toUpperCase();
   const debouncedKey = useDebouncedValue(normalizedKey, 300);
   const availability = useKeyAvailability(debouncedKey, open && PROJECT_KEY_REGEX.test(debouncedKey));
@@ -81,7 +101,7 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
       title="New project"
-      description="Projects hold tasks, bugs and their own workflow."
+      description="A software project for team work, or a household for chores, shopping and the family calendar."
       size="lg"
       footer={
         <>
@@ -106,8 +126,25 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
               {errorMessage(createProject.error)}
             </Banner>
           )}
+          <ChoiceGroup
+            label="Project type"
+            columns={2}
+            value={kind}
+            onChange={changeKind}
+            choices={PROJECT_KINDS.map((value) => ({
+              value,
+              label: PROJECT_KIND_META[value].label,
+              description: PROJECT_KIND_META[value].description,
+              icon: KIND_ICONS[value],
+            }))}
+          />
           <Field label="Name" htmlFor="project-name" required error={errors.name?.message}>
-            <Input id="project-name" autoFocus placeholder="Website Redesign" {...form.register('name')} />
+            <Input
+              id="project-name"
+              autoFocus
+              placeholder={kind === 'household' ? 'The Smith family' : 'Website Redesign'}
+              {...form.register('name')}
+            />
           </Field>
           <Field
             label="Key"
@@ -137,6 +174,13 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
               {...form.register('description')}
             />
           </Field>
+          {kind === 'software' && (
+            <ProjectLinkFields
+              liveUrl={form.register('liveUrl')}
+              repoUrl={form.register('repoUrl')}
+              errors={{ liveUrl: errors.liveUrl?.message, repoUrl: errors.repoUrl?.message }}
+            />
+          )}
         </div>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3 rounded-card border border-border bg-surface-muted/50 p-3">

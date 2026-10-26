@@ -58,7 +58,7 @@ export function Sidebar({ user, projects, actions, onCollapse, onNavigate }: Sid
           ))}
         </div>
       </nav>
-      <UserCard user={user} onLogout={actions.onLogout} />
+      <UserCard user={user} onLogout={actions.onLogout} onInvite={actions.onInvite} />
     </aside>
   );
 }

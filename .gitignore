@@ -8,4 +8,6 @@ coverage
 test-results
 playwright-report
 *.log
+!server/src/modules/demo/assets/*.log
+!server/test/fixtures/*.log
 .DS_Store

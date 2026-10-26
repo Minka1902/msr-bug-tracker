@@ -2,7 +2,7 @@ import { Suspense, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import type { CurrentUser } from '@msr/shared/types';
 import { AppShell } from '../components/layout/AppShell';
-import { ShellContext, type ShellContextValue } from '../context/shellContext';
+import { ShellContext, type InviteTarget, type ShellContextValue } from '../context/shellContext';
 import { useLogout } from '../features/auth/api';
 import { VerifyEmailBanner } from '../features/auth/components/VerifyEmailBanner';
 import { useThemeSync } from '../features/auth/useThemeSync';
@@ -15,6 +15,9 @@ import type { QuickCreateDefaults } from '../features/tasks/components/QuickCrea
 import { useHotkey } from '../hooks/useHotkey';
 import { lazyComponent } from '../lib/lazy';
 
+const InviteDialog = lazyComponent(() =>
+  import('../features/invites/components/InviteDialog').then((m) => m.InviteDialog),
+);
 const QuickCreateTaskModal = lazyComponent(() =>
   import('../features/tasks/components/QuickCreateTaskModal').then((m) => m.QuickCreateTaskModal),
 );
@@ -42,6 +45,10 @@ export function AppLayout({ user, children }: AppLayoutProps) {
     version: number;
   }>({ open: false, defaults: {}, version: 0 });
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [invite, setInvite] = useState<{ open: boolean; target?: InviteTarget; version: number }>({
+    open: false,
+    version: 0,
+  });
   useThemeSync(user);
   useHotkey('k', () => setPaletteOpen((current) => !current));
 
@@ -50,6 +57,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
     openQuickCreate: (defaults = {}) =>
       setQuickCreate((current) => ({ open: true, defaults, version: current.version + 1 })),
     openSearch: () => setPaletteOpen(true),
+    openInvite: (target) => setInvite((current) => ({ open: true, target, version: current.version + 1 })),
   };
 
   return (
@@ -62,6 +70,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
           onSearch: shell.openSearch,
           onQuickCreate: () => shell.openQuickCreate(),
           onCreateProject: shell.openCreateProject,
+          onInvite: () => shell.openInvite(),
         }}
         banners={
           <>
@@ -80,10 +89,17 @@ export function AppLayout({ user, children }: AppLayoutProps) {
       <CreateProjectModal open={creatingProject} onOpenChange={setCreatingProject} />
       <Suspense fallback={null}>
         <QuickCreateTaskModal
-          key={quickCreate.version}
+          key={`quick-create-${quickCreate.version}`}
           open={quickCreate.open}
           defaults={quickCreate.defaults}
           onOpenChange={(open) => setQuickCreate((current) => ({ ...current, open }))}
+        />
+        <InviteDialog
+          key={`invite-${invite.version}`}
+          open={invite.open}
+          project={invite.target}
+          defaultEmail={invite.target?.email}
+          onOpenChange={(open) => setInvite((current) => ({ ...current, open }))}
         />
         <TaskPeek />
         <CommandPalette

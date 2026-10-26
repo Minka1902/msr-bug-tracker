@@ -17,6 +17,8 @@ export const PERMISSIONS = {
   'project.manage_members': 1 << 15,
   'project.manage_roles': 1 << 16,
   'project.archive': 1 << 17,
+  'task.transition_own': 1 << 18,
+  'lists.edit': 1 << 19,
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
@@ -41,6 +43,11 @@ export const PERMISSION_GROUPS: {
       },
       { key: 'task.edit_any', label: 'Edit any task', description: 'Edit every task in the project' },
       { key: 'task.transition', label: 'Change status', description: 'Move tasks between statuses' },
+      {
+        key: 'task.transition_own',
+        label: 'Complete own tasks',
+        description: 'Change the status of tasks assigned to them',
+      },
       { key: 'task.assign_self', label: 'Assign to self', description: 'Take or drop tasks for themselves' },
       { key: 'task.assign_others', label: 'Assign others', description: 'Assign tasks to any member' },
       { key: 'task.delete', label: 'Delete tasks', description: 'Permanently delete tasks' },
@@ -54,6 +61,16 @@ export const PERMISSION_GROUPS: {
       { key: 'comment.moderate', label: 'Moderate comments', description: "Edit or delete others' comments" },
       { key: 'attachment.upload', label: 'Upload files', description: 'Attach screenshots and files' },
       { key: 'attachment.delete_any', label: 'Delete any file', description: "Delete others' attachments" },
+    ],
+  },
+  {
+    label: 'Lists',
+    items: [
+      {
+        key: 'lists.edit',
+        label: 'Edit lists',
+        description: 'Add, check off and remove shopping list items',
+      },
     ],
   },
   {
@@ -83,13 +100,36 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<SystemRole, number> = {
     'task.edit_own',
     'task.edit_any',
     'task.transition',
+    'task.transition_own',
     'task.assign_self',
     'task.assign_others',
     'comment.create',
     'attachment.upload',
     'project.manage_labels',
+    'lists.edit',
   ),
   viewer: 0,
+};
+
+export const HOUSEHOLD_ROLE_PERMISSIONS: Record<SystemRole, number> = {
+  owner: ALL_PERMISSIONS,
+  admin: ALL_PERMISSIONS,
+  member: maskOf(
+    'task.edit_own',
+    'task.transition_own',
+    'task.assign_self',
+    'comment.create',
+    'attachment.upload',
+    'lists.edit',
+  ),
+  viewer: 0,
+};
+
+export const HOUSEHOLD_ROLE_LABELS: Record<SystemRole, string> = {
+  owner: 'Owner',
+  admin: 'Parent',
+  member: 'Child',
+  viewer: 'Guest',
 };
 
 export const SYSTEM_ROLE_LABELS: Record<SystemRole, string> = {
@@ -139,6 +179,9 @@ export const canAssign = (
 
 const TRANSITION_FIELDS = new Set(['statusId', 'statusCategory', 'position']);
 
+export const canTransitionTask = (mask: number, task: Pick<TaskOwnership, 'assigneeId'>, userId: string) =>
+  can(mask, 'task.transition') || (can(mask, 'task.transition_own') && task.assigneeId === userId);
+
 export const missingTaskPermissions = (
   mask: number,
   task: TaskOwnership,
@@ -152,7 +195,7 @@ export const missingTaskPermissions = (
       if (!canAssign(mask, task.assigneeId, next, userId))
         missing.add(assignmentPermission(task.assigneeId, next, userId));
     } else if (TRANSITION_FIELDS.has(field)) {
-      if (!can(mask, 'task.transition')) missing.add('task.transition');
+      if (!canTransitionTask(mask, task, userId)) missing.add('task.transition');
     } else if (!canEditTask(mask, task, userId)) {
       missing.add(isOwnTask(task, userId) ? 'task.edit_own' : 'task.edit_any');
     }

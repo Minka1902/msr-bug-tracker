@@ -1,6 +1,9 @@
 import type {
+  AiProvider,
   NavLayout,
   Priority,
+  ProjectKind,
+  RecurrenceFrequency,
   RelationType,
   Reproducibility,
   Severity,
@@ -22,11 +25,13 @@ export interface UserPreferences {
   mode: ThemeMode;
   nav: NavLayout;
   timezone: string;
+  aiProvider: AiProvider | null;
 }
 
 export interface CurrentUser extends UserRef {
   email: string;
   emailVerified: boolean;
+  twoFactorEnabled: boolean;
   preferences: UserPreferences;
   createdAt: string;
   impersonator: UserRef | null;
@@ -43,10 +48,13 @@ export interface ProjectStats {
 export interface ProjectSummary {
   id: string;
   key: string;
+  kind: ProjectKind;
   name: string;
   description: string;
   color: string;
   icon: string;
+  liveUrl: string | null;
+  repoUrl: string | null;
   isFavorite: boolean;
   isArchived: boolean;
   isDemo: boolean;
@@ -119,6 +127,7 @@ export interface TaskCard {
   labels: Label[];
   startDate: string | null;
   dueDate: string | null;
+  recurrence: TaskRecurrence | null;
   isBlocked: boolean;
   position: string;
   commentCount: number;
@@ -204,4 +213,107 @@ export interface BoardColumn {
 export interface Page<T> {
   items: T[];
   hasMore: boolean;
+}
+
+export interface InviteSummary {
+  id: string;
+  email: string | null;
+  projectName: string | null;
+  roleName: string | null;
+  inviterName: string;
+  uses: number;
+  maxUses: number | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface CreatedInvite extends InviteSummary {
+  url: string;
+}
+
+export interface InvitePreview {
+  inviterName: string;
+  email: string | null;
+  project: { key: string; name: string; color: string; icon: string } | null;
+  roleName: string | null;
+  expiresAt: string;
+}
+
+export type CalendarSource = 'app' | 'google' | 'icloud';
+
+export interface CalendarItem {
+  id: string;
+  kind: 'event' | 'task';
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  important: boolean;
+  source: CalendarSource;
+  calendarName: string;
+  color: string;
+  project: { key: string; name: string } | null;
+  taskIdentifier: string | null;
+  description: string;
+  location: string;
+  attendees: UserRef[];
+  editable: boolean;
+  connectionId: string | null;
+}
+
+export interface CalendarConflict {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  calendarName: string;
+  personName: string;
+}
+
+export interface UpcomingConflict {
+  item: { kind: 'task' | 'event'; id: string; title: string; date: string; identifier: string | null };
+  clashes: CalendarConflict[];
+}
+
+export interface ExternalCalendarSettings {
+  id: string;
+  name: string;
+  color: string;
+  writable: boolean;
+  show: boolean;
+  important: boolean;
+}
+
+export interface CalendarConnection {
+  id: string;
+  provider: 'google' | 'icloud';
+  accountEmail: string;
+  calendars: ExternalCalendarSettings[];
+  defaultCalendarId: string | null;
+  lastSyncedAt: string | null;
+  syncError: string | null;
+}
+
+export interface TaskRecurrence {
+  freq: RecurrenceFrequency;
+  interval: number;
+  rotate: string[];
+}
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity: string;
+  isChecked: boolean;
+  checkedBy: UserRef | null;
+  addedBy: string | null;
+  position: string;
+}
+
+export interface ShoppingList {
+  id: string;
+  name: string;
+  position: string;
+  items: ShoppingItem[];
 }

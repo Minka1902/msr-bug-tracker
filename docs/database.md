@@ -36,22 +36,35 @@ erDiagram
   projects ||--o{ task_activity : "feed"
   task_comments ||--o{ attachments : "comment_id"
   users ||--o| demo_sets : "owner_id"
+  users ||--o{ recovery_codes : has
+  users ||--o{ user_api_keys : has
+  users ||--o{ invites : sends
+  projects ||--o{ invites : "project_id"
+  users ||--o{ calendar_connections : links
+  calendar_connections ||--o{ calendar_events : syncs
+  users ||--o{ calendar_events : "owner_id (personal)"
+  projects ||--o{ calendar_events : "project_id (shared)"
+  calendar_events ||--o{ calendar_event_attendees : invites
+  projects ||--o{ shopping_lists : has
+  shopping_lists ||--o{ shopping_items : holds
 ```
 
 ## Tables
 
 ### `users` — migration 001
 
-| Column              | Type                     | Notes                                                                                                                       |
-| ------------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `id`                | uuid PK                  | `gen_random_uuid()`                                                                                                         |
-| `email`             | citext, unique           | Always stored lowercase. Case-insensitive uniqueness comes from `citext`.                                                   |
-| `password_hash`     | text, null               | argon2id. `NULL` for demo teammates, so they cannot log in with a password.                                                 |
-| `name`              | text                     | 1–80 chars (CHECK).                                                                                                         |
-| `avatar_key`        | text, null               | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version.                      |
-| `email_verified_at` | timestamptz, null        | Reset to `NULL` when the email changes.                                                                                     |
-| `preferences`       | jsonb                    | Partial `{style, mode, nav, timezone}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
-| `demo_owner_id`     | uuid FK → users, cascade | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values. |
+| Column                                             | Type                                               | Notes                                                                                                                       |
+| -------------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `id`                                               | uuid PK                                            | `gen_random_uuid()`                                                                                                         |
+| `email`                                            | citext, unique                                     | Always stored lowercase. Case-insensitive uniqueness comes from `citext`.                                                   |
+| `password_hash`                                    | text, null                                         | argon2id. `NULL` for demo teammates, so they cannot log in with a password.                                                 |
+| `name`                                             | text                                               | 1–80 chars (CHECK).                                                                                                         |
+| `avatar_key`                                       | text, null                                         | Storage key under `UPLOAD_DIR/avatars/`. The URL carries the first 8 chars as a cache-busting version.                      |
+| `email_verified_at`                                | timestamptz, null                                  | Reset to `NULL` when the email changes.                                                                                     |
+| `preferences`                                      | jsonb                                              | Partial `{style, mode, nav, timezone}`. Defaults are merged in at read time. A PATCH merges with `preferences \|\| $patch`. |
+| `demo_owner_id`                                    | uuid FK → users, cascade                           | Set on generated demo teammates. Deleting the real user deletes their demo teammates too. Partial index on non-null values. |
+| `totp_secret`, `totp_enabled_at`, `totp_last_step` | text (sealed), timestamptz, bigint — migration 006 | Authenticator-app 2FA. The secret is sealed with `ENCRYPTION_KEY`. `totp_last_step` rejects a code that was already used.   |
+| `calendar_feed_hash`, `calendar_feed_token`        | bytea unique, text (sealed) — migration 009        | The private ICS feed link. Lookups go through the hash; the sealed token lets Settings show the link again.                 |
 
 ### `sessions` — migration 001
 
@@ -75,14 +88,16 @@ erDiagram
 
 ### `projects` — migration 002
 
-| Column                                 | Type                                         | Notes                                                                                  |
-| -------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `key`                                  | citext, unique, CHECK `^[A-Z][A-Z0-9]{1,5}$` | Globally unique and immutable. Used in URLs and task identifiers.                      |
-| `name`, `description`, `color`, `icon` | text                                         | `icon` is a name from the client's curated lucide set.                                 |
-| `owner_id`                             | uuid FK users                                | Must match the single member who holds the `owner` system role.                        |
-| `task_seq`                             | int                                          | The last allocated task number (see Invariants).                                       |
-| `archived_at`                          | timestamptz, null                            | Archived projects are read-only: every mutation except restore and delete returns 409. |
-| `is_demo`                              | bool                                         | Marks generated demo data.                                                             |
+| Column                                 | Type                                         | Notes                                                                                                                              |
+| -------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `key`                                  | citext, unique, CHECK `^[A-Z][A-Z0-9]{1,5}$` | Globally unique and immutable. Used in URLs and task identifiers.                                                                  |
+| `name`, `description`, `color`, `icon` | text                                         | `icon` is a name from the client's curated lucide set.                                                                             |
+| `owner_id`                             | uuid FK users                                | Must match the single member who holds the `owner` system role.                                                                    |
+| `task_seq`                             | int                                          | The last allocated task number (see Invariants).                                                                                   |
+| `archived_at`                          | timestamptz, null                            | Archived projects are read-only: every mutation except restore and delete returns 409.                                             |
+| `is_demo`                              | bool                                         | Marks generated demo data.                                                                                                         |
+| `live_url`, `repo_url`                 | text, null — migration 005                   | Links shown in the project header. CHECK: `^https?://`, at most 2048 chars.                                                        |
+| `kind`                                 | `project_kind` — migration 010               | `software` (default) or `household`. It decides the seeded roles, statuses and labels, the task types offered, and the tabs shown. |
 
 ### `project_roles` — migration 002
 
@@ -108,8 +123,14 @@ Each project has 4 system roles (`system_key` = owner/admin/member/viewer) plus 
 | 15  | project.manage_members  | ✓     |        |        |
 | 16  | project.manage_roles    | ✓     |        |        |
 | 17  | project.archive         | ✓     |        |        |
+| 18  | task.transition_own     | ✓     | ✓      |        |
+| 19  | lists.edit              | ✓     | ✓      |        |
 
 The owner role holds every bit, can't be edited, and is the only role that can delete the project.
+
+Bits 18 and 19 came with migration 010, which added them to every existing role that already had `task.transition` or `task.create`, so no existing role lost an ability. `task.transition_own` lets a role change the status of tasks assigned to it, and nothing else.
+
+Households reuse the four system keys under family names: **Owner**, **Parent** (`admin`, every bit) and **Child** (`member`). Child holds `task.edit_own`, `task.transition_own`, `task.assign_self`, `comment.create`, `attachment.upload` and `lists.edit`. A child can finish and take their own chores, but can't create tasks or assign anyone else. **Guest** (`viewer`) can only look.
 
 ### `project_members` — migration 002
 
@@ -121,7 +142,13 @@ Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | tod
 
 ### `tasks` — migration 003
 
-`tasks` holds every work item: tasks, bugs, features, improvements and subtasks (`parent_id`). Bug-only fields are plain columns, so a task reads in one row with no joins.
+`tasks` holds every work item: tasks, bugs, features, improvements, household chores and errands (migration 010), and subtasks (`parent_id`). Bug-only fields are plain columns, so a task reads in one row with no joins.
+
+`recurrence` (jsonb, migration 010) is `{freq: daily|weekly|monthly, interval, rotate: uuid[]}` or `NULL`. When a recurring task enters a `done` status, the same transaction does three things:
+
+- It inserts the next occurrence: the due date comes from `nextOccurrence()` in `shared/src/recurrence.ts`, the assignee is the next person in `rotate`, and the task starts in the first `todo` status.
+- It copies the labels and checklist (unticked).
+- It clears `recurrence` on the finished task, so reopening and finishing it again never creates a second copy.
 
 | Column                                                                                                                                      | Type                                         | Notes                                                                      |
 | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
@@ -171,6 +198,36 @@ Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | tod
 
 One row per user who has generated demo data: `owner_id` (PK, FK → users, cascade), `seed`, `size` (`small | large`) and `created_at`. The Settings panel reads it to show the current set and to regenerate with the same seed. A partial index `projects (owner_id) WHERE is_demo` lets **Remove** find the caller's demo projects without scanning real ones.
 
+### Accounts, sharing and AI keys — migrations 006–008
+
+| Table            | Key columns                                                                                                                            | Notes                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `recovery_codes` | PK `(user_id, code_hash)`, `used_at`                                                                                                   | Ten 2FA recovery codes per user, stored as sha256. A code is consumed with one atomic `UPDATE … WHERE used_at IS NULL`.           |
+| `user_api_keys`  | PK `(user_id, provider ∈ anthropic \| openai \| google \| xai)`, `key_sealed`, `last4`, `verified_at`                                  | Each key is tested with the provider before it is saved. The API returns only `last4`.                                            |
+| `invites`        | `token_hash` unique, `inviter_id`, `project_id` + `role_id` (both or neither), `email`, `max_uses`, `uses`, `expires_at`, `revoked_at` | The raw token exists only in the link. Accepting locks the row, checks it, adds the member and counts the use in one transaction. |
+
+### Calendar — migration 009
+
+| Table                      | Key columns                                                                                                                                                                                                | Notes                                                                                                                                                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `calendar_connections`     | `user_id`, `provider ∈ google \| icloud`, `account_email`, `credentials_sealed`, `calendars` jsonb `[{id, name, color, writable, show, important}]`, `default_calendar_id`, `last_synced_at`, `sync_error` | One row per linked account. The credential is sealed: a Google refresh token, or an iCloud app-specific password.                                                                                                                                                                 |
+| `calendar_events`          | exactly one of `owner_id` / `project_id`; `title`, `starts_at`, `ends_at`, `all_day`, `is_important`, `read_only`; `connection_id`, `external_calendar_id`, `external_id`, `etag`                          | App events, plus copies of synced Google and iCloud events. All-day events run from midnight UTC to midnight UTC of the next day, end-exclusive. Synced rows are upserted on `(connection_id, external_calendar_id, external_id)` and pruned when they disappear from the source. |
+| `calendar_event_attendees` | PK `(event_id, user_id)`                                                                                                                                                                                   | Only for project events. A project event without attendees concerns every member.                                                                                                                                                                                                 |
+
+An event counts as very important when either of these is set:
+
+- `is_important`, which is the in-app star, Google's Tomato color or private flag, or iCloud `PRIORITY:1`.
+- The connection's calendar entry has `important: true`.
+
+Task deadlines are not stored here. They are read from `tasks.due_date` and belong to the assignee, or to the reporter while the task is unassigned (`tasks_unassigned_due_idx`).
+
+### Shopping lists — migration 010
+
+| Table            | Key columns                                                                                                    | Notes                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `shopping_lists` | `project_id`, `name` (1–60), `position`                                                                        | Every new household gets a "Groceries" list                                            |
+| `shopping_items` | `list_id`, `name` (1–120), `quantity` (≤ 40), `is_checked`, `checked_by`, `checked_at`, `added_by`, `position` | Read sorted by `(is_checked, position)`. New items go to the top of the unchecked ones |
+
 ## Invariants
 
 - **Project keys** are globally unique (case-insensitive), match `^[A-Z][A-Z0-9]{1,5}$`, and never change after creation.
@@ -181,6 +238,8 @@ One row per user who has generated demo data: `owner_id` (PK, FK → users, casc
 - **Completion:** `tasks.completed_at` is set when a task enters a `done`-category status and cleared when it leaves one.
 - **Counters:** `comment_count`, `attachment_count`, `checklist_total/done` and `subtask_total/done` on `tasks` are updated in the same transaction as the change they count. Tests compare them against fresh recounts.
 - **Demo tagging:** demo rows carry `projects.is_demo = true`, and demo users have `users.demo_owner_id` set. Demo users have no password.
+- **Secrets at rest:** 2FA secrets, AI keys, calendar credentials and feed tokens are sealed with AES-256-GCM under `ENCRYPTION_KEY`, in the format `v1.iv.tag.ciphertext`. Changing or losing the key makes them unreadable.
+- **Recurrence:** finishing a recurring task creates exactly one next occurrence. The recurrence moves to the new task.
 
 ## Key query patterns
 

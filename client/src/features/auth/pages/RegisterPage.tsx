@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import { CircleAlert } from 'lucide-react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { registerSchema } from '@msr/shared/schemas/auth';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
@@ -8,6 +8,7 @@ import { Field } from '../../../components/ui/Field';
 import { Input } from '../../../components/ui/Input';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
+import { safeNextPath } from '../../../lib/safeNextPath';
 import { useRegister } from '../api';
 import { AuthLayout } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
@@ -19,13 +20,15 @@ export function RegisterPage() {
     form.handleSubmit((values) =>
       registerUser.mutate(
         { ...values, timezone: TIMEZONE },
-        { onSuccess: () => navigate('/', { replace: true }) },
+        { onSuccess: () => navigate(safeNextPath(next), { replace: true }) },
       ),
     )(event);
 
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const registerUser = useRegister();
-  const form = useZodForm(registerSchema, { name: '', email: '', password: '' });
+  const next = params.get('next');
+  const form = useZodForm(registerSchema, { name: '', email: params.get('email') ?? '', password: '' });
   const { errors } = form.formState;
 
   return (
@@ -35,7 +38,10 @@ export function RegisterPage() {
       footer={
         <>
           Already have an account?{' '}
-          <Link to="/login" className="font-medium text-accent-text hover:underline">
+          <Link
+            to={next ? `/login?next=${encodeURIComponent(next)}` : '/login'}
+            className="font-medium text-accent-text hover:underline"
+          >
             Sign in
           </Link>
         </>

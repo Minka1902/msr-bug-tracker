@@ -6,6 +6,7 @@ import {
   REPRODUCIBILITY_META,
   SEVERITIES,
   SEVERITY_META,
+  KIND_TASK_TYPES,
   TASK_TYPES,
   TYPE_META,
   type Workflow,
@@ -19,7 +20,9 @@ export const UNASSIGNED = 'none';
 
 const tone = (value: string) => `var(--tone-${value})`;
 
-export const useTaskOptions = (project: Pick<ProjectDetail, 'statuses' | 'labels' | 'memberList'>) =>
+export const useTaskOptions = (
+  project: Pick<ProjectDetail, 'statuses' | 'labels' | 'memberList'> & Partial<Pick<ProjectDetail, 'kind'>>,
+) =>
   useMemo(() => {
     const status = (workflow?: Workflow): PickerOption[] =>
       project.statuses
@@ -37,7 +40,7 @@ export const useTaskOptions = (project: Pick<ProjectDetail, 'statuses' | 'labels
         label: PRIORITY_META[value].label,
         icon: <PriorityIcon priority={value} decorative />,
       })),
-      type: TASK_TYPES.map((value) => ({
+      type: (project.kind ? KIND_TASK_TYPES[project.kind] : TASK_TYPES).map((value) => ({
         value,
         label: TYPE_META[value].label,
         icon: <TypeIcon type={value} />,
@@ -61,6 +64,6 @@ export const useTaskOptions = (project: Pick<ProjectDetail, 'statuses' | 'labels
       })),
       label: project.labels.map((item) => ({ value: item.id, label: item.name, color: item.color })),
     };
-  }, [project.statuses, project.labels, project.memberList]);
+  }, [project.statuses, project.labels, project.memberList, project.kind]);
 
 export type TaskOptions = ReturnType<typeof useTaskOptions>;

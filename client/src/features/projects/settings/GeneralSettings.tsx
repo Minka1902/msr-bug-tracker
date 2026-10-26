@@ -1,7 +1,6 @@
 import type { FormEvent } from 'react';
 import { toast } from 'sonner';
-import { z } from 'zod';
-import { colorSchema, iconSchema } from '@msr/shared/schemas/project';
+import { projectDetailsSchema } from '@msr/shared/schemas/project';
 import { Button } from '../../../components/ui/Button';
 import { ColorPicker } from '../../../components/ui/ColorPicker';
 import { Field } from '../../../components/ui/Field';
@@ -13,15 +12,9 @@ import { errorMessage } from '../../../lib/api';
 import { formatDateTime } from '../../../lib/dates';
 import { SettingsSection } from '../../settings/components/SettingsSection';
 import { useUpdateProject } from '../api';
+import { ProjectLinkFields } from '../components/ProjectLinkFields';
 import { useProjectContext } from '../useProjectContext';
 import { useProjectPermissions } from '../useProjectPermissions';
-
-const schema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(80),
-  description: z.string().trim().max(2000),
-  color: colorSchema,
-  icon: iconSchema,
-});
 
 export function GeneralSettings() {
   const submit = (event: FormEvent) =>
@@ -38,12 +31,15 @@ export function GeneralSettings() {
   const project = useProjectContext();
   const { can, deniedReason } = useProjectPermissions(project);
   const update = useUpdateProject(project.key);
-  const form = useZodForm(schema, {
+  const form = useZodForm(projectDetailsSchema, {
     name: project.name,
     description: project.description,
     color: project.color,
     icon: project.icon,
+    liveUrl: project.liveUrl ?? '',
+    repoUrl: project.repoUrl ?? '',
   });
+  const { errors } = form.formState;
   const [color, icon] = form.watch(['color', 'icon']);
   const editable = can('project.edit');
 
@@ -67,15 +63,20 @@ export function GeneralSettings() {
         }
       >
         <fieldset disabled={!editable} className="flex flex-col gap-4">
-          <Field label="Name" htmlFor="name" error={form.formState.errors.name?.message}>
+          <Field label="Name" htmlFor="name" error={errors.name?.message}>
             <Input id="name" {...form.register('name')} />
           </Field>
           <Field label="Key" htmlFor="key" hint="Keys are permanent so task links never break.">
             <Input id="key" value={project.key} disabled className="font-mono" />
           </Field>
-          <Field label="Description" htmlFor="description" error={form.formState.errors.description?.message}>
+          <Field label="Description" htmlFor="description" error={errors.description?.message}>
             <Textarea id="description" rows={4} {...form.register('description')} />
           </Field>
+          <ProjectLinkFields
+            liveUrl={form.register('liveUrl')}
+            repoUrl={form.register('repoUrl')}
+            errors={{ liveUrl: errors.liveUrl?.message, repoUrl: errors.repoUrl?.message }}
+          />
           <Field label="Color">
             <ColorPicker
               value={color}

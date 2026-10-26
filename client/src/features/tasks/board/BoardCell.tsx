@@ -1,7 +1,8 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import type { TaskType } from '@msr/shared/enums';
 import type { CreateTaskInput } from '@msr/shared/schemas/task';
-import type { TaskCard } from '@msr/shared/types';
+import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { cn } from '../../../lib/cn';
 import { InlineTaskComposer } from './InlineTaskComposer';
@@ -10,26 +11,28 @@ import { SortableTaskCard } from './SortableTaskCard';
 interface BoardCellProps {
   id: string;
   label: string;
-  projectKey: string;
+  project: ProjectDetail;
   tasks: TaskCard[];
   hiddenCount?: number;
   loadingMore?: boolean;
   onLoadMore?: () => void;
   composer?: Omit<CreateTaskInput, 'title'> | null;
-  dragDisabled?: boolean;
+  composerTypes: readonly TaskType[];
+  canDrag?: (task: TaskCard) => boolean;
   onOpen: (task: TaskCard) => void;
 }
 
 export function BoardCell({
   id,
   label,
-  projectKey,
+  project,
   tasks,
   hiddenCount = 0,
   loadingMore,
   onLoadMore,
   composer,
-  dragDisabled,
+  composerTypes,
+  canDrag,
   onOpen,
 }: BoardCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id, data: { containerId: id } });
@@ -50,7 +53,7 @@ export function BoardCell({
             key={task.id}
             task={task}
             containerId={id}
-            disabled={dragDisabled}
+            disabled={canDrag ? !canDrag(task) : false}
             onOpen={onOpen}
           />
         ))}
@@ -60,7 +63,7 @@ export function BoardCell({
           Show {hiddenCount} more
         </Button>
       )}
-      {composer && <InlineTaskComposer projectKey={projectKey} defaults={composer} />}
+      {composer && <InlineTaskComposer project={project} defaults={composer} types={composerTypes} />}
     </div>
   );
 }

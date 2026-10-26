@@ -13,12 +13,26 @@ test('has no WCAG 2 A/AA violations in any theme', async ({ page }) => {
   test.setTimeout(120_000);
   await signUp(page, 'Axe Auditor');
   await apiPost(page, '/demo', { size: 'small', seed: 7 });
-  const { projects } = await apiGet<{ projects: { key: string; isArchived: boolean; isOwner: boolean }[] }>(
-    page,
+  const { projects } = await apiGet<{
+    projects: { key: string; kind: string; isArchived: boolean; isOwner: boolean }[];
+  }>(page, '/projects');
+  const key = projects.find(
+    (project) => !project.isArchived && project.isOwner && project.kind === 'software',
+  )!.key;
+  const home = projects.find((project) => project.kind === 'household')!.key;
+  const pages = [
+    '/',
+    '/my-tasks',
     '/projects',
-  );
-  const key = projects.find((project) => !project.isArchived && project.isOwner)!.key;
-  const pages = ['/', '/my-tasks', '/projects', `/p/${key}/board`, `/p/${key}/list`, `/p/${key}/1`];
+    `/p/${key}/board`,
+    `/p/${key}/list`,
+    `/p/${key}/1`,
+    '/calendar',
+    `/p/${home}/home`,
+    `/p/${home}/shopping`,
+    '/settings/calendars',
+    '/settings/security',
+  ];
 
   for (const theme of THEMES) {
     await apiPatch(page, '/me', { preferences: { ...theme, nav: 'sidebar' } });

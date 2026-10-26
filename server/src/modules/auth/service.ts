@@ -4,9 +4,13 @@ import { appLink, sendMail } from '../../lib/mailer';
 import { SESSION_DAYS } from '../../lib/sessionCookie';
 import { hashToken, randomToken } from '../../lib/tokens';
 
-type TokenType = 'verify_email' | 'reset_password';
+type TokenType = 'verify_email' | 'reset_password' | 'two_factor';
 
-const TOKEN_TTL_MINUTES: Record<TokenType, number> = { verify_email: 60 * 48, reset_password: 60 };
+const TOKEN_TTL_MINUTES: Record<TokenType, number> = {
+  verify_email: 60 * 48,
+  reset_password: 60,
+  two_factor: 10,
+};
 
 const INSERT_SESSION = `
   INSERT INTO sessions (token_hash, user_id, impersonator_id, expires_at, user_agent, ip)
@@ -21,6 +25,13 @@ const CONSUME_TOKEN = `
   UPDATE auth_tokens SET used_at = now()
   WHERE token_hash = $1 AND type = $2 AND used_at IS NULL AND expires_at > now()
   RETURNING user_id, email`;
+const PEEK_TOKEN = `
+  SELECT user_id, email FROM auth_tokens
+  WHERE token_hash = $1 AND type = $2 AND used_at IS NULL AND expires_at > now()`;
+const VERIFIED_TOKEN = `
+  SELECT 1 FROM auth_tokens t JOIN users u ON u.id = t.user_id
+  WHERE t.token_hash = $1 AND t.type = 'verify_email' AND t.used_at IS NOT NULL
+    AND u.email = t.email AND u.email_verified_at IS NOT NULL`;
 const VOID_TOKENS =
   'UPDATE auth_tokens SET used_at = now() WHERE user_id = $1 AND type = $2 AND used_at IS NULL';
 
@@ -59,6 +70,12 @@ export const issueToken = async (userId: string, type: TokenType, email: string,
 
 export const consumeToken = (token: string, type: TokenType, db?: Db) =>
   queryOne<{ user_id: string; email: string }>(CONSUME_TOKEN, [hashToken(token), type], db);
+
+export const peekToken = (token: string, type: TokenType) =>
+  queryOne<{ user_id: string; email: string }>(PEEK_TOKEN, [hashToken(token), type]);
+
+export const isVerifiedToken = async (token: string) =>
+  !!(await queryOne(VERIFIED_TOKEN, [hashToken(token)]));
 
 export const voidTokens = (userId: string, type: TokenType, db?: Db) =>
   query(VOID_TOKENS, [userId, type], db);

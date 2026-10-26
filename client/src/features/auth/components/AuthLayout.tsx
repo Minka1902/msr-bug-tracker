@@ -2,6 +2,8 @@ import { Bug, KanbanSquare, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Logo } from '../../../components/layout/Logo';
 import { Card } from '../../../components/ui/Card';
+import { QrCode } from '../../../components/ui/QrCode';
+import { installUrl } from '../../pwa/InstallGuide';
 
 const HIGHLIGHTS = [
   { icon: KanbanSquare, title: 'Boards & lists', text: 'Drag work across custom workflows.' },
@@ -40,7 +42,13 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
               ))}
             </div>
           </div>
-          <p className="relative text-sm text-white/60">MSR Tracker</p>
+          <div className="relative flex items-end justify-between gap-4">
+            <p className="text-sm text-white/60">MSR Tracker</p>
+            <div className="flex items-center gap-3 rounded-2xl bg-white/10 p-3 backdrop-blur">
+              <QrCode value={installUrl()} size={84} margin={1} title="Install MSR Tracker on your phone" />
+              <p className="max-w-32 text-sm leading-snug text-white/80">Scan to get the app on your phone</p>
+            </div>
+          </div>
         </section>
         <section className="flex flex-1 flex-col items-center justify-center bg-app px-4 py-10 pt-safe">
           <Logo className="mb-8 lg:hidden" />

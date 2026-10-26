@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { changeEmailSchema, changePasswordSchema, updateMeSchema } from '@msr/shared/schemas/auth';
 import { badRequest, conflict, notFound } from '../../lib/httpError';
+import { logger } from '../../lib/logger';
 import { hashPassword, verifyPassword } from '../../lib/passwords';
 import { removeStored, storagePath } from '../../lib/storage';
-import { IMAGE_TYPES, storeUploads, uploadFiles } from '../../lib/upload';
 import { deleteUserSessions, sendVerificationEmail } from '../auth/service';
 import {
   findUserByEmail,
@@ -16,7 +16,6 @@ import {
   updateProfile,
 } from './service';
 
-const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const WRONG_PASSWORD = 'Your current password is incorrect';
 
 export const createUsersRouter = () => {
@@ -44,16 +43,8 @@ export const createUsersRouter = () => {
     if (input.email === req.user!.email) throw badRequest('That is already your email');
     if (await findUserByEmail(input.email)) throw conflict('An account with this email already exists');
     const user = await setEmail(req.user!.id, input.email);
-    await sendVerificationEmail(user);
+    await sendVerificationEmail(user).catch((err) => logger.error({ err }, 'Verification email failed'));
     res.json({ user: toCurrentUser(user, req.user!.impersonator) });
-  });
-
-  router.post('/me/avatar', uploadFiles('avatar', AVATAR_MAX_BYTES, 1), async (req, res) => {
-    const files = (req.files as Express.Multer.File[] | undefined) ?? [];
-    if (files.length !== 1) throw badRequest('Choose an image to upload');
-    const [stored] = await storeUploads(files, IMAGE_TYPES, 'avatars');
-    await removeStored([await setAvatarKey(req.user!.id, stored!.key)]);
-    res.json({ user: toCurrentUser((await findUserById(req.user!.id))!, req.user!.impersonator) });
   });
 
   router.delete('/me/avatar', async (req, res) => {

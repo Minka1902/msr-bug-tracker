@@ -19,7 +19,7 @@ import { generateKeyBetween } from 'fractional-indexing';
 import { ChevronDown, KanbanSquare } from 'lucide-react';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
-import type { Workflow } from '@msr/shared/enums';
+import { typesFor, type Workflow } from '@msr/shared/enums';
 import type { BoardColumn, ProjectDetail, TaskCard } from '@msr/shared/types';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -200,21 +200,20 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           key={id}
           id={id}
           label={groupBy === 'none' ? status.name : `${status.name}, ${lane.label}`}
-          projectKey={project.key}
+          project={project}
           tasks={(containers[id] ?? []).map((taskId) => taskById.get(taskId)!).filter(Boolean)}
           hiddenCount={groupBy === 'none' && column ? column.total - column.tasks.length : 0}
           loadingMore={loadingColumn === status.id}
           onLoadMore={column ? () => loadMore(column) : undefined}
-          dragDisabled={!canDrag}
+          canDrag={canDrag}
           onOpen={onOpen}
-          composer={
-            canCreate
-              ? { statusId: status.id, type: workflow === 'bug' ? 'bug' : 'task', ...lane.patch?.input }
-              : null
-          }
+          composer={canCreate ? { statusId: status.id, type: composerTypes[0], ...lane.patch?.input } : null}
+          composerTypes={composerTypes}
         />
       );
     });
+
+  const canDrag = (task: TaskCard) => permissions.canTransition({ assigneeId: task.assignee?.id ?? null });
 
   const client = useQueryClient();
   const permissions = useProjectPermissions(project);
@@ -250,8 +249,8 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
     return result;
   }, [lanes, statuses]);
   const containers = dragContainers ?? baseContainers;
-  const canDrag = permissions.can('task.transition');
   const canCreate = permissions.can('task.create');
+  const composerTypes = typesFor(project.kind, workflow);
 
   if (board.error) return <ErrorState error={board.error} onRetry={board.refetch} />;
   if (board.isPending)

@@ -16,6 +16,11 @@ const limiter = (windowMs: number, limit: number, key?: (req: Request) => string
 const emailKey = (req: Request) =>
   `${ipKeyGenerator(req.ip ?? '')}:${String(req.body?.email ?? '').toLowerCase()}`;
 
+const userKey = (req: Request) => `${ipKeyGenerator(req.ip ?? '')}:${req.user?.id ?? ''}`;
+
+const secondFactorKey = (req: Request) =>
+  `${ipKeyGenerator(req.ip ?? '')}:${String(req.body?.ticket ?? req.user?.id ?? '')}`;
+
 export const createRateLimits = (enabled: boolean) => {
   const passthrough: RequestHandler = (_req, _res, next) => next();
   const make = (...args: Parameters<typeof limiter>) => (enabled ? limiter(...args) : passthrough);
@@ -25,6 +30,13 @@ export const createRateLimits = (enabled: boolean) => {
     register: make(60 * MINUTE, 5),
     emailAction: make(60 * MINUTE, 5),
     demo: make(60 * MINUTE, 10),
+    twoFactor: make(15 * MINUTE, 10, secondFactorKey),
+    aiKeys: make(60 * MINUTE, 20, userKey),
+    invites: make(60 * MINUTE, 50, userKey),
+    invitePreview: make(15 * MINUTE, 60),
+    migrations: make(60 * MINUTE, 60, userKey),
+    calendarConnect: make(60 * MINUTE, 30, userKey),
+    calendarFeed: make(15 * MINUTE, 120),
   };
 };
 

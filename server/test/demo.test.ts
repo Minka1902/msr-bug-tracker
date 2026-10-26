@@ -38,12 +38,17 @@ describe('demo data', () => {
     expect(body.status.counts.tasks).toBeGreaterThanOrEqual(70);
     expect(body.status.teammates.map((mate: { roleName: string }) => mate.roleName).sort()).toEqual([
       'Admin',
+      'Child',
+      'Child',
+      'Guest',
       'Member',
       'Member',
+      'Parent',
       'QA',
       'Viewer',
     ]);
     const projects = (await agent.get('/api/projects').query({ archived: 'all' })).body.projects as {
+      kind: string;
       isDemo: boolean;
       isOwner: boolean;
       isArchived: boolean;
@@ -51,6 +56,7 @@ describe('demo data', () => {
       stats: { total: number; overdue: number; completed: number };
     }[];
     expect(projects.every((project) => project.isDemo)).toBe(true);
+    expect(projects.filter((project) => project.kind === 'household')).toHaveLength(1);
     expect(projects.some((project) => !project.isOwner)).toBe(true);
     expect(projects.some((project) => project.isArchived)).toBe(true);
     expect(projects.some((project) => project.isFavorite)).toBe(true);

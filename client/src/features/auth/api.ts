@@ -21,15 +21,32 @@ const useSetMe = () => {
   return ({ user }: { user: CurrentUser }) => client.setQueryData(ME_KEY, user);
 };
 
-export const useLogin = () => {
+export type LoginResult = { user: CurrentUser } | { twoFactorRequired: true; ticket: string };
+
+const useSignIn = () => {
   const client = useQueryClient();
+  return (user: CurrentUser) => {
+    client.clear();
+    client.setQueryData(ME_KEY, user);
+  };
+};
+
+export const useLogin = () => {
+  const signIn = useSignIn();
   return useMutation({
-    mutationFn: (input: LoginInput) =>
-      api<{ user: CurrentUser }>('/auth/login', { method: 'POST', body: input }),
-    onSuccess: ({ user }) => {
-      client.clear();
-      client.setQueryData(ME_KEY, user);
+    mutationFn: (input: LoginInput) => api<LoginResult>('/auth/login', { method: 'POST', body: input }),
+    onSuccess: (result) => {
+      if ('user' in result) signIn(result.user);
     },
+  });
+};
+
+export const useLoginTwoFactor = () => {
+  const signIn = useSignIn();
+  return useMutation({
+    mutationFn: (input: { ticket: string; code: string }) =>
+      api<{ user: CurrentUser }>('/auth/login/2fa', { method: 'POST', body: input }),
+    onSuccess: ({ user }) => signIn(user),
   });
 };
 
@@ -77,15 +94,10 @@ export const useChangeEmail = () => {
   });
 };
 
-export const useUploadAvatar = () => {
+export const useRemoveAvatar = () => {
   const setMe = useSetMe();
   return useMutation({
-    mutationFn: (file: File | null) => {
-      if (!file) return api<{ user: CurrentUser }>('/me/avatar', { method: 'DELETE' });
-      const form = new FormData();
-      form.append('avatar', file);
-      return api<{ user: CurrentUser }>('/me/avatar', { method: 'POST', body: form });
-    },
+    mutationFn: () => api<{ user: CurrentUser }>('/me/avatar', { method: 'DELETE' }),
     onSuccess: setMe,
   });
 };

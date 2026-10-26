@@ -22,7 +22,8 @@ const REFRESH_AFTER_MS = 86_400_000;
 
 const LOAD_SESSION = `
   SELECT s.id AS session_id, s.expires_at, s.impersonator_id,
-         u.id, u.email, u.name, u.avatar_key, u.email_verified_at, u.preferences, u.created_at, u.demo_owner_id,
+         u.id, u.email, u.name, u.avatar_key, u.email_verified_at, u.totp_enabled_at, u.preferences, u.created_at,
+         u.demo_owner_id,
          i.name AS impersonator_name, i.avatar_key AS impersonator_avatar_key
   FROM sessions s
   JOIN users u ON u.id = s.user_id

@@ -22,6 +22,7 @@ import { MiniBarChart } from '../../../components/ui/MiniBarChart';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { useShell } from '../../../hooks/useShell';
+import { UpcomingConflictsBanner } from '../../calendar/components/UpcomingConflictsBanner';
 import { StatCard } from '../../dashboard/components/StatCard';
 import { ActivityItem } from '../../tasks/components/ActivityItem';
 import { useTaskPeek } from '../../tasks/useTaskPeek';
@@ -64,6 +65,7 @@ export function DashboardPage() {
           </>
         }
       />
+      <UpcomingConflictsBanner />
       {!data ? (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Skeleton className="h-28 rounded-card" count={4} />

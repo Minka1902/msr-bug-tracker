@@ -52,10 +52,13 @@ const project = (
 ): ProjectSummary => ({
   id: key,
   key,
+  kind: 'software',
   name,
   description: `Designing and shipping the ${name.toLowerCase()} with a focus on clarity and speed.`,
   color,
   icon,
+  liveUrl: null,
+  repoUrl: null,
   isFavorite: false,
   isArchived: false,
   isDemo: false,
@@ -107,6 +110,7 @@ const task = (
   labels: [],
   startDate: null,
   dueDate: day((number % 9) - 3),
+  recurrence: null,
   isBlocked: false,
   position: 'a0',
   commentCount: number % 3,
@@ -165,7 +169,7 @@ export function UiPreviewPage() {
         icon,
         isFavorite,
       }))}
-      actions={{ onLogout: NOOP, onSearch: NOOP, onQuickCreate: NOOP, onCreateProject: NOOP }}
+      actions={{ onLogout: NOOP, onSearch: NOOP, onQuickCreate: NOOP, onCreateProject: NOOP, onInvite: NOOP }}
       banners={
         <Banner
           tone="warning"

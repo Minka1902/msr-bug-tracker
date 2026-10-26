@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { parseIdentifier } from '@msr/shared/identifiers';
-import { missingTaskPermissions } from '@msr/shared/permissions';
+import { canTransitionTask, missingTaskPermissions } from '@msr/shared/permissions';
 import { moveTaskSchema, updateTaskSchema } from '@msr/shared/schemas/task';
 import { prepared } from '../../db/pool';
 import { forbidden, notFound } from '../../lib/httpError';
@@ -66,7 +66,9 @@ export const createTasksRouter = () => {
 
   scoped.post('/reopen', async (req, res) => {
     const project = projectOf(req);
-    assertCanWrite(project, 'task.transition');
+    assertWritable(project);
+    if (!canTransitionTask(project.permissions, req.task!, req.user!.id))
+      throw forbidden(`Your role (${project.roleName}) can't do that`, { missing: ['task.transition'] });
     res.json({ task: await reopenTask(project, req.task!.id, req.user!.id) });
   });
 

@@ -1,4 +1,11 @@
-import { can, canAssign, canEditTask, type Permission, type TaskOwnership } from '@msr/shared/permissions';
+import {
+  can,
+  canAssign,
+  canEditTask,
+  canTransitionTask,
+  type Permission,
+  type TaskOwnership,
+} from '@msr/shared/permissions';
 import type { ProjectSummary } from '@msr/shared/types';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 
@@ -11,6 +18,7 @@ export const useProjectPermissions = (
   return {
     can: (permission: Permission) => can(mask, permission),
     canEditTask: (task: TaskOwnership) => canEditTask(mask, task, user.id),
+    canTransition: (task: Pick<TaskOwnership, 'assigneeId'>) => canTransitionTask(mask, task, user.id),
     canAssign: (current: string | null, next: string | null) => canAssign(mask, current, next, user.id),
     isOwner: !!project?.isOwner,
     deniedReason: project?.isArchived

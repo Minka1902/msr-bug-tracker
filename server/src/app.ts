@@ -10,6 +10,8 @@ import { originCheck } from './middleware/originCheck';
 import { createRateLimits } from './middleware/rateLimits';
 import { loadSession, requireAuth } from './middleware/session';
 import { createAuthRouter } from './modules/auth/routes';
+import { createCalendarFeedRouter, createCalendarRouter } from './modules/calendar/routes';
+import { googleConfigured } from './modules/calendar/google';
 import { createDevRouter } from './modules/dev/routes';
 import { createProjectsRouter } from './modules/projects/routes';
 import { createTasksRouter } from './modules/tasks/routes';
@@ -20,6 +22,11 @@ import { createRelationsRouter } from './modules/relations/routes';
 import { createInsightsRouter } from './modules/insights/routes';
 import { createSearchRouter } from './modules/search/routes';
 import { createDemoRouter } from './modules/demo/routes';
+import { createImportTemplateRouter } from './modules/importer/routes';
+import { createInvitesRouter } from './modules/invites/routes';
+import { createMigrationsRouter } from './modules/migrations/routes';
+import { createAiKeysRouter } from './modules/aiKeys/routes';
+import { createTwoFactorRouter } from './modules/twoFactor/routes';
 import { createUsersRouter } from './modules/users/routes';
 
 const noCache = (res: express.Response) => {
@@ -65,12 +72,19 @@ export const createApp = ({
     res.json({ ok: true });
   });
   api.get('/config', (_req, res) => {
-    res.json({ features: { demoData } });
+    res.json({ features: { demoData, googleCalendar: googleConfigured() } });
   });
   api.use('/auth', createAuthRouter(limits));
+  api.use('/calendar-feed', createCalendarFeedRouter(limits));
   if (config.devMailbox) api.use('/dev', createDevRouter());
   api.use(requireAuth);
   api.use(createUsersRouter());
+  api.use('/me/2fa', createTwoFactorRouter(limits));
+  api.use('/me/ai-keys', createAiKeysRouter(limits));
+  api.use('/invites', createInvitesRouter(limits));
+  api.use('/import', createImportTemplateRouter());
+  api.use('/migrations', createMigrationsRouter(limits));
+  api.use('/calendar', createCalendarRouter(limits));
   api.use('/projects', createProjectsRouter());
   api.use(createAttachmentsRouter());
   api.use(createCommentsRouter());

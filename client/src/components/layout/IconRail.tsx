@@ -1,4 +1,4 @@
-import { LogOut, PanelLeftOpen, Search } from 'lucide-react';
+import { LogOut, PanelLeftOpen, Search, UserPlus } from 'lucide-react';
 import { Avatar } from '../ui/Avatar';
 import { IconButton } from '../ui/IconButton';
 import { Menu } from '../ui/Menu';
@@ -54,6 +54,7 @@ export function IconRail({ user, actions, onTogglePanel, panelOpen }: IconRailPr
         }
         items={[
           { type: 'label', label: user.email },
+          { label: 'Invite people', icon: <UserPlus />, onSelect: actions.onInvite },
           { label: 'Log out', icon: <LogOut />, onSelect: actions.onLogout },
         ]}
       />

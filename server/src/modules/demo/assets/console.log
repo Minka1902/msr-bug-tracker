@@ -1,0 +1,12 @@
+[09:41:02.118] INFO  app booted in 812ms (build 2.14.0+a91c3e2)
+[09:41:02.240] INFO  GET /api/session 200 34ms
+[09:41:05.913] WARN  [checkout] cart total recalculated after coupon change (old=129.00, new=116.10)
+[09:41:06.007] INFO  POST /api/checkout/intent 201 188ms
+[09:41:07.522] ERROR [checkout] payment confirmation failed
+    TypeError: Cannot read properties of undefined (reading 'clientSecret')
+        at confirmPayment (checkout/PaymentStep.tsx:88:41)
+        at async onSubmit (checkout/PaymentStep.tsx:131:7)
+[09:41:07.524] WARN  [checkout] retrying confirmation (attempt 2/3)
+[09:41:08.761] ERROR [checkout] payment confirmation failed (attempt 2/3)
+[09:41:08.763] INFO  POST /api/telemetry/error 202 12ms
+[09:41:10.002] WARN  [ui] layout shift 0.31 on /checkout (threshold 0.1)

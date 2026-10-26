@@ -9,8 +9,11 @@ import {
 import { conflict } from '../../lib/httpError';
 import { removeStored } from '../../lib/storage';
 import { createLabelsRouter } from '../labels/routes';
+import { createProjectImportRouter } from '../importer/routes';
+import { createProjectInvitesRouter } from '../invites/routes';
 import { createMembersRouter } from '../members/routes';
 import { createRolesRouter } from '../roles/routes';
+import { createShoppingRouter } from '../shopping/routes';
 import { createStatusesRouter } from '../statuses/routes';
 import { createProjectTasksRouter } from '../tasks/projectRoutes';
 import { createProjectInsightsRouter } from '../insights/routes';
@@ -95,6 +98,9 @@ export const createProjectsRouter = () => {
   scoped.use('/labels', createLabelsRouter());
   scoped.use('/roles', createRolesRouter());
   scoped.use('/members', createMembersRouter());
+  scoped.use('/invites', createProjectInvitesRouter());
+  scoped.use('/lists', createShoppingRouter());
+  scoped.use(createProjectImportRouter());
   scoped.use(createProjectTasksRouter());
   scoped.use(createProjectInsightsRouter());
 

@@ -1,4 +1,4 @@
-export const TASK_TYPES = ['task', 'bug', 'feature', 'improvement'] as const;
+export const TASK_TYPES = ['task', 'bug', 'feature', 'improvement', 'chore', 'errand'] as const;
 export const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 export const SEVERITIES = ['critical', 'major', 'minor', 'trivial'] as const;
 export const REPRODUCIBILITY = ['always', 'sometimes', 'rarely'] as const;
@@ -8,6 +8,9 @@ export const RELATION_TYPES = ['relates', 'duplicates'] as const;
 export const THEME_STYLES = ['aurora', 'clean'] as const;
 export const THEME_MODES = ['light', 'dark', 'system'] as const;
 export const NAV_LAYOUTS = ['sidebar', 'rail'] as const;
+export const AI_PROVIDERS = ['anthropic', 'openai', 'google', 'xai'] as const;
+export const PROJECT_KINDS = ['software', 'household'] as const;
+export const RECURRENCE_FREQUENCIES = ['daily', 'weekly', 'monthly'] as const;
 
 export type TaskType = (typeof TASK_TYPES)[number];
 export type Priority = (typeof PRIORITIES)[number];
@@ -19,6 +22,9 @@ export type RelationType = (typeof RELATION_TYPES)[number];
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 export type ThemeMode = (typeof THEME_MODES)[number];
 export type NavLayout = (typeof NAV_LAYOUTS)[number];
+export type AiProvider = (typeof AI_PROVIDERS)[number];
+export type ProjectKind = (typeof PROJECT_KINDS)[number];
+export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
 
 export type Tone = 'neutral' | 'accent' | 'info' | 'success' | 'warning' | 'danger' | 'violet';
 
@@ -32,6 +38,28 @@ export const TYPE_META: Record<TaskType, EnumMeta> = {
   bug: { label: 'Bug', tone: 'danger' },
   feature: { label: 'Feature', tone: 'violet' },
   improvement: { label: 'Improvement', tone: 'success' },
+  chore: { label: 'Chore', tone: 'accent' },
+  errand: { label: 'Errand', tone: 'warning' },
+};
+
+export const PROJECT_KIND_META: Record<ProjectKind, { label: string; description: string; icon: string }> = {
+  software: { label: 'Software', description: 'Tasks, bugs and features for a team', icon: 'hexagon' },
+  household: {
+    label: 'Household',
+    description: 'Chores, errands, shopping and a family calendar',
+    icon: 'house',
+  },
+};
+
+export const KIND_TASK_TYPES: Record<ProjectKind, readonly TaskType[]> = {
+  software: ['task', 'bug', 'feature', 'improvement'],
+  household: ['chore', 'errand', 'task'],
+};
+
+export const RECURRENCE_META: Record<RecurrenceFrequency, { label: string; unit: string }> = {
+  daily: { label: 'Daily', unit: 'day' },
+  weekly: { label: 'Weekly', unit: 'week' },
+  monthly: { label: 'Monthly', unit: 'month' },
 };
 
 export const PRIORITY_META: Record<Priority, EnumMeta> = {
@@ -71,6 +99,24 @@ export const RELATION_META: Record<RelationType, EnumMeta> = {
   duplicates: { label: 'Duplicates', tone: 'warning' },
 };
 
+export const AI_PROVIDER_META: Record<AiProvider, { label: string; vendor: string; keysUrl: string }> = {
+  anthropic: { label: 'Claude', vendor: 'Anthropic', keysUrl: 'https://console.anthropic.com/settings/keys' },
+  openai: { label: 'ChatGPT', vendor: 'OpenAI', keysUrl: 'https://platform.openai.com/api-keys' },
+  google: { label: 'Gemini', vendor: 'Google', keysUrl: 'https://aistudio.google.com/app/apikey' },
+  xai: { label: 'Grok', vendor: 'xAI', keysUrl: 'https://console.x.ai' },
+};
+
+export const LABEL_COLORS = [
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#f59e0b',
+  '#22c55e',
+  '#ef4444',
+  '#14b8a6',
+  '#64748b',
+];
+
 export const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 export const DEFAULT_STATUSES: Record<Workflow, { name: string; color: string; category: StatusCategory }[]> =
@@ -91,4 +137,21 @@ export const DEFAULT_STATUSES: Record<Workflow, { name: string; color: string; c
     ],
   };
 
+export const HOUSEHOLD_STATUSES: Record<
+  Workflow,
+  { name: string; color: string; category: StatusCategory }[]
+> = {
+  task: [
+    { name: 'To do', color: '#64748b', category: 'todo' },
+    { name: 'Doing', color: '#3b82f6', category: 'in_progress' },
+    { name: 'Done', color: '#22c55e', category: 'done' },
+  ],
+  bug: DEFAULT_STATUSES.bug,
+};
+
+export const HOUSEHOLD_LABELS = ['Kitchen', 'Laundry', 'Outdoor', 'School', 'Pets'];
+
 export const workflowOf = (type: TaskType): Workflow => (type === 'bug' ? 'bug' : 'task');
+
+export const typesFor = (kind: ProjectKind, workflow?: Workflow) =>
+  KIND_TASK_TYPES[kind].filter((type) => !workflow || workflowOf(type) === workflow);

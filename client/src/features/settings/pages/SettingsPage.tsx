@@ -7,6 +7,9 @@ import { useAppConfig } from '../../demo/api';
 const TABS = [
   { to: '/settings/profile', label: 'Profile' },
   { to: '/settings/account', label: 'Account' },
+  { to: '/settings/security', label: 'Security' },
+  { to: '/settings/ai', label: 'AI' },
+  { to: '/settings/calendars', label: 'Calendars' },
   { to: '/settings/appearance', label: 'Appearance' },
   { to: '/settings/install', label: 'Install app' },
 ];

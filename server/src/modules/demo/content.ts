@@ -166,17 +166,6 @@ export const LEGACY_TEMPLATE: ProjectTemplate = {
   labels: ['legacy', 'content'],
 };
 
-export const LABEL_COLORS = [
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
-  '#f59e0b',
-  '#22c55e',
-  '#ef4444',
-  '#14b8a6',
-  '#64748b',
-];
-
 export const TEAMMATES = [
   { name: 'Dana Levi', role: 'admin' },
   { name: 'Omar Haddad', role: 'member' },

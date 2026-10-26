@@ -1,8 +1,22 @@
 import { z } from 'zod';
-import { PRIORITIES, REPRODUCIBILITY, SEVERITIES, STATUS_CATEGORIES, TASK_TYPES, WORKFLOWS } from '../enums';
+import {
+  PRIORITIES,
+  RECURRENCE_FREQUENCIES,
+  REPRODUCIBILITY,
+  SEVERITIES,
+  STATUS_CATEGORIES,
+  TASK_TYPES,
+  WORKFLOWS,
+} from '../enums';
 import { positionSchema, projectKeySchema, uuidSchema } from './project';
 
 export const isoDateSchema = z.iso.date('Use YYYY-MM-DD');
+
+export const recurrenceSchema = z.object({
+  freq: z.enum(RECURRENCE_FREQUENCIES),
+  interval: z.number().int().min(1, 'At least 1').max(365, 'At most 365'),
+  rotate: z.array(uuidSchema).max(20).default([]),
+});
 
 const longText = z.string().max(20000);
 const shortText = z.string().trim().max(120);
@@ -29,6 +43,7 @@ const taskFields = {
   foundInVersion: shortText,
   fixVersion: shortText,
   reproducibility: z.enum(REPRODUCIBILITY).nullable(),
+  recurrence: recurrenceSchema.nullable(),
 };
 
 const datesInOrder = (value: { startDate?: string | null; dueDate?: string | null }) =>

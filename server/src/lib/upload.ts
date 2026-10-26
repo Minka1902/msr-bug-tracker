@@ -6,7 +6,7 @@ import multer from 'multer';
 import { HttpError } from './httpError';
 import { moveIntoStorage, removeStored, TMP_DIR } from './storage';
 
-export const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 export const ATTACHMENT_TYPES = new Set([
   ...IMAGE_TYPES,
   'video/mp4',

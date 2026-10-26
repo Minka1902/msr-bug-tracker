@@ -29,6 +29,14 @@ export const router = createBrowserRouter([
       { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/reset-password', element: <ResetPasswordPage /> },
       {
+        path: '/install',
+        lazy: lazyRoute(() => import('../features/pwa/InstallPage').then((m) => m.InstallPage)),
+      },
+      {
+        path: '/invite/:token',
+        lazy: lazyRoute(() => import('../features/invites/pages/InvitePage').then((m) => m.InvitePage)),
+      },
+      {
         element: <GuestOnly />,
         children: [
           { path: '/login', element: <LoginPage /> },
@@ -58,6 +66,12 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/calendar',
+            lazy: lazyRoute(() =>
+              import('../features/calendar/pages/CalendarPage').then((m) => m.CalendarPage),
+            ),
+          },
+          {
             path: '/t/:identifier',
             lazy: lazyRoute(() =>
               import('../features/tasks/pages/IdentifierRedirect').then((m) => m.IdentifierRedirect),
@@ -69,7 +83,34 @@ export const router = createBrowserRouter([
               import('../features/projects/pages/ProjectLayout').then((m) => m.ProjectLayout),
             ),
             children: [
-              { index: true, element: <Navigate to="board" replace /> },
+              {
+                index: true,
+                lazy: lazyRoute(() =>
+                  import('../features/projects/pages/ProjectIndexRedirect').then(
+                    (m) => m.ProjectIndexRedirect,
+                  ),
+                ),
+              },
+              {
+                path: 'home',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/HouseholdHomePage').then((m) => m.HouseholdHomePage),
+                ),
+              },
+              {
+                path: 'shopping',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/ShoppingPage').then((m) => m.ShoppingPage),
+                ),
+              },
+              {
+                path: 'calendar',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/HouseholdCalendarPage').then(
+                    (m) => m.HouseholdCalendarPage,
+                  ),
+                ),
+              },
               {
                 path: 'overview',
                 lazy: lazyRoute(() =>
@@ -167,6 +208,24 @@ export const router = createBrowserRouter([
                 path: 'account',
                 lazy: lazyRoute(() =>
                   import('../features/settings/pages/AccountSettings').then((m) => m.AccountSettings),
+                ),
+              },
+              {
+                path: 'security',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/SecuritySettings').then((m) => m.SecuritySettings),
+                ),
+              },
+              {
+                path: 'ai',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/AiSettings').then((m) => m.AiSettings),
+                ),
+              },
+              {
+                path: 'calendars',
+                lazy: lazyRoute(() =>
+                  import('../features/settings/pages/CalendarSettings').then((m) => m.CalendarSettings),
                 ),
               },
               {

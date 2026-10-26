@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { config } from '../src/config';
 import { pool } from '../src/db/pool';
 import { mailbox } from '../src/lib/mailer';
 import { agentFor, lastLink, registerUser, resetDb, testApp } from './helpers';
@@ -98,13 +99,39 @@ describe('login and logout', () => {
 });
 
 describe('email verification', () => {
-  it('verifies once with a valid token', async () => {
+  afterEach(() => {
+    config.RESEND_API_KEY = undefined;
+    vi.unstubAllGlobals();
+  });
+
+  it('verifies with a valid token and accepts the same link again', async () => {
     const agent = agentFor();
     const { email } = await registerUser(agent);
     const token = lastLink(email, '/verify-email');
     await agentFor().post('/api/auth/verify-email').send({ token }).expect(204);
     expect((await agent.get('/api/auth/me')).body.user.emailVerified).toBe(true);
-    await agentFor().post('/api/auth/verify-email').send({ token }).expect(400);
+    await agentFor().post('/api/auth/verify-email').send({ token }).expect(204);
+  });
+
+  it('sends through Resend when an API key is set', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{"id":"1"}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    config.RESEND_API_KEY = 're_test';
+    const { email } = await registerUser(agentFor());
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://api.resend.com/emails');
+    expect(init.headers.Authorization).toBe('Bearer re_test');
+    expect(JSON.parse(init.body)).toMatchObject({ from: config.MAIL_FROM, to: email });
+    expect(JSON.parse(init.body).text).toContain('/verify-email?token=');
+  });
+
+  it('still registers when the mail provider fails, and reports a failed resend', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('down', { status: 503 })));
+    config.RESEND_API_KEY = 're_test';
+    const agent = agentFor();
+    await registerUser(agent);
+    const { body } = await agent.post('/api/auth/resend-verification').expect(502);
+    expect(body.error).toMatch(/couldn't send/);
   });
 
   it('rejects expired tokens', async () => {
@@ -163,6 +190,7 @@ describe('account settings', () => {
       mode: 'dark',
       nav: 'sidebar',
       timezone: 'Asia/Jerusalem',
+      aiProvider: null,
     });
     await agent
       .patch('/api/me')

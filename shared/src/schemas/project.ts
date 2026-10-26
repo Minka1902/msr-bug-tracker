@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { STATUS_CATEGORIES, WORKFLOWS } from '../enums';
+import { PROJECT_KINDS, STATUS_CATEGORIES, WORKFLOWS } from '../enums';
 import { PROJECT_KEY_REGEX } from '../identifiers';
 import { ALL_PERMISSIONS } from '../permissions';
 import { emailSchema } from './auth';
@@ -13,20 +13,31 @@ export const colorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Pick a color')
 export const iconSchema = z.string().regex(/^[a-z0-9-]{1,40}$/, 'Pick an icon');
 export const uuidSchema = z.uuid();
 export const positionSchema = z.string().min(1).max(64);
+export const httpUrlSchema = z
+  .union([
+    z.literal(''),
+    z.url({ protocol: /^https?$/, error: 'Enter a full link starting with http:// or https://' }).max(2048),
+  ])
+  .nullable()
+  .transform((value) => value || null);
 
 const projectFields = {
   name: z.string().trim().min(1, 'Name is required').max(80),
   description: z.string().trim().max(2000),
   color: colorSchema,
   icon: iconSchema,
+  liveUrl: httpUrlSchema.optional(),
+  repoUrl: httpUrlSchema.optional(),
 };
 
 export const createProjectSchema = z.object({
   ...projectFields,
   key: projectKeySchema,
+  kind: z.enum(PROJECT_KINDS).default('software'),
   description: projectFields.description.default(''),
 });
-export const updateProjectSchema = z.object(projectFields).partial().strict();
+export const projectDetailsSchema = z.object(projectFields);
+export const updateProjectSchema = projectDetailsSchema.partial().strict();
 export const favoriteSchema = z.object({ favorite: z.boolean() });
 
 const statusName = z.string().trim().min(1, 'Name is required').max(40);
@@ -68,6 +79,14 @@ export const updateRoleSchema = createRoleSchema.partial().strict();
 export const deleteRoleSchema = z.object({ reassignToRoleId: uuidSchema });
 
 export const addMemberSchema = z.object({ email: emailSchema, roleId: uuidSchema });
+
+const inviteFields = {
+  email: emailSchema.optional(),
+  maxUses: z.number().int().min(1).max(500).nullable().default(1),
+  expiresInDays: z.number().int().min(1).max(30).default(7),
+};
+export const createInviteSchema = z.object(inviteFields);
+export const createProjectInviteSchema = z.object({ ...inviteFields, roleId: uuidSchema });
 export const updateMemberSchema = z.object({ roleId: uuidSchema });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;

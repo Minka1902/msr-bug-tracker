@@ -90,6 +90,29 @@ describe('listing and access', () => {
   });
 });
 
+describe('project links', () => {
+  it('stores live and repository URLs, clears them, and rejects other schemes', async () => {
+    const agent = agentFor();
+    await registerUser(agent);
+    const project = await createProject(agent, {
+      liveUrl: 'https://app.example.com',
+      repoUrl: 'https://github.com/team/web',
+    });
+    expect(project).toMatchObject({
+      liveUrl: 'https://app.example.com',
+      repoUrl: 'https://github.com/team/web',
+    });
+    const { body } = await agent.patch('/api/projects/WEB').send({ liveUrl: '' }).expect(200);
+    expect(body.project).toMatchObject({ liveUrl: null, repoUrl: 'https://github.com/team/web' });
+    await agent.patch('/api/projects/WEB').send({ repoUrl: 'javascript:alert(1)' }).expect(400);
+    await agent.patch('/api/projects/WEB').send({ liveUrl: 'ftp://files.example.com' }).expect(400);
+    await agent
+      .post('/api/projects')
+      .send(projectInput({ key: 'APP', liveUrl: 'example.com' }))
+      .expect(400);
+  });
+});
+
 describe('editing projects', () => {
   it('requires project.edit', async () => {
     const { project, admin, member } = await setupTeam();

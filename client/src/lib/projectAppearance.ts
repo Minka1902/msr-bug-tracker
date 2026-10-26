@@ -20,6 +20,7 @@ import {
   GraduationCap,
   Heart,
   Hexagon,
+  House,
   Layers,
   Leaf,
   Lightbulb,
@@ -44,6 +45,7 @@ import {
 
 export const PROJECT_ICONS: Record<string, LucideIcon> = {
   hexagon: Hexagon,
+  house: House,
   rocket: Rocket,
   globe: Globe,
   smartphone: Smartphone,

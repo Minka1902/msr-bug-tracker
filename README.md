@@ -1,6 +1,14 @@
 # MSR Bug Tracker
 
-A project and bug tracker with Kanban and List views, custom workflows, project roles, a dashboard and a command palette. It has two visual styles (Aurora and Clean), light and dark mode, and installs as an app on iPhone.
+A project and bug tracker with Kanban and List views, custom workflows, project roles, a dashboard and a command palette. It has two visual styles (Aurora and Clean), light and dark mode, and installs as an app on iPhone and Android.
+
+It also covers:
+
+- **Households:** chores, errands, recurring tasks with turn-taking, Parent/Child/Guest roles and shared shopping lists.
+- **Calendar:** month, week and agenda views; two-way sync with Google Calendar and iCloud; a subscribable feed for any calendar app; and a warning whenever a deadline or meeting overlaps a very important event.
+- **Accounts:** email verification through Resend, two-factor sign-in with Google or Microsoft Authenticator, and saved Claude, ChatGPT, Gemini and Grok API keys.
+- **Sharing:** invite links over WhatsApp, Telegram, email or QR code, and an install QR code.
+- **Moving data:** CSV and Excel import and export with a template, plus direct migration from ClickUp, Jira, Trello, Asana, Linear and GitHub Issues.
 
 ## Stack
 
@@ -41,7 +49,10 @@ Before the first `pnpm e2e`, install the browser once with `pnpm exec playwright
 
 1. Push this repository to GitHub.
 2. In Render, choose **New → Blueprint** and pick the repository.
-3. When asked, fill in `SMTP_URL` (for example `smtps://user:pass@smtp.example.com:465`) and `MAIL_FROM`. Both can stay empty: without SMTP, verification and password-reset links are written to the service log instead of being emailed.
+3. When asked, fill in the variables below. The full checklist is in [docs/setup-requirements.md](docs/setup-requirements.md).
+   - `RESEND_API_KEY` and `MAIL_FROM`: `MAIL_FROM` must be an address on the domain you verified in Resend, for example `MSR Tracker <no-reply@example.com>`. Without these, verification and password-reset links go to the service log instead of being emailed.
+   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: optional, only needed for Google Calendar sync.
+   - `ENCRYPTION_KEY`: the Blueprint generates it. Never change it once it's set.
 4. Apply. The first deploy builds the image, runs migrations and goes live at `https://<service>.onrender.com`. `APP_URL` defaults to that address; set it yourself only if you add a custom domain.
 
 The Starter plan is required for the persistent disk. Render backs up the database (point-in-time recovery on paid plans) and snapshots the disk daily.

@@ -107,10 +107,8 @@ export const updateStatus = (
 
 export const deleteStatus = (projectId: string, statusId: string, moveTo: string, actorId: string) =>
   transaction(async (db) => {
-    const [current, target] = await Promise.all([
-      getStatus(projectId, statusId, db),
-      getStatus(projectId, moveTo, db),
-    ]);
+    const current = await getStatus(projectId, statusId, db);
+    const target = await getStatus(projectId, moveTo, db);
     if (!current) throw notFound('Status not found');
     if (!target || target.id === current.id || target.workflow !== current.workflow)
       throw badRequest('Move its tasks to another status in the same workflow');
