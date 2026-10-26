@@ -364,6 +364,20 @@ describe('Connector tools', () => {
     const stranger = await call(tokens.access_token, 'update_task', { id, assignee: 'nobody@test.dev' });
     expect(stranger.text).toContain("isn't a member");
 
+    const dueSoon = new Date(Date.now() + 9 * 86_400_000).toISOString().slice(0, 10);
+    const scheduled = await call(tokens.access_token, 'create_task', {
+      projectKey: 'WEB',
+      title: 'Renew the certificate',
+      dueDate: dueSoon,
+      escalation: { from: 'low', to: 'urgent' },
+    });
+    expect(scheduled.data.task).toMatchObject({ priority: 'low', escalation: 'low → urgent' });
+    const unscheduled = await call(tokens.access_token, 'update_task', {
+      id: scheduled.data.task.identifier,
+      escalation: null,
+    });
+    expect(unscheduled.data.task).not.toHaveProperty('escalation');
+
     const viewer = await connect(team.viewer.agent);
     const denied = await call(viewer.tokens.access_token, 'create_task', {
       projectKey: 'WEB',

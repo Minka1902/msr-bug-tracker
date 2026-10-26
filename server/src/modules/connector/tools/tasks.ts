@@ -35,6 +35,9 @@ const projectKey = z.string().trim().min(2).max(6).describe('Project key, like W
 const taskId = z.string().trim().min(3).max(20).describe('Task ID, like WEB-12');
 const person = z.string().trim().max(254).describe('"me", a member\'s email, or their exact name');
 const limit = z.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT);
+const escalation = z
+  .object({ from: z.enum(PRIORITIES), to: z.enum(PRIORITIES) })
+  .describe('Move the priority step by step from `from` to `to` by the due date; needs a due date');
 
 const csv = (values: string[] | undefined) => (values?.length ? values.join(',') : undefined);
 
@@ -143,6 +146,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         labels: z.array(z.string()).max(30).optional(),
         startDate: isoDate.optional(),
         dueDate: isoDate.optional(),
+        escalation: escalation.optional(),
         parent: taskId.optional().describe('Make this a subtask of that task'),
         stepsToReproduce: z.string().max(20000).optional(),
         expectedResult: z.string().max(20000).optional(),
@@ -169,6 +173,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         labelIds: input.labels && resolveLabels(refs, input.labels),
         startDate: input.startDate,
         dueDate: input.dueDate,
+        escalation: input.escalation,
         parentId: parent?.id,
         stepsToReproduce: input.stepsToReproduce,
         expectedBehavior: input.expectedResult,
@@ -184,7 +189,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
     {
       title: 'Update a task',
       description:
-        'Changes a task: title, description, type, status, priority, severity, assignee, labels, dates or blocked state. Only the fields you pass change. Pass null to clear assignee, severity or a date.',
+        'Changes a task: title, description, type, status, priority, priority schedule, severity, assignee, labels, dates or blocked state. Only the fields you pass change. Pass null to clear assignee, severity, a date or the priority schedule. Setting the priority turns its schedule off.',
       inputSchema: {
         id: taskId,
         title: z.string().trim().min(1).max(300).optional(),
@@ -199,6 +204,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         removeLabels: z.array(z.string()).max(30).optional(),
         startDate: isoDate.nullable().optional(),
         dueDate: isoDate.nullable().optional(),
+        escalation: escalation.nullable().optional(),
         blocked: z.boolean().optional(),
         blockedReason: z.string().trim().max(500).nullable().optional(),
       },
@@ -230,6 +236,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         labelIds: labels,
         startDate: input.startDate,
         dueDate: input.dueDate,
+        escalation: input.escalation,
         isBlocked: input.blocked,
         blockedReason: input.blockedReason,
       });
