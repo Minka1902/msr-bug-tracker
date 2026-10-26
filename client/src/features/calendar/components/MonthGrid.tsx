@@ -36,6 +36,7 @@ export function MonthGrid({
     start: startOfWeek(startOfMonth(anchor), { weekStartsOn }),
     end: endOfWeek(endOfMonth(anchor), { weekStartsOn }),
   });
+  const weeks = Array.from({ length: days.length / 7 }, (_, index) => days.slice(index * 7, index * 7 + 7));
   const byDay = new Map<string, CalendarItem[]>();
   items.forEach((item) => itemDays(item).forEach((key) => byDay.set(key, [...(byDay.get(key) ?? []), item])));
 
@@ -56,50 +57,52 @@ export function MonthGrid({
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-7">
-        {days.map((day) => {
-          const key = dayKey(day);
-          const dayItems = (byDay.get(key) ?? []).sort(
-            (a, b) => Number(b.allDay) - Number(a.allDay) || a.startsAt.localeCompare(b.startsAt),
-          );
-          return (
-            <div
-              key={key}
-              role="gridcell"
-              aria-label={format(day, 'EEEE, MMMM d')}
-              onClick={() => onCreate(key)}
-              className={cn(
-                'flex min-h-24 cursor-pointer flex-col gap-0.5 border-r border-b border-border p-1 transition-colors hover:bg-surface-muted/40 [&:nth-child(7n)]:border-r-0',
-                !isSameMonth(day, anchor) && 'bg-surface-muted/30 text-subtle',
-              )}
-            >
-              <span
+      {weeks.map((week) => (
+        <div key={week[0]!.toISOString()} role="row" className="grid grid-cols-7">
+          {week.map((day) => {
+            const key = dayKey(day);
+            const dayItems = (byDay.get(key) ?? []).sort(
+              (a, b) => Number(b.allDay) - Number(a.allDay) || a.startsAt.localeCompare(b.startsAt),
+            );
+            return (
+              <div
+                key={key}
+                role="gridcell"
+                aria-label={format(day, 'EEEE, MMMM d')}
+                onClick={() => onCreate(key)}
                 className={cn(
-                  'mb-0.5 flex size-6 items-center justify-center self-end rounded-full text-xs tabular-nums',
-                  isToday(day) && 'bg-accent font-semibold text-accent-contrast',
+                  'flex min-h-24 cursor-pointer flex-col gap-0.5 border-r border-b border-border p-1 transition-colors hover:bg-surface-muted/40 last:border-r-0',
+                  !isSameMonth(day, anchor) && 'bg-surface-muted/30 text-subtle',
                 )}
               >
-                {format(day, 'd')}
-              </span>
-              {dayItems.slice(0, maxPerDay).map((item) => (
-                <CalendarItemChip key={`${item.kind}-${item.id}`} item={item} onOpen={onOpenItem} />
-              ))}
-              {dayItems.length > maxPerDay && (
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onShowDay(day);
-                  }}
-                  className="cursor-pointer rounded px-1.5 text-left text-[11px] font-medium text-accent-text hover:underline"
+                <span
+                  className={cn(
+                    'mb-0.5 flex size-6 items-center justify-center self-end rounded-full text-xs tabular-nums',
+                    isToday(day) && 'bg-accent font-semibold text-accent-contrast',
+                  )}
                 >
-                  +{dayItems.length - maxPerDay} more
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+                  {format(day, 'd')}
+                </span>
+                {dayItems.slice(0, maxPerDay).map((item) => (
+                  <CalendarItemChip key={`${item.kind}-${item.id}`} item={item} onOpen={onOpenItem} />
+                ))}
+                {dayItems.length > maxPerDay && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onShowDay(day);
+                    }}
+                    className="cursor-pointer rounded px-1.5 text-left text-[11px] font-medium text-accent-text hover:underline"
+                  >
+                    +{dayItems.length - maxPerDay} more
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 }

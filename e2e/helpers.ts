@@ -48,20 +48,23 @@ export const signUp = async (page: Page, name = 'E2E User', label = 'user') => {
   return { id: user.id, email, name };
 };
 
-export const createProject = async (page: Page, name: string, key = uniqueKey()) => {
-  const { project } = await apiPost<{ project: { id: string; key: string } }>(page, '/projects', {
-    name,
-    key,
-    description: '',
-    color: '#4f56f0',
-    icon: 'folder',
-  });
+export const createProject = async (
+  page: Page,
+  name: string,
+  key = uniqueKey(),
+  kind: 'software' | 'household' = 'software',
+) => {
+  const { project } = await apiPost<{
+    project: { id: string; key: string; roles: { id: string; systemKey: string | null }[] };
+  }>(page, '/projects', { name, key, kind, description: '', color: '#4f56f0', icon: 'folder' });
   return project;
 };
 
+export const isoDay = (offset = 0) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+
 export interface TaskSeed {
   title: string;
-  type?: 'task' | 'bug' | 'feature' | 'improvement';
+  type?: 'task' | 'bug' | 'feature' | 'improvement' | 'chore' | 'errand';
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   dueDate?: string;
   statusId?: string;

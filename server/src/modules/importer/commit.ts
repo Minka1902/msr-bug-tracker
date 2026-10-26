@@ -76,11 +76,9 @@ const resolve = async (
   options: ImportOptions,
   db?: Db,
 ) => {
-  const [statuses, members, labels] = await Promise.all([
-    listStatuses(project.id, db),
-    query<Member>(MEMBERS, [project.id], db),
-    query<{ id: string; name: string }>(LABELS, [project.id], db),
-  ]);
+  const statuses = await listStatuses(project.id, db);
+  const members = await query<Member>(MEMBERS, [project.id], db);
+  const labels = await query<{ id: string; name: string }>(LABELS, [project.id], db);
   const warnings = new Map<string, number>();
   const warn = (message: string) => warnings.set(message, (warnings.get(message) ?? 0) + 1);
   const skipped: RowIssue[] = [];

@@ -57,6 +57,7 @@ test('fits phone screens without horizontal scrolling', async ({ page }) => {
     title: 'A fairly long task title that should wrap nicely on a phone',
     type: 'bug',
   });
+  const home = await createProject(page, 'Phone Household', undefined, 'household');
 
   for (const path of [
     '/',
@@ -67,6 +68,11 @@ test('fits phone screens without horizontal scrolling', async ({ page }) => {
     `/p/${key}/list`,
     `/p/${key}/${task.number}`,
     '/settings/appearance',
+    '/calendar',
+    `/p/${home.key}/home`,
+    `/p/${home.key}/shopping`,
+    `/p/${home.key}/calendar`,
+    '/settings/calendars',
   ]) {
     await page.goto(path);
     await expect(page.getByRole('navigation', { name: 'Tab bar' })).toBeVisible();

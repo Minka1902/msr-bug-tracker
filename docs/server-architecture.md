@@ -14,11 +14,12 @@ server/src
 │   ├── migrate.ts        # SQL migration runner (advisory lock, schema_migrations)
 │   ├── migrateCli.ts
 │   └── migrations/NNN_*.sql
-├── lib/                  # httpError, logger, tokens, passwords, mailer, storage, upload, position
+├── lib/                  # httpError, logger, tokens, passwords, mailer, secretBox, storage, upload, position
 ├── middleware/           # session, originCheck, rateLimits, errorHandler
 └── modules/<domain>/     # routes.ts (HTTP) + service.ts (SQL) per domain
-                          # auth, users, projects, statuses, labels, roles, members, tasks,
-                          # comments, checklist, relations, attachments, insights, search, demo, dev
+                          # auth, twoFactor, users, aiKeys, invites, projects, statuses, labels,
+                          # roles, members, tasks, comments, checklist, relations, attachments,
+                          # importer, migrations, calendar, shopping, insights, search, demo, dev
 ```
 
 Inside a module, `routes.ts` only parses input with shared zod schemas, runs permission checks, and calls a service. `service.ts` holds the SQL. Its SQL strings are consts at the top of the file, followed by the functions. A service never touches `req` or `res`, so tests and the demo generator can reuse it.
@@ -53,7 +54,13 @@ flowchart LR
 - **Revocation.** Login rotates the session. Logout deletes the row. A password change revokes the user's other sessions, and a password reset revokes all of them.
 - **Email verification and password reset** use single-use, expiring tokens, also stored hashed in `auth_tokens`. Unverified users can still sign in and see a banner.
 - **CSRF.** Mutating requests must carry an `Origin` header matching `APP_URL` (on top of `SameSite=Lax`).
-- **Rate limits.** Login allows 10 attempts per 15 minutes per IP+email. Register, forgot and resend allow 5 per hour. Demo generation allows 10 per hour.
+- **Two-factor sign-in.** Users can turn on authenticator-app 2FA (`otpauth`: SHA-1, 6 digits, 30-second steps, ±1 step). With 2FA on, `POST /auth/login` answers `{twoFactorRequired, ticket}`, a 10-minute single-use `auth_tokens` row. `POST /auth/login/2fa {ticket, code}` then accepts either an authenticator code or one of ten recovery codes. `totp_last_step` stops the same code being used twice.
+- **Invites.** An invite link carries a random token, and only its hash is stored. Joining checks the invite's expiry, use count and revocation, then adds the member in one transaction. Registering from an invite accepts it automatically. If the invite was emailed to that same address, the email also counts as verified.
+- **Rate limits.**
+  - Login: 10 attempts per 15 minutes per IP+email.
+  - Register, forgot and resend: 5 per hour.
+  - Demo generation: 10 per hour.
+  - 2FA codes, AI key checks, invites, invite previews, migrations, calendar connects and feed reads each have their own limit (`middleware/rateLimits.ts`).
 - **Account enumeration.** Login errors are generic, and forgot-password always returns 200.
 
 ## Permissions
@@ -63,7 +70,7 @@ Each project has roles in `project_roles`, and each role stores an **integer bit
 - **System roles.** Every project gets `owner`, `admin`, `member` and `viewer`. Only the owner role is locked: it has every permission and is the only role that can delete the project.
 - **Custom roles** can be created, cloned, renamed, or deleted. Deleting a role moves its members to a replacement role you choose.
 - **Field-level task checks.** `missingTaskPermissions()` is shared by the client and the server:
-  - `statusId` / `position` → `task.transition`
+  - `statusId` / `position` → `task.transition`, or `task.transition_own` when the caller is the assignee (household children)
   - `assigneeId` → `task.assign_self`, or `task.assign_others` when anyone other than the caller is involved
   - any other field → `task.edit_own` (reporter or assignee) or `task.edit_any`
 - **No escalation.** An actor can only grant a role, or edit a role's permissions, if the result is a subset of their own permissions (`mask & ~actorMask = 0`).
@@ -88,6 +95,21 @@ Each project has roles in `project_roles`, and each role stores an **integer bit
 - **Assignee** is kept only if they are a member there.
 
 Subtasks move with their parent, and so does the task's activity history. Duplicating copies the fields and labels, adds "(copy)" to the title, and copies the checklist with every item unchecked. It does not copy comments or attachments.
+
+**Recurring tasks.** `tasks.recurrence` is `{freq, interval, rotate}`. When a recurring task enters a `done` status, `spawnRecurrences()` runs inside the same transaction. This covers single edits, board drags and bulk edits. For every finished task it:
+
+- reserves the task numbers in one `UPDATE … task_seq + n`
+- inserts the next occurrences with one `INSERT … SELECT FROM unnest`
+- copies labels and checklists with one statement each
+- clears `recurrence` on the finished tasks, so each one spawns exactly once
+
+The next due date is computed by `nextOccurrence()` in `shared/src/recurrence.ts`:
+
+- It steps forward from the old due date, not from the completion date.
+- It skips dates that are already past, using the actor's timezone.
+- Monthly steps clamp to the last day of the month.
+
+The assignee moves to the next person in `rotate`, or is cleared if that person has left the project.
 
 **Counters.** Board cards render from denormalized counters on `tasks`, so the board query never joins comments, files or checklists. Each counter changes in the same transaction as the row it counts. Subtask counters on parents are recomputed with one `UPDATE … FROM (aggregate)` for every affected parent (`REFRESH_PARENTS`), which also covers moves, deletes and status changes.
 
@@ -123,6 +145,104 @@ Sorting maps a whitelisted key to SQL (`sortSql`), always with `t.number DESC` a
 - **Deletion.** When a task or project is deleted, its files are removed after the transaction commits.
 - **Pending uploads.** Uploads made before a task exists (`task_id IS NULL`) are linked when the task is created. Pending uploads older than 24h are purged every hour.
 
+## Households and shopping
+
+A project's `kind` is `software` or `household`, fixed when the project is created. `createProject` seeds a household with:
+
+- the family roles: Owner, Parent, Child and Guest (see `docs/database.md`)
+- the statuses To do, Doing and Done
+- the starter labels Kitchen, Laundry, Outdoor, School and Pets
+- a Groceries list
+
+The client offers chore, errand and task (`KIND_TASK_TYPES`). Its tabs are Home, Chores (the board grouped by person), All tasks, Shopping, Calendar, Activity and Settings.
+
+`modules/shopping` serves lists and items under `/projects/:key/lists`:
+
+- Every list and item belongs to a project, and non-members get 404, as everywhere else.
+- Reads need membership. Writes need `lists.edit`.
+- Each write answers with the whole updated list in one query, items aggregated with `json_agg`.
+- The client polls every 10 seconds while the page is open, so two people shopping together see each other's ticks.
+
+## Calendar
+
+`modules/calendar` combines app events, synced Google and iCloud events, and task deadlines.
+
+**Reading events.** `GET /calendar/events?from&to&projectKey?` runs two queries in parallel:
+
+- **Events:** personal events, events of projects you're in, and synced events from calendars switched to Show.
+- **Deadlines:** your open tasks, or every open task when `projectKey` is given.
+
+Deadlines come back as all-day items. A deadline belongs to the assignee, or to the reporter while the task is unassigned.
+
+**Very-important clashes.** `shared/src/calendar.ts` defines the overlap rule, and the client and server both use it:
+
+- A deadline covers the whole day in its owner's timezone.
+- A meeting covers `[start, end)`.
+- Two spans clash when `a.start < b.end && b.start < a.end`.
+
+The routes:
+
+- `GET /calendar/conflicts` checks a date or range against the important events of up to 50 people, before a save.
+  - It only looks at people who share a project with the caller.
+  - Someone else's personal event is shown as "Very important event", with no title.
+- `GET /calendar/conflicts/upcoming` lists clashes in the next 30 days for the caller's deadlines and events.
+
+The client asks before saving a due date, an assignee or an event, then confirms with **Save anyway** or **Change it**. The Dashboard, the Calendar page and a household's Home show the upcoming clashes.
+
+**Google sync.** It uses an OAuth web flow and calls the Calendar REST API over `fetch`.
+
+- Connecting goes `/calendar/google/connect` → Google → `/calendar/google/callback`, with a state cookie against CSRF.
+- It requests offline access, and stores the refresh token sealed.
+- Very important = the Tomato color, or the private property `msrImportant`. Starring an event writes both back.
+
+**iCloud sync.** It uses CalDAV (`tsdav`) with an app-specific password, and parses events with `ical.js`.
+
+- Recurring events are expanded within the sync window. The occurrences are read-only.
+- `PRIORITY:1` means very important.
+
+**How syncing runs.**
+
+- **Window:** 30 days back to 365 days ahead.
+- **Triggers:** every 5 minutes in the background (`index.ts`), and again when a calendar opens if the last sync is more than 5 minutes old.
+- **Storing:** one `unnest` upsert, then a prune of events that are gone from the source.
+- **Edits:** an edit to a synced event is pushed back with `If-Match` on its etag. A 409 triggers a fresh sync.
+
+**Feed.** `GET /calendar-feed/:token.ics` is public and rate-limited. It answers with a hand-written ICS file (escaping and line folding), so Apple, Google, Outlook and Android calendars can subscribe to it.
+
+## Import, export and migration
+
+`modules/importer` handles spreadsheets with `exceljs`:
+
+- **Template:** `GET /import/template?format=csv|xlsx`. The Excel version has dropdowns and an Instructions sheet.
+- **Export:** `GET /projects/:key/tasks/export` uses the List filters and streams batches of 1,000.
+- **Import:** `POST /projects/:key/tasks/import` (multipart, `mode=preview|commit`) recognizes the column names of our template and of the CSV exports of ClickUp, Jira, Asana, Trello and Linear.
+
+`modules/migrations` reads from the other tools' APIs:
+
+- **Tools:** ClickUp, Jira Cloud (only `*.atlassian.net` hosts), Trello, Asana, Linear and GitHub Issues, each with its own adapter.
+- **Jobs:** each import runs as an in-memory job that the client polls.
+- **Credentials:** they stay in memory for the job's lifetime and are never stored. A job that is cut off by a restart has to be started again.
+
+File imports and migrations both write through `commitImport()`:
+
+- one transaction
+- one block of task numbers
+- bulk inserts for tasks, labels, comments and checklists
+- one counter refresh
+
+## Secrets
+
+`lib/secretBox.ts` seals values with AES-256-GCM under `ENCRYPTION_KEY`, in the format `v1.iv.tag.ciphertext`. It is used for:
+
+- 2FA secrets
+- AI provider keys (Claude, ChatGPT, Gemini and Grok)
+- calendar credentials
+- feed tokens
+
+Each AI key is tested with the provider's cheapest read-only call before it is saved. The API returns only its last 4 characters.
+
+In production the server won't start without `ENCRYPTION_KEY`. The key must never change: anything sealed with an old key can't be read.
+
 ## Mail
 
 Mail goes out through the first configured transport:
@@ -154,21 +274,26 @@ Routes (all under `requireAuth`, rate limited): `GET /demo`, `POST /demo {size, 
 
 All routes are under `/api`, take and return JSON, and validate input with the shared zod schemas. Every route after `/auth` requires a session.
 
-| Area                | Routes                                                                                                                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Health & config     | `GET /health`, `GET /config`                                                                                                                                                                     |
-| Auth                | `POST /auth/register`, `/auth/login`, `/auth/logout`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`; `GET /auth/me`                         |
-| Me                  | `PATCH /me` (name, preferences), `PUT /me/password`, `PUT /me/email`, `DELETE /me/avatar` (uploads are off for now), `GET /users/:id/avatar`, `GET /me/tasks`                                    |
-| Projects            | `GET`/`POST /projects`, `GET /projects/key-available`, `GET`/`PATCH`/`DELETE /projects/:key`, `POST /projects/:key/archive`, `/restore`, `PUT /projects/:key/favorite`                           |
-| Workflow & labels   | `POST /projects/:key/statuses`, `PATCH`/`DELETE …/statuses/:id` (delete takes a target status); same shape for `…/labels`                                                                        |
-| Roles & members     | `GET`/`POST /projects/:key/roles`, `PATCH`/`DELETE …/roles/:id` (delete takes a replacement role); `GET`/`POST /projects/:key/members`, `PATCH`/`DELETE …/members/:userId`                       |
-| Project tasks       | `GET`/`POST /projects/:key/tasks`, `PATCH …/tasks/bulk`, `POST …/tasks/bulk-delete`, `GET …/board`, `GET …/overview`, `GET …/activity`                                                           |
-| Tasks               | `GET /tasks/by-identifier/:identifier`; `GET`/`PATCH`/`DELETE /tasks/:id`; `POST /tasks/:id/duplicate`, `/reopen`, `/move`; `GET /tasks/:id/activity`, `/subtasks`                               |
-| Collaboration       | `GET`/`POST /tasks/:id/comments`, `PATCH`/`DELETE /comments/:id`; `GET`/`POST /tasks/:id/checklist`, `PATCH`/`DELETE /checklist/:id`; `GET`/`POST /tasks/:id/relations`, `DELETE /relations/:id` |
-| Files               | `POST /attachments` (pending), `GET`/`POST /tasks/:id/attachments`, `GET`/`DELETE /attachments/:id`                                                                                              |
-| Insights & search   | `GET /dashboard`, `GET /search?q=`                                                                                                                                                               |
-| Demo (when enabled) | `GET`/`POST`/`DELETE /demo`, `POST /demo/impersonate/:userId`, `POST /demo/impersonate/stop`                                                                                                     |
-| Dev only            | `GET /dev/mailbox?to=` (no SMTP and not production)                                                                                                                                              |
+| Area                | Routes                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Health & config     | `GET /health`, `GET /config`                                                                                                                                                                                                                                                                                                                                               |
+| Auth                | `POST /auth/register`, `/auth/login`, `/auth/login/2fa`, `/auth/logout`, `/auth/verify-email`, `/auth/resend-verification`, `/auth/forgot-password`, `/auth/reset-password`; `GET /auth/me`; `GET /auth/invites/:token` (public preview)                                                                                                                                   |
+| 2FA & AI keys       | `GET /me/2fa`, `POST /me/2fa/setup`, `/enable`, `/recovery-codes`, `/disable`; `GET /me/ai-keys`, `PUT`/`DELETE /me/ai-keys/:provider`                                                                                                                                                                                                                                     |
+| Invites             | `GET`/`POST /invites`, `DELETE /invites/:id`, `POST /invites/:token/accept`; `GET`/`POST /projects/:key/invites`                                                                                                                                                                                                                                                           |
+| Import & migration  | `GET /import/template`, `GET /projects/:key/tasks/export`, `POST /projects/:key/tasks/import`; `POST /migrations/:tool/sources`, `POST /migrations/:tool/jobs`, `GET`/`DELETE /migrations/jobs/:id`, `POST /migrations/jobs/:id/commit`                                                                                                                                    |
+| Calendar            | `GET`/`POST /calendar/events`, `PATCH`/`DELETE /calendar/events/:id`, `GET /calendar/conflicts`, `/conflicts/upcoming`; `GET /calendar/connections`, `PATCH`/`DELETE …/connections/:id`, `POST …/connections/:id/sync`; `POST /calendar/feed`; `GET /calendar/google/connect`, `/google/callback`; `POST /calendar/icloud/connect`; public `GET /calendar-feed/:token.ics` |
+| Shopping lists      | `GET`/`POST /projects/:key/lists`, `PATCH`/`DELETE …/lists/:listId`, `POST …/lists/:listId/items`, `PATCH`/`DELETE …/items/:itemId`, `POST …/lists/:listId/clear-checked`                                                                                                                                                                                                  |
+| Me                  | `PATCH /me` (name, preferences), `PUT /me/password`, `PUT /me/email`, `DELETE /me/avatar` (uploads are off for now), `GET /users/:id/avatar`, `GET /me/tasks`                                                                                                                                                                                                              |
+| Projects            | `GET`/`POST /projects`, `GET /projects/key-available`, `GET`/`PATCH`/`DELETE /projects/:key`, `POST /projects/:key/archive`, `/restore`, `PUT /projects/:key/favorite`                                                                                                                                                                                                     |
+| Workflow & labels   | `POST /projects/:key/statuses`, `PATCH`/`DELETE …/statuses/:id` (delete takes a target status); same shape for `…/labels`                                                                                                                                                                                                                                                  |
+| Roles & members     | `GET`/`POST /projects/:key/roles`, `PATCH`/`DELETE …/roles/:id` (delete takes a replacement role); `GET`/`POST /projects/:key/members`, `PATCH`/`DELETE …/members/:userId`                                                                                                                                                                                                 |
+| Project tasks       | `GET`/`POST /projects/:key/tasks`, `PATCH …/tasks/bulk`, `POST …/tasks/bulk-delete`, `GET …/board`, `GET …/overview`, `GET …/activity`                                                                                                                                                                                                                                     |
+| Tasks               | `GET /tasks/by-identifier/:identifier`; `GET`/`PATCH`/`DELETE /tasks/:id`; `POST /tasks/:id/duplicate`, `/reopen`, `/move`; `GET /tasks/:id/activity`, `/subtasks`                                                                                                                                                                                                         |
+| Collaboration       | `GET`/`POST /tasks/:id/comments`, `PATCH`/`DELETE /comments/:id`; `GET`/`POST /tasks/:id/checklist`, `PATCH`/`DELETE /checklist/:id`; `GET`/`POST /tasks/:id/relations`, `DELETE /relations/:id`                                                                                                                                                                           |
+| Files               | `POST /attachments` (pending), `GET`/`POST /tasks/:id/attachments`, `GET`/`DELETE /attachments/:id`                                                                                                                                                                                                                                                                        |
+| Insights & search   | `GET /dashboard`, `GET /search?q=`                                                                                                                                                                                                                                                                                                                                         |
+| Demo (when enabled) | `GET`/`POST`/`DELETE /demo`, `POST /demo/impersonate/:userId`, `POST /demo/impersonate/stop`                                                                                                                                                                                                                                                                               |
+| Dev only            | `GET /dev/mailbox?to=` (no SMTP and not production)                                                                                                                                                                                                                                                                                                                        |
 
 ## Security summary
 
@@ -187,24 +312,26 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 
 ## Config
 
-| Variable                                  | Purpose                                                                                                                                               |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL` / `TEST_DATABASE_URL`      | Postgres connections (tests use the second)                                                                                                           |
-| `APP_URL`                                 | Public origin for email links and the Origin check. Falls back to Render's `RENDER_EXTERNAL_URL`, then `http://localhost:5173`                        |
-| `PORT`                                    | HTTP port (default 4000)                                                                                                                              |
-| `UPLOAD_DIR`, `MAX_UPLOAD_MB`             | Attachment storage and size limit                                                                                                                     |
-| `RESEND_API_KEY`, `SMTP_URL`, `MAIL_FROM` | Outgoing mail (Resend first, then SMTP). Without either, mail is logged (and kept in the dev mailbox outside production). Blank values count as unset |
-| `ENABLE_DEMO_DATA`                        | Turns the demo-data module on or off (default on)                                                                                                     |
-| `CLIENT_DIST`                             | When set, Express serves the built SPA from this path                                                                                                 |
+| Variable                                   | Purpose                                                                                                                                               |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` / `TEST_DATABASE_URL`       | Postgres connections (tests use the second)                                                                                                           |
+| `APP_URL`                                  | Public origin for email links and the Origin check. Falls back to Render's `RENDER_EXTERNAL_URL`, then `http://localhost:5173`                        |
+| `PORT`                                     | HTTP port (default 4000)                                                                                                                              |
+| `UPLOAD_DIR`, `MAX_UPLOAD_MB`              | Attachment storage and size limit                                                                                                                     |
+| `RESEND_API_KEY`, `SMTP_URL`, `MAIL_FROM`  | Outgoing mail (Resend first, then SMTP). Without either, mail is logged (and kept in the dev mailbox outside production). Blank values count as unset |
+| `ENABLE_DEMO_DATA`                         | Turns the demo-data module on or off (default on)                                                                                                     |
+| `ENCRYPTION_KEY`                           | 32 random bytes, base64 (`openssl rand -base64 32`). Seals 2FA secrets, AI keys and calendar credentials. Required in production; never change it     |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Calendar OAuth web client. Without them the "Connect Google Calendar" button is hidden                                                         |
+| `CLIENT_DIST`                              | When set, Express serves the built SPA from this path                                                                                                 |
 
 ## Testing
 
-| Suite  | Command                       | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server | `pnpm --filter ./server test` | Vitest and supertest against the real `msr_test` database. Migrations run once in `globalSetup`, and tables are truncated between files. Table-driven 404 tests for non-members on every project and task route. A permission-matrix test for every flag. Escalation and owner invariants, counters against recounts, workflows and remapping, move and aliases, uploads (spoofed types, SVG, size), demo determinism and isolation, static caching, and config fallbacks |
-| Shared | `pnpm --filter ./shared test` | Permission logic, identifiers and branch slugs                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Client | `pnpm --filter ./client test` | jsdom tests for the theme provider, the offline `ErrorState`, the API client's network errors, `safeNextPath`, and rich-text sanitization                                                                                                                                                                                                                                                                                                                                 |
-| E2E    | `pnpm e2e`                    | Playwright on Chromium. It recreates `msr_e2e`, builds the app and serves it on port 4300. There is one spec per MVP criterion (`e2e/01`–`10`), plus demo data, an iPhone/PWA project (installability, offline shell, no horizontal overflow at 390 px), and an axe WCAG 2 A/AA scan in all four themes                                                                                                                                                                   |
+| Suite  | Command                       | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server | `pnpm --filter ./server test` | Vitest and supertest against the real `msr_test` database. Migrations run once in `globalSetup`, and tables are truncated between files. Table-driven 404 tests for non-members on every project and task route. A permission-matrix test for every flag. Escalation and owner invariants, counters against recounts, workflows and remapping, move and aliases, uploads (spoofed types, SVG, size), demo determinism and isolation, static caching, and config fallbacks. Also: Resend mail, 2FA login and recovery codes, AI key checks (mocked providers), invites, CSV/XLSX round trips, the six migration adapters (recorded samples), calendar CRUD, clashes, ICS feed and Google/iCloud sync (mocked), household roles, recurrence exactly-once, and shopping list permissions |
+| Shared | `pnpm --filter ./shared test` | Permission logic, identifiers, branch slugs, the calendar overlap rule (time zones, all-day, touching edges) and recurrence dates and rotation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Client | `pnpm --filter ./client test` | jsdom tests for the theme provider, the offline `ErrorState`, the API client's network errors, `safeNextPath`, and rich-text sanitization                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| E2E    | `pnpm e2e`                    | Playwright on Chromium. It recreates `msr_e2e`, builds the app and serves it on port 4300. There is one spec per MVP criterion (`e2e/01`–`10`), plus demo data, an iPhone/PWA project (installability, offline shell, no horizontal overflow at 390 px), and an axe WCAG 2 A/AA scan in all four themes                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 The e2e specs locate elements by role and accessible name rather than test ids. A control that can't be found that way is usually an accessibility bug, and several were fixed that way. The suite runs fully parallel and has been checked repeatedly under CPU load for flakiness.
 
