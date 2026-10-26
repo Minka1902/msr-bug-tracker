@@ -68,7 +68,7 @@ export function InvitePage() {
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3 rounded-card border border-border bg-surface-muted/50 p-3">
           {invite.project ? (
-            <ProjectAvatar color={invite.project.color} icon={invite.project.icon} size="lg" />
+            <ProjectAvatar appearance={invite.project} size="lg" />
           ) : (
             <span className="flex size-11 items-center justify-center rounded-control bg-accent-soft text-accent-text">
               <PartyPopper className="size-5" />

@@ -57,6 +57,7 @@ const project = (
   description: `Designing and shipping the ${name.toLowerCase()} with a focus on clarity and speed.`,
   color,
   icon,
+  emblem: null,
   liveUrl: null,
   repoUrl: null,
   isFavorite: false,

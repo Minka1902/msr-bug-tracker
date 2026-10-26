@@ -54,7 +54,7 @@ const COLUMNS: DataColumn<ProjectSummary>[] = [
     sortable: true,
     cell: (project) => (
       <span className="flex min-w-0 items-center gap-3">
-        <ProjectAvatar color={project.color} icon={project.icon} size="sm" />
+        <ProjectAvatar appearance={project} size="sm" />
         <span className="truncate font-medium">{project.name}</span>
         <span className="font-mono text-xs text-subtle">{project.key}</span>
         {project.isFavorite && <Star className="size-3.5 shrink-0 fill-highlight text-highlight" />}

@@ -210,7 +210,7 @@ export function CommandPalette({
                       onSelect={() => run(() => navigate(`/p/${project.key}`))}
                       className={itemClass}
                     >
-                      <ProjectAvatar color={project.color} icon={project.icon} size="xs" />
+                      <ProjectAvatar appearance={project} size="xs" />
                       <span className="flex-1 truncate">{project.name}</span>
                       <span className="font-mono text-xs text-subtle">{project.key}</span>
                     </Command.Item>

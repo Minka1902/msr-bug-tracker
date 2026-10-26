@@ -1,3 +1,4 @@
+import type { Emblem } from '@msr/shared/emblem';
 import type { ProjectKind } from '@msr/shared/enums';
 
 export interface ShellProject {
@@ -6,6 +7,7 @@ export interface ShellProject {
   name: string;
   color: string;
   icon: string;
+  emblem: Emblem | null;
   isFavorite: boolean;
 }
 

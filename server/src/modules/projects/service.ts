@@ -14,6 +14,7 @@ import {
   SYSTEM_ROLE_LABELS,
   SYSTEM_ROLES,
 } from '@msr/shared/permissions';
+import type { Emblem } from '@msr/shared/emblem';
 import type { CreateProjectInput, UpdateProjectInput } from '@msr/shared/schemas/project';
 import type { ProjectDetail, ProjectSummary } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
@@ -33,6 +34,7 @@ interface SummaryRow {
   description: string;
   color: string;
   icon: string;
+  emblem: Emblem | null;
   live_url: string | null;
   repo_url: string | null;
   owner_id: string;
@@ -54,7 +56,7 @@ interface SummaryRow {
 }
 
 const SUMMARY_SQL = `
-  SELECT p.id, p.key, p.kind, p.name, p.description, p.color, p.icon, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
+  SELECT p.id, p.key, p.kind, p.name, p.description, p.color, p.icon, p.emblem, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
          my.is_favorite, r.name AS role_name, r.permissions,
          st.total, st.completed, st.active, st.overdue, st.next_due, st.last_task_update, mc.member_count, mem.members
   FROM project_members my
@@ -88,8 +90,8 @@ const TOUCH_OPENED = `
   UPDATE project_members SET last_opened_at = now()
   WHERE project_id = $1 AND user_id = $2 AND (last_opened_at IS NULL OR last_opened_at < now() - interval '1 minute')`;
 const INSERT_PROJECT = `
-  INSERT INTO projects (key, kind, name, description, color, icon, live_url, repo_url, owner_id)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`;
+  INSERT INTO projects (key, kind, name, description, color, icon, emblem, live_url, repo_url, owner_id)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`;
 const INSERT_ROLES = `
   INSERT INTO project_roles (project_id, name, system_key, permissions, position)
   SELECT $1, name, system_key::system_role, permissions, position
@@ -107,7 +109,8 @@ const INSERT_LIST = 'INSERT INTO shopping_lists (project_id, name, position) VAL
 const UPDATE_PROJECT = `
   UPDATE projects SET name = COALESCE($2, name), description = COALESCE($3, description), color = COALESCE($4, color),
          icon = COALESCE($5, icon), live_url = CASE WHEN $6 THEN $7 ELSE live_url END,
-         repo_url = CASE WHEN $8 THEN $9 ELSE repo_url END, updated_at = now()
+         repo_url = CASE WHEN $8 THEN $9 ELSE repo_url END, emblem = CASE WHEN $10 THEN $11 ELSE emblem END,
+         updated_at = now()
   WHERE id = $1`;
 const SET_ARCHIVED =
   'UPDATE projects SET archived_at = CASE WHEN $2 THEN now() ELSE NULL END, updated_at = now() WHERE id = $1';
@@ -139,6 +142,7 @@ const toSummary = (row: SummaryRow, userId: string): ProjectSummary => ({
   description: row.description,
   color: row.color,
   icon: row.icon,
+  emblem: row.emblem,
   liveUrl: row.live_url,
   repoUrl: row.repo_url,
   isFavorite: row.is_favorite,
@@ -207,6 +211,7 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
         input.description,
         input.color,
         input.icon,
+        input.emblem ?? null,
         input.liveUrl ?? null,
         input.repoUrl ?? null,
         ownerId,
@@ -275,6 +280,8 @@ export const updateProject = (projectId: string, input: UpdateProjectInput) =>
     input.liveUrl ?? null,
     input.repoUrl !== undefined,
     input.repoUrl ?? null,
+    input.emblem !== undefined,
+    input.emblem ?? null,
   ]);
 
 export const setArchived = (projectId: string, archived: boolean) =>

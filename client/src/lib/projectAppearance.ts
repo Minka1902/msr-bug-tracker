@@ -107,3 +107,5 @@ export const PROJECT_COLORS = [
   '#3b82f6',
   '#64748b',
 ];
+
+export const FLAG_COLORS = [...PROJECT_COLORS, '#ffffff', '#0f172a'];

@@ -45,7 +45,7 @@ export function MyTasksPage() {
         options: (projects.data ?? []).map((project) => ({
           value: project.key,
           label: project.name,
-          icon: <ProjectAvatar color={project.color} icon={project.icon} size="xs" />,
+          icon: <ProjectAvatar appearance={project} size="xs" />,
         })),
       },
       ...taskFilterDefs(options).filter((def) => KEPT_FILTERS.has(def.key)),

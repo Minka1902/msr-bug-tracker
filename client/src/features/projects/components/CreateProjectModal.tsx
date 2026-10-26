@@ -8,9 +8,7 @@ import { createProjectSchema } from '@msr/shared/schemas/project';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
 import { ChoiceGroup } from '../../../components/ui/ChoiceGroup';
-import { ColorPicker } from '../../../components/ui/ColorPicker';
 import { Field } from '../../../components/ui/Field';
-import { IconPicker } from '../../../components/ui/IconPicker';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { ProjectAvatar } from '../../../components/ui/ProjectAvatar';
@@ -20,6 +18,8 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
 import { useCreateProject, useKeyAvailability } from '../api';
+import { useAppearanceField } from '../useAppearanceField';
+import { ProjectAppearanceEditor } from './ProjectAppearanceEditor';
 import { ProjectLinkFields } from './ProjectLinkFields';
 
 interface CreateProjectModalProps {
@@ -36,6 +36,7 @@ const DEFAULTS = {
   description: '',
   color: '#4f56f0',
   icon: 'hexagon',
+  emblem: null,
   liveUrl: '',
   repoUrl: '',
 };
@@ -68,7 +69,8 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
   const createProject = useCreateProject();
   const form = useZodForm(createProjectSchema, DEFAULTS);
   const [keyTouched, setKeyTouched] = useState(false);
-  const [watchedKind, name, key, color, icon] = form.watch(['kind', 'name', 'key', 'color', 'icon']);
+  const appearance = useAppearanceField(form);
+  const [watchedKind, name, key, icon] = form.watch(['kind', 'name', 'key', 'icon']);
   const kind = watchedKind ?? 'software';
   const normalizedKey = key.trim().toUpperCase();
   const debouncedKey = useDebouncedValue(normalizedKey, 300);
@@ -184,23 +186,13 @@ export function CreateProjectModal({ open, onOpenChange }: CreateProjectModalPro
         </div>
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3 rounded-card border border-border bg-surface-muted/50 p-3">
-            <ProjectAvatar color={color} icon={icon} size="lg" />
+            <ProjectAvatar appearance={appearance.value} size="lg" />
             <div className="min-w-0">
               <p className="truncate font-semibold">{name || 'Project name'}</p>
               <p className="font-mono text-xs text-muted">{normalizedKey || 'KEY'}</p>
             </div>
           </div>
-          <Field label="Color">
-            <ColorPicker value={color} onChange={(value) => form.setValue('color', value)} />
-          </Field>
-          <Field label="Icon">
-            <IconPicker
-              value={icon}
-              color={color}
-              onChange={(value) => form.setValue('icon', value)}
-              className="grid-cols-6"
-            />
-          </Field>
+          <ProjectAppearanceEditor preview={false} value={appearance.value} onChange={appearance.onChange} />
         </div>
       </form>
     </Modal>

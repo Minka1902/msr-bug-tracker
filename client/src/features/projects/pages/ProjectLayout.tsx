@@ -92,7 +92,7 @@ export function ProjectLayout() {
   return (
     <div className="flex flex-col gap-4 pb-6">
       <div className="flex items-center gap-3 pt-2 md:flex-wrap">
-        <ProjectAvatar color={data.color} icon={data.icon} size="md" />
+        <ProjectAvatar appearance={data} size="md" />
         <div className="flex min-w-0 items-center gap-1 max-md:flex-1">
           <h1 className="truncate text-xl font-bold md:text-2xl">{data.name}</h1>
           <ProjectSwitcher currentKey={data.key} />

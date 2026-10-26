@@ -1,3 +1,4 @@
+import type { Emblem } from './emblem';
 import type {
   AiProvider,
   ConnectorScope,
@@ -58,6 +59,7 @@ export interface ProjectSummary {
   description: string;
   color: string;
   icon: string;
+  emblem: Emblem | null;
   liveUrl: string | null;
   repoUrl: string | null;
   isFavorite: boolean;
@@ -239,7 +241,7 @@ export interface CreatedInvite extends InviteSummary {
 export interface InvitePreview {
   inviterName: string;
   email: string | null;
-  project: { key: string; name: string; color: string; icon: string } | null;
+  project: { key: string; name: string; color: string; icon: string; emblem: Emblem | null } | null;
   roleName: string | null;
   expiresAt: string;
 }

@@ -9,6 +9,7 @@ interface ColorSwatchPickerProps {
   disabled?: boolean;
   size?: 'sm' | 'md';
   label?: string;
+  colors?: string[];
 }
 
 export function ColorSwatchPicker({
@@ -17,6 +18,7 @@ export function ColorSwatchPicker({
   disabled,
   size = 'sm',
   label = 'Change color',
+  colors,
 }: ColorSwatchPickerProps) {
   const swatch = (
     <button
@@ -25,7 +27,7 @@ export function ColorSwatchPicker({
       disabled={disabled}
       style={{ '--c': value } as CSSProperties}
       className={cn(
-        'shrink-0 cursor-pointer rounded-full bg-(--c) ring-offset-2 ring-offset-surface transition-shadow hover:ring-2 hover:ring-(--c)/50 disabled:cursor-default disabled:hover:ring-0',
+        'shrink-0 tap-target cursor-pointer rounded-full bg-(--c) shadow-[inset_0_0_0_1px_var(--c-border-strong)] ring-offset-2 ring-offset-surface transition-shadow hover:ring-2 hover:ring-(--c)/50 disabled:cursor-default disabled:hover:ring-0',
         size === 'sm' ? 'size-4' : 'size-6',
       )}
     />
@@ -34,8 +36,8 @@ export function ColorSwatchPicker({
   if (disabled) return swatch;
 
   return (
-    <Popover trigger={swatch} className="w-64 p-3">
-      <ColorPicker value={value} onChange={onChange} />
+    <Popover trigger={swatch} className="w-64 p-3" title={label}>
+      <ColorPicker value={value} onChange={onChange} colors={colors} />
     </Popover>
   );
 }

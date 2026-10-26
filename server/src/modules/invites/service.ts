@@ -1,3 +1,4 @@
+import type { Emblem } from '@msr/shared/emblem';
 import type { CreatedInvite, InvitePreview, InviteSummary } from '@msr/shared/types';
 import { query, queryOne, transaction } from '../../db/pool';
 import { config } from '../../config';
@@ -45,7 +46,7 @@ const REVOKE_PROJECT_INVITE =
 const DELETE_INVITE = 'DELETE FROM invites WHERE id = $1';
 const PREVIEW = `
   SELECT u.name AS inviter_name, i.email, i.expires_at, r.name AS role_name,
-         p.key, p.name AS project_name, p.color, p.icon
+         p.key, p.name AS project_name, p.color, p.icon, p.emblem
   FROM invites i
   JOIN users u ON u.id = i.inviter_id
   LEFT JOIN projects p ON p.id = i.project_id
@@ -117,6 +118,7 @@ export const previewInvite = async (token: string): Promise<InvitePreview | null
     project_name: string | null;
     color: string | null;
     icon: string | null;
+    emblem: Emblem | null;
   }>(PREVIEW, [hashToken(token)]);
   if (!row) return null;
   return {
@@ -124,7 +126,9 @@ export const previewInvite = async (token: string): Promise<InvitePreview | null
     email: row.email,
     roleName: row.role_name,
     expiresAt: row.expires_at.toISOString(),
-    project: row.key ? { key: row.key, name: row.project_name!, color: row.color!, icon: row.icon! } : null,
+    project: row.key
+      ? { key: row.key, name: row.project_name!, color: row.color!, icon: row.icon!, emblem: row.emblem }
+      : null,
   };
 };
 

@@ -1,6 +1,6 @@
 # MSR Bug Tracker
 
-A project and bug tracker with Kanban and List views, custom workflows, project roles, a dashboard and a command palette. It has two visual styles (Aurora and Clean), light and dark mode, and installs as an app on iPhone and Android.
+A project and bug tracker with Kanban and List views, custom workflows, project roles, a dashboard and a command palette. Each project gets a color and icon, or a flag-style emblem with its own shape, pattern, part colors and dividers. It has two visual styles (Aurora and Clean), light and dark mode, and installs as an app on iPhone and Android.
 
 On phones it is built for one hand: navigation, the + button and sheet buttons sit in the thumb zone, every tap target is at least 44 px, menus and pickers open as bottom sheets you swipe away, and task rows swipe to finish. Settings → Appearance has a left/right-hand mode and a Large touch size. Small tablets in portrait get an icon rail and a two-column board.
 

@@ -24,7 +24,7 @@ export function ProjectSwitcher({ currentKey }: { currentKey: string }) {
           label: project.name,
           keywords: [project.key],
           description: project.key,
-          icon: <ProjectAvatar color={project.color} icon={project.icon} size="xs" />,
+          icon: <ProjectAvatar appearance={project} size="xs" />,
         })),
         { value: ALL_PROJECTS, label: 'All projects', icon: <FolderKanban />, group: ' ' },
       ]}

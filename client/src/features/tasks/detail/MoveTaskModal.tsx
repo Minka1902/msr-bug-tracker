@@ -25,7 +25,7 @@ export function MoveTaskModal({ task, loading, onCancel, onConfirm }: MoveTaskMo
       value: project.key,
       label: project.name,
       description: project.key,
-      icon: <ProjectAvatar color={project.color} icon={project.icon} size="xs" />,
+      icon: <ProjectAvatar appearance={project} size="xs" />,
     }));
 
   return (
