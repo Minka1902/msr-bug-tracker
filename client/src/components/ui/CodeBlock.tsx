@@ -21,6 +21,7 @@ export function CodeBlock({ code, copyLabel, title, wrap, className }: CodeBlock
       )}
       <div className="flex items-start gap-2 py-1 pr-1 pl-3">
         <pre
+          tabIndex={wrap ? undefined : 0}
           className={cn(
             'min-w-0 flex-1 py-1.5 font-mono text-xs',
             wrap ? 'break-all whitespace-pre-wrap' : 'overflow-x-auto whitespace-pre',
