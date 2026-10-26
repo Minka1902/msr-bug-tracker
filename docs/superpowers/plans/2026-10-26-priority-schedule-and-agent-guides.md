@@ -9,6 +9,7 @@
 **Tech Stack:** pnpm monorepo · Express 5 + raw `pg` SQL on PostgreSQL 16 · React 19 + TanStack Query + Tailwind v4 · zod in `shared/` · Vitest + supertest
 
 **Spec:** MSR cards [BUGTRK-3](https://msr-bug-tracker.onrender.com/t/BUGTRK-3) and [BUGTRK-5](https://msr-bug-tracker.onrender.com/t/BUGTRK-5), plus these decisions made with Michael on 2026-10-26:
+
 - Gradual steps: every level between start and end gets an equal share of the window, from the start date (or the day the schedule was set) to the due date. The task holds the end priority on and after the due date.
 - A manual priority change (picker, bulk edit, MCP) turns the schedule off.
 - Agent guides cover Claude, ChatGPT, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI and any other MCP client.
@@ -40,11 +41,13 @@ Move BUGTRK-3 to **In Progress** before Task 1 and to **In Review** after Task 4
 ### Task 1: Shared schedule model
 
 **Files:**
+
 - Create: `shared/src/escalation.ts`
 - Modify: `shared/src/types.ts` (`TaskCard`), `shared/src/schemas/task.ts`
 - Test: `shared/test/escalation.test.ts`
 
 **Interfaces:**
+
 - Produces:
   - `interface EscalationRange { from: Priority; to: Priority }`
   - `interface TaskEscalation extends EscalationRange { since: string }`
@@ -67,14 +70,19 @@ expect(escalationSteps({ from: 'low', to: 'urgent' }, '2026-11-01', '2026-11-10'
   { priority: 'high', from: '2026-11-06' },
   { priority: 'urgent', from: '2026-11-08' },
 ]);
-expect(escalationSteps({ from: 'urgent', to: 'low' }, '2026-11-01', '2026-11-10').map((s) => s.priority))
-  .toEqual(['urgent', 'high', 'medium', 'low']);
-expect(escalationSteps({ from: 'low', to: 'urgent' }, '2026-11-02', '2026-11-02')).toEqual([{ priority: 'urgent', from: '2026-11-02' }]);
+expect(
+  escalationSteps({ from: 'urgent', to: 'low' }, '2026-11-01', '2026-11-10').map((s) => s.priority),
+).toEqual(['urgent', 'high', 'medium', 'low']);
+expect(escalationSteps({ from: 'low', to: 'urgent' }, '2026-11-02', '2026-11-02')).toEqual([
+  { priority: 'urgent', from: '2026-11-02' },
+]);
 expect(escalationSteps({ from: 'low', to: 'urgent' }, '2026-11-01', '2026-11-02')).toEqual([
   { priority: 'low', from: '2026-11-01' },
   { priority: 'urgent', from: '2026-11-02' },
 ]);
-expect(escalationSteps({ from: 'low', to: 'high' }, '2026-11-20', '2026-11-10')).toEqual([{ priority: 'high', from: '2026-11-10' }]);
+expect(escalationSteps({ from: 'low', to: 'high' }, '2026-11-20', '2026-11-10')).toEqual([
+  { priority: 'high', from: '2026-11-10' },
+]);
 const range = { from: 'low', to: 'urgent' } as const;
 expect(escalatedPriority(range, '2026-11-01', '2026-11-10', '2026-10-30')).toBe('low');
 expect(escalatedPriority(range, '2026-11-01', '2026-11-10', '2026-11-05')).toBe('medium');
@@ -93,15 +101,18 @@ expect(updateTaskSchema.safeParse({ escalation: { from: 'low', to: 'low' } }).su
 ### Task 2: Store, compute and maintain the schedule on the server
 
 **Files:**
+
 - Create: `server/src/db/migrations/013_priority_schedule.sql`, `server/src/modules/tasks/escalation.ts`
 - Modify: `server/src/modules/tasks/service.ts` (create, update, bulk, duplicate, recurrence spawn), `server/src/modules/tasks/queries.ts` (card columns plus `toCard`), `server/src/index.ts` (hourly job)
 - Test: `server/test/escalation.test.ts`
 
 **Interfaces:**
+
 - Consumes: Task 1 types and `describeEscalation`. The tests use `escalatedPriority` for the parity check.
 - Produces: `escalatePriorities(taskIds: string[] | null, log: boolean, db?: Db): Promise<void>`. `null` means all scheduled open tasks. `log = false` skips the activity rows, which is used on create and spawn.
 
 **Migration:**
+
 ```sql
 ALTER TABLE tasks
   ADD COLUMN escalate_from task_priority,
@@ -139,17 +150,20 @@ WITH target AS (
 INSERT INTO task_activity (project_id, task_id, action, field, old_value, new_value)
 SELECT project_id, id, 'escalated', 'priority', to_jsonb(old_priority), to_jsonb(new_priority) FROM changed WHERE $2
 ```
+
 `LEVELS` = `ARRAY['low','medium','high','urgent']::task_priority[]`.
 
 **Service rules:**
+
 - `createTask`: insert `escalate_from/to/since`, where `since` is the actor's today (`ACTOR_TODAY`). If a schedule is set, run `escalatePriorities([id], false, db)`.
 - `updateTask`: after the dates are resolved, compute `next`:
   - `patch.escalation` when it is given.
   - Otherwise `null` if `priority` changed while a schedule was on.
   - Otherwise `null` if the resulting due date is `null`.
   - Otherwise the current schedule.
-  
+
   If `patch.escalation` is non-null and there's no due date, throw 400. When `next` differs from the current schedule, set the three columns (`since` = actor's today; `null` when turned off) and `log('escalation', describe(old), describe(next))`. After the UPDATE, if `next` is set, run `escalatePriorities([taskId], true, db)`.
+
 - `bulkUpdateTasks`: a priority patch also clears the schedule on the changed rows that had one and logs `escalation → null`. A status change runs `escalatePriorities(ids, true, db)` so reopened tasks are recomputed.
 - `DUPLICATE_TASK` copies the three columns. `SPAWN_RECURRENCES` copies `escalate_from/to`, sets `escalate_since` to today, then runs `escalatePriorities(createdIds, false, db)`.
 - `index.ts`: run `escalatePriorities(null, true)` at boot and every `HOUR`, logging `'Priority schedule failed'` on error.
@@ -174,7 +188,7 @@ SELECT project_id, id, 'escalated', 'priority', to_jsonb(old_priority), to_jsonb
 
 **Files:** Modify `server/src/modules/connector/tools/tasks.ts`, `server/src/modules/connector/format.ts`. Test: `server/test/connector.test.ts`.
 
-**Interfaces:** Both `create_task` and `update_task` take `escalation: { from, to }`. It is `.nullable()` on update, and its description is *"Move the priority step by step from `from` to `to` by the due date; needs a due date. null turns it off."* `compactTask` adds `escalation: 'low → urgent'` when the schedule is set.
+**Interfaces:** Both `create_task` and `update_task` take `escalation: { from, to }`. It is `.nullable()` on update, and its description is _"Move the priority step by step from `from` to `to` by the due date; needs a due date. null turns it off."_ `compactTask` adds `escalation: 'low → urgent'` when the schedule is set.
 
 - [ ] **Step 1: Failing test.** `update_task` with `{ id, dueDate: day(9), escalation: { from: 'low', to: 'urgent' } }` → `task.escalation === 'low → urgent'` and `task.priority === 'low'`.
 - [ ] **Step 2: Run** it and expect FAIL. **Step 3:** implement. **Step 4:** run it and expect PASS. **Step 5: Commit** with message `Let AI connectors set a priority schedule`.
@@ -182,10 +196,12 @@ SELECT project_id, id, 'escalated', 'priority', to_jsonb(old_priority), to_jsonb
 ### Task 4: Priority schedule UI
 
 **Files:**
+
 - Create: `client/src/features/tasks/components/EscalationPicker.tsx`, `client/src/features/tasks/__tests__/activityText.test.ts`
 - Modify: `client/src/features/tasks/detail/TaskProperties.tsx` (an "Escalate" row under Due date, shown only when `task.dueDate`), `client/src/features/tasks/components/TaskPropertyPicker.tsx` (`TrendingUp` mark beside the priority when scheduled; the optimistic priority patch and due-date clear add `escalation: null`), `client/src/features/tasks/components/TaskCardView.tsx` (the same mark on the priority badge), `client/src/features/tasks/activityText.ts` (`escalation: 'priority schedule'`, plus `escalated` → `raised|lowered the priority from X to Y`), `client/src/features/tasks/components/ActivityItem.tsx` (an `escalated` row with no actor shows "Priority schedule")
 
 **Interfaces:**
+
 ```ts
 interface EscalationPickerProps {
   value: TaskEscalation | null;
@@ -199,6 +215,7 @@ interface EscalationPickerProps {
   'aria-label'?: string;
 }
 ```
+
 The popover has two `SegmentedControl`s (From, To) built from `PRIORITY_LEVELS` with `PriorityIcon`, and a step preview from `escalationSteps(draft, startDate ?? (unchanged ? value.since : todayIso()), dueDate)`. Buttons: Turn off (only when `value`), Cancel, and Save (disabled when from = to). Trigger text: `describeEscalation(value) ?? placeholder` (default `"Doesn't change"`).
 
 - [ ] **Step 1: Failing test.** `activityText({ action: 'escalated', field: 'priority', oldValue: 'low', newValue: 'high', … })` → `'raised the priority from low to high'`. The reverse gives `'lowered …'`. `{ action: 'updated', field: 'escalation', oldValue: null, newValue: 'Low → Urgent' }` → `'changed priority schedule from none to Low → Urgent'`.
@@ -217,6 +234,7 @@ Move BUGTRK-5 to **In Progress** before Task 5 and to **In Review** after Task 6
 **Files:** Modify `server/src/modules/connector/oauth.ts` and `server/src/modules/connector/service.ts`. Test: `server/test/connector.test.ts`.
 
 **Interfaces:**
+
 - `isSafeRedirect(uri)` accepts `https:`, loopback `http:`, or any scheme outside `BLOCKED_SCHEMES` other than `http:`. The error becomes `'Redirect URIs must use https, http on localhost, or an app scheme'`.
 - `redirectLabel(url: URL): string`: `url.host` for http(s), otherwise `` `${url.protocol}//${url.host}` `` (or just `url.protocol` when there is no host). `previewRequest.redirectHost` and `listConnectedApps.host` both use it.
 - "Start connecting again from Claude or ChatGPT." becomes "Start connecting again from your AI app."
@@ -232,20 +250,23 @@ Move BUGTRK-5 to **In Progress** before Task 5 and to **In Review** after Task 6
 ### Task 6: Agent guides in Settings → Connected apps
 
 **Files:**
+
 - Create: `client/src/components/ui/CodeBlock.tsx`, `client/src/features/connector/agentGuides.tsx`, `client/src/features/connector/__tests__/agentGuides.test.tsx`
 - Modify: `client/src/features/settings/pages/ConnectedAppsSettings.tsx`, `README.md` (the AI connector bullet)
 
 **Interfaces:**
+
 - `CodeBlock({ code: string; copyLabel: string; title?: string; wrap?: boolean; className?: string })` renders a `<pre>` with a copy `IconButton` (`copyText(code, copyLabel)`). `wrap` switches `whitespace-pre overflow-x-auto` to `whitespace-pre-wrap break-all`. It replaces the URL box.
 - `type AgentId = 'claude' | 'chatgpt' | 'claude-code' | 'cursor' | 'vscode' | 'codex' | 'gemini' | 'other'`
 - `interface AgentGuide { id: AgentId; label: string; group: 'Chat apps' | 'Coding agents'; steps: (url: string) => Step[] }` and `AGENT_GUIDES: AgentGuide[]`.
 - The page picks a guide with `OptionPicker` (options grouped by `group`) in place of `SegmentedControl`.
 
 **Guide content.** Use `msr-tracker` as the server name everywhere.
+
 - Claude and ChatGPT: the current steps, unchanged.
 - Claude Code: `claude mcp add --transport http --scope user msr-tracker <url>`, then run `/mcp` in Claude Code, pick msr-tracker, choose Authenticate, then sign in and choose Allow.
 - Cursor: Cursor Settings → Tools & MCP → New MCP Server, then `{"mcpServers":{"msr-tracker":{"url":"<url>"}}}` into `~/.cursor/mcp.json`, then Connect next to msr-tracker, sign in and Allow.
-- VS Code: run *MCP: Open User Configuration*, add `{"servers":{"msr-tracker":{"type":"http","url":"<url>"}}}`, choose Start, sign in and Allow, then use it from Copilot Chat in Agent mode.
+- VS Code: run _MCP: Open User Configuration_, add `{"servers":{"msr-tracker":{"type":"http","url":"<url>"}}}`, choose Start, sign in and Allow, then use it from Copilot Chat in Agent mode.
 - Codex CLI: `codex mcp add msr-tracker --url <url>`, then `codex mcp login msr-tracker`.
 - Gemini CLI: `gemini mcp add --transport http --scope user msr-tracker <url>`, then run `/mcp auth msr-tracker` inside Gemini CLI.
 - Any other MCP client:

@@ -19,9 +19,9 @@ export function StepList({ steps, className }: StepListProps) {
           <span className="flex size-8 shrink-0 items-center justify-center rounded-control tint text-accent-text [--c:var(--c-accent)] [&>svg]:size-4">
             {step.icon}
           </span>
-          <span className="pt-1.5">
+          <div className="min-w-0 flex-1 pt-1.5">
             <span className="font-medium">{index + 1}.</span> {step.text}
-          </span>
+          </div>
         </li>
       ))}
     </ol>
