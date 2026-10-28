@@ -5,6 +5,7 @@ import { config } from '../src/config';
 import { pool } from '../src/db/pool';
 import {
   agentFor,
+  createHousehold,
   createProject,
   createTask,
   registerUser,
@@ -435,7 +436,7 @@ describe('Connector tools', () => {
   it('handles shopping lists and calendar events', async () => {
     const agent = agentFor();
     await registerUser(agent);
-    await createProject(agent, { key: 'HOME', name: 'Home', kind: 'household', icon: 'house' });
+    await createHousehold(agent);
     const { tokens } = await connect(agent);
 
     const added = await call(tokens.access_token, 'add_shopping_items', {

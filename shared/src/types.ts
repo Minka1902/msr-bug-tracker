@@ -17,6 +17,7 @@ import type {
   TouchSize,
   Workflow,
 } from './enums';
+import type { PlanTier, ProjectModule } from './modules';
 
 export interface UserRef {
   id: string;
@@ -55,6 +56,7 @@ export interface ProjectSummary {
   id: string;
   key: string;
   kind: ProjectKind;
+  module: ProjectModule;
   name: string;
   description: string;
   color: string;
@@ -348,4 +350,22 @@ export interface ConnectedApp {
   scopes: ConnectorScope[];
   connectedAt: string;
   lastUsedAt: string;
+}
+
+export interface PlanStatus {
+  tier: PlanTier;
+  startsAt: string | null;
+  expiresAt: string | null;
+  projectsUsed: number;
+  projectsLimit: number;
+}
+
+export interface PackBalance {
+  module: ProjectModule;
+  projectsLeft: number;
+}
+
+export interface ShopState {
+  plan: PlanStatus;
+  packs: PackBalance[];
 }

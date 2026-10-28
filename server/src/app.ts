@@ -22,6 +22,7 @@ import { createConnectorApiRouter, createConnectorRouter } from './modules/conne
 import { createRelationsRouter } from './modules/relations/routes';
 import { createInsightsRouter } from './modules/insights/routes';
 import { createSearchRouter } from './modules/search/routes';
+import { createShopRouter } from './modules/shop/routes';
 import { createDemoRouter } from './modules/demo/routes';
 import { createImportTemplateRouter } from './modules/importer/routes';
 import { createInvitesRouter } from './modules/invites/routes';
@@ -87,6 +88,7 @@ export const createApp = ({
   api.use('/import', createImportTemplateRouter());
   api.use('/migrations', createMigrationsRouter(limits));
   api.use('/calendar', createCalendarRouter(limits));
+  api.use('/shop', createShopRouter(limits));
   api.use('/projects', createProjectsRouter());
   api.use(createAttachmentsRouter());
   api.use(createCommentsRouter());

@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { DIVIDER_WIDTHS, EMBLEM_PATTERNS, EMBLEM_SHAPES, PATTERN_PARTS } from '../emblem';
-import { PROJECT_KINDS, STATUS_CATEGORIES, WORKFLOWS } from '../enums';
+import { STATUS_CATEGORIES, WORKFLOWS } from '../enums';
 import { PROJECT_KEY_REGEX } from '../identifiers';
+import { PROJECT_MODULES } from '../modules';
 import { ALL_PERMISSIONS } from '../permissions';
 import { emailSchema } from './auth';
 
@@ -51,7 +52,7 @@ const projectFields = {
 export const createProjectSchema = z.object({
   ...projectFields,
   key: projectKeySchema,
-  kind: z.enum(PROJECT_KINDS).default('software'),
+  module: z.enum(PROJECT_MODULES).default('software'),
   description: projectFields.description.default(''),
 });
 export const projectDetailsSchema = z.object(projectFields);

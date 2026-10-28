@@ -159,7 +159,7 @@ export function ProjectsPage() {
       action={
         !projects.data?.length &&
         archived !== 'true' && (
-          <Button leftIcon={<Plus />} onClick={openCreateProject}>
+          <Button leftIcon={<Plus />} onClick={() => openCreateProject()}>
             New project
           </Button>
         )
@@ -186,7 +186,7 @@ export function ProjectsPage() {
             <Button variant="secondary" leftIcon={<Import />} onClick={() => setMigrating(true)}>
               Import
             </Button>
-            <Button leftIcon={<Plus />} onClick={openCreateProject}>
+            <Button leftIcon={<Plus />} onClick={() => openCreateProject()}>
               New Project
             </Button>
           </>

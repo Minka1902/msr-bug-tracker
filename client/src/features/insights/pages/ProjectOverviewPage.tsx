@@ -13,11 +13,11 @@ import type { CSSProperties } from 'react';
 import {
   PRIORITIES,
   PRIORITY_META,
-  KIND_TASK_TYPES,
   TYPE_META,
   WORKFLOW_META,
   WORKFLOWS,
 } from '@msr/shared/enums';
+import { MODULE_META } from '@msr/shared/modules';
 import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -125,7 +125,7 @@ export function ProjectOverviewPage() {
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <SectionCard title="By type" icon={<Shapes />}>
           <div className="flex flex-col gap-2">
-            {KIND_TASK_TYPES[project.kind].map((type) => (
+            {MODULE_META[project.module].taskTypes.map((type) => (
               <div key={type} className="flex items-center gap-2 text-sm">
                 <TypeIcon type={type} />
                 <span className="flex-1">{TYPE_META[type].label}</span>

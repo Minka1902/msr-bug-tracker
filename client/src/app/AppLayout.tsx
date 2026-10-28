@@ -1,5 +1,6 @@
 import { Suspense, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
+import type { ProjectModule } from '@msr/shared/modules';
 import type { CurrentUser } from '@msr/shared/types';
 import { AppShell } from '../components/layout/AppShell';
 import { ShellContext, type InviteTarget, type ShellContextValue } from '../context/shellContext';
@@ -38,7 +39,11 @@ export function AppLayout({ user, children }: AppLayoutProps) {
   const navigate = useNavigate();
   const logout = useLogout();
   const projects = useProjects();
-  const [creatingProject, setCreatingProject] = useState(false);
+  const [creatingProject, setCreatingProject] = useState<{
+    open: boolean;
+    module: ProjectModule;
+    version: number;
+  }>({ open: false, module: 'software', version: 0 });
   const [quickCreate, setQuickCreate] = useState<{
     open: boolean;
     defaults: QuickCreateDefaults;
@@ -53,7 +58,8 @@ export function AppLayout({ user, children }: AppLayoutProps) {
   useHotkey('k', () => setPaletteOpen((current) => !current));
 
   const shell: ShellContextValue = {
-    openCreateProject: () => setCreatingProject(true),
+    openCreateProject: (module = 'software') =>
+      setCreatingProject((current) => ({ open: true, module, version: current.version + 1 })),
     openQuickCreate: (defaults = {}) =>
       setQuickCreate((current) => ({ open: true, defaults, version: current.version + 1 })),
     openSearch: () => setPaletteOpen(true),
@@ -69,7 +75,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
           onLogout: handleLogout,
           onSearch: shell.openSearch,
           onQuickCreate: (defaults) => shell.openQuickCreate(defaults),
-          onCreateProject: shell.openCreateProject,
+          onCreateProject: () => shell.openCreateProject(),
           onInvite: () => shell.openInvite(),
         }}
         banners={
@@ -86,7 +92,12 @@ export function AppLayout({ user, children }: AppLayoutProps) {
       >
         {children}
       </AppShell>
-      <CreateProjectModal open={creatingProject} onOpenChange={setCreatingProject} />
+      <CreateProjectModal
+        key={`create-project-${creatingProject.version}`}
+        open={creatingProject.open}
+        initialModule={creatingProject.module}
+        onOpenChange={(open) => setCreatingProject((current) => ({ ...current, open }))}
+      />
       <Suspense fallback={null}>
         <QuickCreateTaskModal
           key={`quick-create-${quickCreate.version}`}
@@ -106,7 +117,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
           open={paletteOpen}
           onOpenChange={setPaletteOpen}
           onCreateTask={() => shell.openQuickCreate()}
-          onCreateProject={shell.openCreateProject}
+          onCreateProject={() => shell.openCreateProject()}
           onLogout={handleLogout}
         />
       </Suspense>

@@ -48,20 +48,6 @@ export const TYPE_META: Record<TaskType, EnumMeta> = {
   errand: { label: 'Errand', tone: 'warning' },
 };
 
-export const PROJECT_KIND_META: Record<ProjectKind, { label: string; description: string; icon: string }> = {
-  software: { label: 'Software', description: 'Tasks, bugs and features for a team', icon: 'hexagon' },
-  household: {
-    label: 'Household',
-    description: 'Chores, errands, shopping and a family calendar',
-    icon: 'house',
-  },
-};
-
-export const KIND_TASK_TYPES: Record<ProjectKind, readonly TaskType[]> = {
-  software: ['task', 'bug', 'feature', 'improvement'],
-  household: ['chore', 'errand', 'task'],
-};
-
 export const RECURRENCE_META: Record<RecurrenceFrequency, { label: string; unit: string }> = {
   daily: { label: 'Daily', unit: 'day' },
   weekly: { label: 'Weekly', unit: 'week' },
@@ -158,6 +144,3 @@ export const HOUSEHOLD_STATUSES: Record<
 export const HOUSEHOLD_LABELS = ['Kitchen', 'Laundry', 'Outdoor', 'School', 'Pets'];
 
 export const workflowOf = (type: TaskType): Workflow => (type === 'bug' ? 'bug' : 'task');
-
-export const typesFor = (kind: ProjectKind, workflow?: Workflow) =>
-  KIND_TASK_TYPES[kind].filter((type) => !workflow || workflowOf(type) === workflow);
