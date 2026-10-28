@@ -1,7 +1,8 @@
 import { CircleAlert } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { KIND_TASK_TYPES, TYPE_META, workflowOf, type TaskType } from '@msr/shared/enums';
+import { TYPE_META, workflowOf, type TaskType } from '@msr/shared/enums';
+import { MODULE_META } from '@msr/shared/modules';
 import { can } from '@msr/shared/permissions';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
@@ -130,7 +131,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
   });
   const [createMore, setCreateMore] = useState(false);
   const projectData = project.data ?? EMPTY_PROJECT;
-  const types = KIND_TASK_TYPES[project.data?.kind ?? 'software'];
+  const types = MODULE_META[project.data?.module ?? 'software'].taskTypes;
   const type = types.includes(fields.type) ? fields.type : types[0]!;
   const noun = project.data?.kind === 'household' ? TYPE_META[type].label.toLowerCase() : 'task';
   const mask = projectData.permissions;

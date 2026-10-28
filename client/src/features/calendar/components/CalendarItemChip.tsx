@@ -1,4 +1,4 @@
-import { CircleCheck, Star } from 'lucide-react';
+import { CalendarClock, CircleCheck, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import type { CSSProperties } from 'react';
 import type { CalendarItem } from '@msr/shared/types';
@@ -32,6 +32,7 @@ export function CalendarItemChip({ item, onOpen, showTime = true, className }: C
         <Star className="size-3 shrink-0 fill-highlight text-highlight" aria-label="Very important" />
       )}
       {item.kind === 'task' && <CircleCheck className="size-3 shrink-0 text-muted" aria-hidden />}
+      {item.appointment && <CalendarClock className="size-3 shrink-0 text-muted" aria-label="Appointment" />}
       {showTime && !item.allDay && (
         <span className="shrink-0 text-muted tabular-nums">{format(itemStart(item), 'HH:mm')}</span>
       )}

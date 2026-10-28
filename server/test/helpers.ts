@@ -56,6 +56,20 @@ export const projectInput = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+export const subscribe = async (agent: Agent, tier: 'personal' | 'pro') =>
+  agent.post('/api/shop/subscribe').send({ tier }).expect(201);
+
+export const createHousehold = async (agent: Agent, overrides: Record<string, unknown> = {}) => {
+  await subscribe(agent, 'personal');
+  return createProject(agent, {
+    name: 'Home',
+    key: 'HOME',
+    icon: 'house',
+    module: 'household',
+    ...overrides,
+  });
+};
+
 export const createProject = async (agent: Agent, overrides: Record<string, unknown> = {}) =>
   (await agent.post('/api/projects').send(projectInput(overrides)).expect(201)).body.project as {
     id: string;

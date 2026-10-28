@@ -17,6 +17,9 @@ import type {
   TouchSize,
   Workflow,
 } from './enums';
+import type { PlanTier, ProjectModule } from './modules';
+import type { Motivation } from './schemas/planner';
+import type { NotifyKind } from './telegram';
 
 export interface UserRef {
   id: string;
@@ -32,6 +35,7 @@ export interface UserPreferences {
   touch: TouchSize;
   timezone: string;
   aiProvider: AiProvider | null;
+  motivation: Motivation;
 }
 
 export interface CurrentUser extends UserRef {
@@ -55,6 +59,7 @@ export interface ProjectSummary {
   id: string;
   key: string;
   kind: ProjectKind;
+  module: ProjectModule;
   name: string;
   description: string;
   color: string;
@@ -105,6 +110,7 @@ export interface ProjectMember extends UserRef {
   roleId: string;
   roleName: string;
   isOwner: boolean;
+  isAgent: boolean;
   joinedAt: string;
 }
 
@@ -267,6 +273,8 @@ export interface CalendarItem {
   attendees: UserRef[];
   editable: boolean;
   connectionId: string | null;
+  appointment: boolean;
+  reminders: number[];
 }
 
 export interface CalendarConflict {
@@ -348,4 +356,51 @@ export interface ConnectedApp {
   scopes: ConnectorScope[];
   connectedAt: string;
   lastUsedAt: string;
+  worker: { id: string; name: string } | null;
+}
+
+export interface AiWorker {
+  id: string;
+  name: string;
+  connection: { id: string; name: string } | null;
+  projects: { key: string; name: string; role: string }[];
+  createdAt: string;
+}
+
+export interface PlanStatus {
+  tier: PlanTier;
+  startsAt: string | null;
+  expiresAt: string | null;
+  projectsUsed: number;
+  projectsLimit: number;
+}
+
+export interface PackBalance {
+  module: ProjectModule;
+  projectsLeft: number;
+}
+
+export interface ShopState {
+  plan: PlanStatus;
+  packs: PackBalance[];
+}
+
+export interface TelegramChat {
+  chatId: number;
+  title: string;
+  isGroup: boolean;
+  notify: NotifyKind[];
+  onlyMine: boolean;
+  defaultListId: string | null;
+  mine: boolean;
+  canEdit: boolean;
+}
+
+export interface TelegramSettings {
+  enabled: boolean;
+  allowed: boolean;
+  requiredPlan: PlanTier;
+  botUsername: string | null;
+  connected: boolean;
+  chats: TelegramChat[];
 }

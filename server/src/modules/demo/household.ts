@@ -127,8 +127,8 @@ export const generateDemoHousehold = async (db: Db, ownerId: string, tag: string
     })),
   );
   await db.query(
-    `INSERT INTO projects (id, key, kind, name, description, color, icon, owner_id, task_seq, is_demo)
-     VALUES ($1, $2, 'household', 'The Rivera family', 'Chores, errands and shopping for a demo family.', '#f59e0b', 'house', $3, $4, true)`,
+    `INSERT INTO projects (id, key, kind, module, name, description, color, icon, owner_id, task_seq, is_demo)
+     VALUES ($1, $2, 'household', 'household', 'The Rivera family', 'Chores, errands and shopping for a demo family.', '#f59e0b', 'house', $3, $4, true)`,
     [projectId, key, ownerId, CHORES.length],
   );
 

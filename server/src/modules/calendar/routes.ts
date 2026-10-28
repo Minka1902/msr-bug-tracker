@@ -47,7 +47,7 @@ import {
   visiblePeople,
   type EventRow,
 } from './service';
-import { createEvent } from './events';
+import { assertAppointmentFields, createEvent } from './events';
 import { connectionClient, syncConnection, syncStaleConnections } from './sync';
 
 const STATE_COOKIE = 'gcal_state';
@@ -111,12 +111,15 @@ export const createCalendarRouter = (limits: RateLimits) => {
       location: input.location ?? event.location,
       allDay,
       important: input.important ?? event.is_important,
+      appointment: input.appointment ?? event.is_appointment,
+      reminders: input.reminders ?? event.reminders,
       ...normalizeRange(
         input.startsAt ?? event.starts_at.toISOString(),
         input.endsAt ?? event.ends_at.toISOString(),
         allDay,
       ),
     };
+    assertAppointmentFields(project, fields);
     if (input.attendeeIds) {
       if (!project) throw badRequest('Pick a project to invite people to an event');
       if (!(await assertProjectAttendees(project.id, input.attendeeIds)))

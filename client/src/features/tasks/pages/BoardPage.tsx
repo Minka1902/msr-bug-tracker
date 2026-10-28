@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import type { Workflow } from '@msr/shared/enums';
+import { MODULE_META } from '@msr/shared/modules';
 import { FilterBar } from '../../../components/ui/FilterBar';
 import { useLocalState } from '../../../hooks/useLocalState';
 import { useUrlFilters } from '../../../hooks/useUrlFilters';
@@ -30,7 +31,8 @@ export function BoardPage() {
     `msr-board-group-${project.key}`,
     household ? 'assignee' : 'none',
   );
-  const workflow = !household && params.get('workflow') === 'bug' ? 'bug' : 'task';
+  const hasBugs = MODULE_META[project.module].taskTypes.includes('bug');
+  const workflow = hasBugs && params.get('workflow') === 'bug' ? 'bug' : 'task';
   const defs = useMemo(
     () => taskFilterDefs(options).filter((def) => def.key !== 'status' && (household || def.key !== 'type')),
     [options, household],
@@ -40,7 +42,7 @@ export function BoardPage() {
     <div className="flex flex-col gap-3">
       <FilterBar defs={defs} values={filters} onChange={update} onClear={clear}>
         <BoardToolbar
-          workflow={household ? undefined : workflow}
+          workflow={hasBugs ? workflow : undefined}
           onWorkflowChange={setWorkflow}
           groupBy={groupBy}
           onGroupByChange={setGroupBy}

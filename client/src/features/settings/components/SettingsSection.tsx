@@ -19,7 +19,7 @@ export function SettingsSection({ title, description, children, footer }: Settin
         <div className="min-w-0 flex-1">{children}</div>
       </div>
       {footer && (
-        <div className="flex justify-end gap-2 border-t border-border bg-surface-muted/50 px-5 py-3">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-surface-muted/50 px-5 py-3">
           {footer}
         </div>
       )}

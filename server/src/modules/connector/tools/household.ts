@@ -4,7 +4,7 @@ import type { ShoppingList } from '@msr/shared/types';
 import { z } from 'zod';
 import { notFound } from '../../../lib/httpError';
 import { assertCanWrite, findProjectContext } from '../../projects/access';
-import { addItem, getList, listLists, updateItem } from '../../shopping/service';
+import { addItems, checkItems, getList, listLists } from '../../shopping/service';
 import { projectUrl } from '../format';
 import { READ, run, WRITE, type ToolContext } from '../tool';
 
@@ -79,7 +79,11 @@ export const registerHouseholdTools = (server: McpServer, context: ToolContext) 
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
       assertCanWrite(project, 'lists.edit');
       const list = pickList(await listLists(project.id), input.list);
-      for (const item of input.items) await addItem(list.id, createItemSchema.parse(item), user.id);
+      await addItems(
+        list.id,
+        input.items.map((item) => createItemSchema.parse(item)),
+        user.id,
+      );
       return compactList((await getList(project.id, list.id))!);
     }),
   );
@@ -103,8 +107,14 @@ export const registerHouseholdTools = (server: McpServer, context: ToolContext) 
       const list = pickList(await listLists(project.id), input.list);
       const missing = input.items.filter((name) => !list.items.some((item) => same(item.name, name)));
       if (missing.length) throw notFound(`Not on "${list.name}": ${missing.join(', ')}`);
-      for (const item of list.items.filter((entry) => input.items.some((name) => same(entry.name, name))))
-        await updateItem(project.id, list.id, item.id, { isChecked: input.checked }, user.id);
+      await checkItems(
+        project.id,
+        list.items
+          .filter((entry) => input.items.some((name) => same(entry.name, name)))
+          .map((item) => item.id),
+        input.checked,
+        user.id,
+      );
       return compactList((await getList(project.id, list.id))!);
     }),
   );

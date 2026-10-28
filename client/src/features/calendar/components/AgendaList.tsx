@@ -1,6 +1,7 @@
-import { CalendarDays, MapPin, Star } from 'lucide-react';
+import { CalendarClock, CalendarDays, MapPin, Star } from 'lucide-react';
 import { format, isToday, parseISO } from 'date-fns';
 import type { CSSProperties } from 'react';
+import { formatMinutes } from '@msr/shared/calendar';
 import type { CalendarItem } from '@msr/shared/types';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { cn } from '../../../lib/cn';
@@ -79,6 +80,12 @@ export function AgendaList({ items, from, to, onOpenItem }: AgendaListProps) {
                       </span>
                       <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
                         <span>{item.kind === 'task' ? `Due · ${item.calendarName}` : item.calendarName}</span>
+                        {item.appointment && (
+                          <span className="inline-flex items-center gap-0.5">
+                            <CalendarClock className="size-3" aria-hidden />
+                            {formatMinutes((itemEnd(item).getTime() - itemStart(item).getTime()) / 60_000)}
+                          </span>
+                        )}
                         {item.location && (
                           <span className="inline-flex items-center gap-0.5">
                             <MapPin className="size-3" aria-hidden /> {item.location}

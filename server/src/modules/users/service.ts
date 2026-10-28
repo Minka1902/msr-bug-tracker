@@ -12,10 +12,11 @@ export interface UserRow {
   preferences: Partial<UserPreferences>;
   created_at: Date;
   demo_owner_id: string | null;
+  agent_owner_id: string | null;
 }
 
-const USER_COLUMNS =
-  'id, email, name, avatar_key, email_verified_at, totp_enabled_at, preferences, created_at, demo_owner_id';
+export const USER_COLUMNS =
+  'id, email, name, avatar_key, email_verified_at, totp_enabled_at, preferences, created_at, demo_owner_id, agent_owner_id';
 
 const FIND_BY_ID = `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`;
 const FIND_BY_EMAIL = `SELECT ${USER_COLUMNS}, password_hash FROM users WHERE email = $1`;
@@ -39,6 +40,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   touch: 'standard',
   timezone: 'UTC',
   aiProvider: null,
+  motivation: { pace: 'steady', taskSize: 'small', aiShare: 'max' },
 };
 
 export const avatarUrl = (id: string, avatarKey: string | null) =>

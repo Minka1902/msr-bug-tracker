@@ -17,7 +17,8 @@ const DEMO_KEY = ['demo'] as const;
 export const useAppConfig = () =>
   useQuery({
     queryKey: ['config'],
-    queryFn: () => api<{ features: { demoData: boolean } }>('/config'),
+    queryFn: () =>
+      api<{ features: { demoData: boolean; googleCalendar: boolean; telegram: boolean } }>('/config'),
     staleTime: Infinity,
   });
 

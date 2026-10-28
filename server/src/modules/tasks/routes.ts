@@ -18,7 +18,7 @@ import {
 } from './service';
 
 const LOAD_TARGET_PROJECT = `
-  SELECT p.id, p.key::text, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
+  SELECT p.id, p.key::text, p.module, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
   FROM projects p
   JOIN project_members m ON m.project_id = p.id AND m.user_id = $2
   JOIN project_roles r ON r.id = m.role_id

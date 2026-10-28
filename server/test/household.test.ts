@@ -3,6 +3,7 @@ import { pool } from '../src/db/pool';
 import {
   addMember,
   agentFor,
+  createHousehold,
   createProject,
   createTask,
   registerUser,
@@ -16,12 +17,7 @@ beforeEach(resetDb);
 const setupHousehold = async () => {
   const parent = agentFor();
   const parentAccount = await registerUser(parent);
-  const project = await createProject(parent, {
-    name: 'Home',
-    key: 'HOME',
-    icon: 'house',
-    kind: 'household',
-  });
+  const project = await createHousehold(parent);
   const people = [];
   for (const systemKey of ['member', 'member', 'viewer']) {
     const agent = agentFor();
@@ -42,7 +38,7 @@ const setupHousehold = async () => {
 describe('household projects', () => {
   it('sets up family roles, simple statuses, starter labels and a groceries list', async () => {
     const { parent, project } = await setupHousehold();
-    expect(project).toMatchObject({ kind: 'household' });
+    expect(project).toMatchObject({ kind: 'household', module: 'household' });
     expect(project.roles.map((role) => [role.systemKey, role.name])).toEqual([
       ['owner', 'Owner'],
       ['admin', 'Parent'],

@@ -31,3 +31,4 @@ export const formatDue = (dueDate: string) => {
 export const formatRelative = (value: string) => `${formatDistanceToNowStrict(toDate(value))} ago`;
 
 export const formatDateTime = (value: string) => format(toDate(value), 'MMM d, yyyy · HH:mm');
+

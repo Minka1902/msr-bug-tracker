@@ -16,6 +16,7 @@ import {
   Star,
 } from 'lucide-react';
 import { Outlet, useParams } from 'react-router';
+import { MODULE_META } from '@msr/shared/modules';
 import { can } from '@msr/shared/permissions';
 import { toast } from 'sonner';
 import { Badge } from '../../../components/ui/Badge';
@@ -163,11 +164,13 @@ export function ProjectLayout() {
       )}
       <TabLinks
         label="Project views"
-        items={TABS[data.kind].map((tab) => ({
-          to: `${base}/${tab.path}`,
-          label: tab.label,
-          icon: tab.icon,
-        }))}
+        items={TABS[data.kind]
+          .filter((tab) => tab.path !== 'bugs' || MODULE_META[data.module].taskTypes.includes('bug'))
+          .map((tab) => ({
+            to: `${base}/${tab.path}`,
+            label: tab.label,
+            icon: tab.icon,
+          }))}
       />
       <Outlet context={{ project: data }} />
     </div>

@@ -8,6 +8,7 @@ import { errorMessage } from '../../../lib/api';
 import { useUpdateMe } from '../../auth/api';
 import { useAiKeys } from '../aiKeysApi';
 import { ApiKeyRow } from '../components/ApiKeyRow';
+import { MotivationSettings } from '../components/MotivationSettings';
 import { SettingsSection } from '../components/SettingsSection';
 
 export function AiSettings() {
@@ -52,6 +53,12 @@ export function AiSettings() {
             </div>
           )}
         </div>
+      </SettingsSection>
+      <SettingsSection
+        title="Motivation"
+        description="How the AI plans a new idea for you: how often you get a deadline, how big each step is, and how much the AI takes on."
+      >
+        <MotivationSettings />
       </SettingsSection>
     </div>
   );

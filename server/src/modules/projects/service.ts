@@ -1,12 +1,12 @@
 import { generateNKeysBetween } from 'fractional-indexing';
 import {
   DEFAULT_STATUSES,
-  HOUSEHOLD_LABELS,
   HOUSEHOLD_STATUSES,
   LABEL_COLORS,
   WORKFLOWS,
   type ProjectKind,
 } from '@msr/shared/enums';
+import { MODULE_META, type ProjectModule } from '@msr/shared/modules';
 import {
   DEFAULT_ROLE_PERMISSIONS,
   HOUSEHOLD_ROLE_LABELS,
@@ -22,6 +22,7 @@ import { avatarUrl } from '../users/service';
 import { listLabels } from '../labels/service';
 import { listMembers } from '../members/service';
 import { listRoles } from '../roles/service';
+import { claimProjectSlot, recordCreation } from '../shop/service';
 import { listStatuses } from '../statuses/service';
 
 export type ArchivedFilter = 'active' | 'archived' | 'all';
@@ -30,6 +31,7 @@ interface SummaryRow {
   id: string;
   key: string;
   kind: ProjectKind;
+  module: ProjectModule;
   name: string;
   description: string;
   color: string;
@@ -56,7 +58,7 @@ interface SummaryRow {
 }
 
 const SUMMARY_SQL = `
-  SELECT p.id, p.key, p.kind, p.name, p.description, p.color, p.icon, p.emblem, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
+  SELECT p.id, p.key, p.kind, p.module, p.name, p.description, p.color, p.icon, p.emblem, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
          my.is_favorite, r.name AS role_name, r.permissions,
          st.total, st.completed, st.active, st.overdue, st.next_due, st.last_task_update, mc.member_count, mem.members
   FROM project_members my
@@ -90,8 +92,8 @@ const TOUCH_OPENED = `
   UPDATE project_members SET last_opened_at = now()
   WHERE project_id = $1 AND user_id = $2 AND (last_opened_at IS NULL OR last_opened_at < now() - interval '1 minute')`;
 const INSERT_PROJECT = `
-  INSERT INTO projects (key, kind, name, description, color, icon, emblem, live_url, repo_url, owner_id)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`;
+  INSERT INTO projects (key, kind, module, name, description, color, icon, emblem, live_url, repo_url, owner_id)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`;
 const INSERT_ROLES = `
   INSERT INTO project_roles (project_id, name, system_key, permissions, position)
   SELECT $1, name, system_key::system_role, permissions, position
@@ -138,6 +140,7 @@ const toSummary = (row: SummaryRow, userId: string): ProjectSummary => ({
   id: row.id,
   key: row.key,
   kind: row.kind,
+  module: row.module,
   name: row.name,
   description: row.description,
   color: row.color,
@@ -201,12 +204,15 @@ export const getProjectDetail = async (
 
 export const createProject = (input: CreateProjectInput, ownerId: string) =>
   transaction(async (db) => {
-    const setup = KIND_SETUP[input.kind];
+    const { kind, labels } = MODULE_META[input.module];
+    const setup = KIND_SETUP[kind];
+    const packId = await claimProjectSlot(ownerId, input.module, db);
     const project = await queryOne<{ id: string }>(
       INSERT_PROJECT,
       [
         input.key,
-        input.kind,
+        kind,
+        input.module,
         input.name,
         input.description,
         input.color,
@@ -218,6 +224,7 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
       ],
       db,
     );
+    await recordCreation(ownerId, project!.id, packId, db);
     const roles = await query<{ id: string; system_key: string }>(
       INSERT_ROLES,
       [
@@ -254,18 +261,13 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
       ],
       db,
     );
-    if (input.kind === 'household') {
+    if (labels.length)
       await query(
         INSERT_LABELS,
-        [
-          project!.id,
-          HOUSEHOLD_LABELS,
-          HOUSEHOLD_LABELS.map((_, index) => LABEL_COLORS[index % LABEL_COLORS.length]!),
-        ],
+        [project!.id, labels, labels.map((_, index) => LABEL_COLORS[index % LABEL_COLORS.length]!)],
         db,
       );
-      await query(INSERT_LIST, [project!.id, 'Groceries', FIRST_POSITION], db);
-    }
+    if (kind === 'household') await query(INSERT_LIST, [project!.id, 'Groceries', FIRST_POSITION], db);
     return project!.id;
   });
 

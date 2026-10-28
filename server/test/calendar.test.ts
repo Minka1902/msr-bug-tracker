@@ -9,7 +9,7 @@ import {
 } from '../src/modules/calendar/icalendar';
 import { syncConnection } from '../src/modules/calendar/sync';
 import type { ConnectionRow } from '../src/modules/calendar/service';
-import { agentFor, createTask, registerUser, resetDb, setupTeam } from './helpers';
+import { agentFor, createHousehold, createTask, registerUser, resetDb, setupTeam } from './helpers';
 
 beforeEach(resetDb);
 afterEach(() => {
@@ -113,6 +113,109 @@ describe('calendar events', () => {
       endsAt: '2026-11-08T00:00:00.000Z',
     });
     await owner.delete(`/api/calendar/events/${shared.id}`).expect(204);
+  });
+});
+
+describe('household appointments', () => {
+  const appointment = (overrides: Record<string, unknown> = {}) =>
+    event({
+      title: 'Dentist for Noa',
+      location: 'Herzl 5, Tel Aviv',
+      startsAt: '2026-11-05T14:00:00Z',
+      endsAt: '2026-11-05T14:45:00Z',
+      projectKey: 'HOME',
+      appointment: true,
+      reminders: [60, 1440, 60],
+      ...overrides,
+    });
+
+  it('keeps the place, time, duration and reminders of a household appointment', async () => {
+    const parent = agentFor();
+    await registerUser(parent);
+    await createHousehold(parent);
+    const { body } = await parent.post('/api/calendar/events').send(appointment()).expect(201);
+    expect(body.event).toMatchObject({
+      title: 'Dentist for Noa',
+      location: 'Herzl 5, Tel Aviv',
+      startsAt: '2026-11-05T14:00:00.000Z',
+      endsAt: '2026-11-05T14:45:00.000Z',
+      allDay: false,
+      appointment: true,
+      reminders: [1440, 60],
+      project: { key: 'HOME' },
+    });
+    const listed = await parent.get('/api/calendar/events?from=2026-11-01&to=2026-11-30&projectKey=HOME');
+    expect(listed.body.items).toEqual([
+      expect.objectContaining({ appointment: true, reminders: [1440, 60] }),
+    ]);
+  });
+
+  it('only lives in households, needs a start time, and keeps reminders to appointments', async () => {
+    const parent = agentFor();
+    await registerUser(parent);
+    await createHousehold(parent);
+    const { project, owner } = await setupTeam();
+    expect(
+      (
+        await owner
+          .post('/api/calendar/events')
+          .send(appointment({ projectKey: project.key }))
+          .expect(400)
+      ).body.error,
+    ).toBe('Appointments belong to a household');
+    await owner
+      .post('/api/calendar/events')
+      .send(appointment({ projectKey: null }))
+      .expect(400);
+    expect(
+      (
+        await parent
+          .post('/api/calendar/events')
+          .send(
+            appointment({ allDay: true, startsAt: '2026-11-05T00:00:00Z', endsAt: '2026-11-06T00:00:00Z' }),
+          )
+          .expect(400)
+      ).body.error,
+    ).toBe('An appointment needs a start time');
+    expect(
+      (
+        await parent
+          .post('/api/calendar/events')
+          .send(event({ projectKey: 'HOME', reminders: [60] }))
+          .expect(400)
+      ).body.error,
+    ).toBe('Only appointments have reminders');
+    await parent
+      .post('/api/calendar/events')
+      .send(appointment({ reminders: [20_000] }))
+      .expect(400);
+  });
+
+  it('re-arms reminders when the appointment moves or its reminders change', async () => {
+    const parent = agentFor();
+    await registerUser(parent);
+    await createHousehold(parent);
+    const { body } = await parent.post('/api/calendar/events').send(appointment()).expect(201);
+    const sent = async () =>
+      (await pool.query('SELECT reminders_sent FROM calendar_events WHERE id = $1', [body.event.id])).rows[0]
+        .reminders_sent;
+    const mark = () =>
+      pool.query("UPDATE calendar_events SET reminders_sent = '{1440}' WHERE id = $1", [body.event.id]);
+    await mark();
+    await parent.patch(`/api/calendar/events/${body.event.id}`).send({ title: 'Dentist (Noa)' }).expect(200);
+    expect(await sent()).toEqual([1440]);
+    await parent
+      .patch(`/api/calendar/events/${body.event.id}`)
+      .send({ startsAt: '2026-11-06T14:00:00Z', endsAt: '2026-11-06T14:45:00Z' })
+      .expect(200);
+    expect(await sent()).toEqual([]);
+    await mark();
+    await parent
+      .patch(`/api/calendar/events/${body.event.id}`)
+      .send({ reminders: [30] })
+      .expect(200);
+    expect(await sent()).toEqual([]);
+    await parent.patch(`/api/calendar/events/${body.event.id}`).send({ appointment: false }).expect(400);
   });
 });
 

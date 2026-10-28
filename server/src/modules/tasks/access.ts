@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'express';
 import { prepared } from '../../db/pool';
 import { parseIdentifier } from '@msr/shared/identifiers';
+import type { ProjectModule } from '@msr/shared/modules';
 import { canEditTask, isOwnTask, missingTaskPermissions } from '@msr/shared/permissions';
 import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import { forbidden, notFound } from '../../lib/httpError';
@@ -24,6 +25,7 @@ interface TaskAccessRow {
   assignee_id: string | null;
   id: string;
   key: string;
+  module: ProjectModule;
   owner_id: string;
   archived_at: Date | null;
   permissions: number;
@@ -33,7 +35,7 @@ interface TaskAccessRow {
 
 const LOAD_TASK = `
   SELECT t.id AS task_id, t.number, t.parent_id, t.reporter_id, t.assignee_id,
-         p.id, p.key::text, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
+         p.id, p.key::text, p.module, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
   FROM tasks t
   JOIN projects p ON p.id = t.project_id
   JOIN project_members m ON m.project_id = p.id AND m.user_id = $2

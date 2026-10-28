@@ -12,9 +12,10 @@ const INSERT_CODE = `
   VALUES ($1, $2, $3, $4, $5, $6, $7, now() + make_interval(mins => $8))`;
 const LIST_GRANTS = `
   SELECT g.id, c.metadata->>'client_name' AS client_name, c.metadata->'redirect_uris'->>0 AS redirect_uri,
-         g.scopes, g.created_at, g.last_used_at
+         g.scopes, g.created_at, g.last_used_at, a.id AS worker_id, a.name AS worker_name
   FROM oauth_grants g
   JOIN oauth_clients c ON c.id = g.client_id
+  LEFT JOIN users a ON a.id = g.agent_id
   WHERE g.user_id = $1 AND g.refresh_expires_at > now()
   ORDER BY g.created_at DESC`;
 const DELETE_GRANT = 'DELETE FROM oauth_grants WHERE id = $1 AND user_id = $2 RETURNING id';
@@ -29,6 +30,8 @@ interface GrantRow {
   scopes: ConnectorScope[];
   created_at: Date;
   last_used_at: Date;
+  worker_id: string | null;
+  worker_name: string | null;
 }
 
 const redirectLabel = (url: URL) =>
@@ -99,6 +102,7 @@ export const listConnectedApps = async (userId: string): Promise<ConnectedApp[]>
       scopes: row.scopes,
       connectedAt: row.created_at.toISOString(),
       lastUsedAt: row.last_used_at.toISOString(),
+      worker: row.worker_id ? { id: row.worker_id, name: row.worker_name! } : null,
     };
   });
 

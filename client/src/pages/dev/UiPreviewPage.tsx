@@ -53,6 +53,7 @@ const project = (
   id: key,
   key,
   kind: 'software',
+  module: 'software',
   name,
   description: `Designing and shipping the ${name.toLowerCase()} with a focus on clarity and speed.`,
   color,

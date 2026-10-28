@@ -56,7 +56,7 @@ export function DashboardPage() {
         description={format(new Date(), 'EEEE, MMMM d')}
         actions={
           <>
-            <Button variant="secondary" leftIcon={<FolderPlus />} onClick={openCreateProject}>
+            <Button variant="secondary" leftIcon={<FolderPlus />} onClick={() => openCreateProject()}>
               New project
             </Button>
             <Button leftIcon={<Plus />} onClick={() => openQuickCreate()}>
@@ -78,7 +78,7 @@ export function DashboardPage() {
             description="Create your first project to start tracking tasks and bugs — or generate demo data from Settings to explore."
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                <Button leftIcon={<Plus />} onClick={openCreateProject}>
+                <Button leftIcon={<Plus />} onClick={() => openCreateProject()}>
                   Create a project
                 </Button>
                 <Button asChild variant="secondary">

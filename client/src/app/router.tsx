@@ -78,6 +78,10 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/shop',
+            lazy: lazyRoute(() => import('../features/shop/pages/ShopPage').then((m) => m.ShopPage)),
+          },
+          {
             path: '/t/:identifier',
             lazy: lazyRoute(() =>
               import('../features/tasks/pages/IdentifierRedirect').then((m) => m.IdentifierRedirect),
@@ -184,6 +188,12 @@ export const router = createBrowserRouter([
                     path: 'roles',
                     lazy: lazyRoute(() =>
                       import('../features/projects/settings/RoleSettings').then((m) => m.RoleSettings),
+                    ),
+                  },
+                  {
+                    path: 'telegram',
+                    lazy: lazyRoute(() =>
+                      import('../features/telegram/pages/TelegramSettings').then((m) => m.TelegramSettings),
                     ),
                   },
                   {

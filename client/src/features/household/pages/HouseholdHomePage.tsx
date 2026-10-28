@@ -1,5 +1,5 @@
 import { addDays, format } from 'date-fns';
-import { CalendarDays, PartyPopper, ShoppingCart, SprayCan } from 'lucide-react';
+import { CalendarClock, CalendarDays, PartyPopper, Plus, ShoppingCart, SprayCan } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import type { CalendarItem, TaskCard } from '@msr/shared/types';
@@ -19,9 +19,11 @@ import { useTaskList } from '../../tasks/api';
 import { useTaskPeek } from '../../tasks/useTaskPeek';
 import { TaskSwipeRow } from '../../tasks/components/TaskSwipeRow';
 import { ChoreCheckRow } from '../components/ChoreCheckRow';
+import { UpcomingAppointments } from '../components/UpcomingAppointments';
 import { useShoppingLists } from '../shoppingApi';
 
 const UPCOMING_DAYS = 7;
+const APPOINTMENT_DAYS = 14;
 const SHOPPING_PREVIEW = 4;
 const ANYONE = '__anyone__';
 
@@ -32,21 +34,35 @@ export function HouseholdHomePage() {
     if (item.kind === 'task' && item.taskIdentifier) peek.open(item.taskIdentifier);
     else {
       setEvent(item);
+      setAddingAppointment(false);
       setEventOpen(true);
     }
+  };
+
+  const addAppointment = () => {
+    setEvent(null);
+    setAddingAppointment(true);
+    setEventOpen(true);
   };
 
   const project = useProjectContext();
   const peek = useTaskPeek();
   const [event, setEvent] = useState<CalendarItem | null>(null);
   const [eventOpen, setEventOpen] = useState(false);
-  const today = dayKey(new Date());
+  const [addingAppointment, setAddingAppointment] = useState(false);
+  const now = new Date();
+  const today = dayKey(now);
   const weekEnd = dayKey(addDays(new Date(), UPCOMING_DAYS - 1));
   const due = useTaskList(
     { projectKey: project.key },
     { dueTo: today, hideDone: 'true', sort: 'due', dir: 'asc' },
   );
   const upcoming = useCalendarItems(today, weekEnd, project.key);
+  const appointments = useCalendarItems(
+    today,
+    dayKey(addDays(new Date(), APPOINTMENT_DAYS - 1)),
+    project.key,
+  );
   const lists = useShoppingLists(project.key, false);
   const tasks = due.data?.pages.flatMap((page) => page.items) ?? [];
   const groups = [
@@ -134,6 +150,26 @@ export function HouseholdHomePage() {
             })}
           </SectionCard>
           <SectionCard
+            title="Appointments"
+            icon={<CalendarClock />}
+            action={
+              <Button size="xs" variant="ghost" leftIcon={<Plus />} onClick={addAppointment}>
+                Add
+              </Button>
+            }
+          >
+            {appointments.isPending ? (
+              <Skeleton className="h-16" />
+            ) : (
+              <UpcomingAppointments
+                items={(appointments.data ?? []).filter(
+                  (item) => item.appointment && new Date(item.endsAt) > now,
+                )}
+                onOpen={openItem}
+              />
+            )}
+          </SectionCard>
+          <SectionCard
             title="This week"
             icon={<CalendarDays />}
             action={
@@ -150,7 +186,14 @@ export function HouseholdHomePage() {
           </SectionCard>
         </div>
       </div>
-      <EventModal open={eventOpen} onOpenChange={setEventOpen} event={event} lockTarget />
+      <EventModal
+        open={eventOpen}
+        onOpenChange={setEventOpen}
+        event={event}
+        defaults={{ projectKey: project.key }}
+        appointment={addingAppointment}
+        lockTarget
+      />
     </div>
   );
 }

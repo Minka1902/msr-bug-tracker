@@ -48,15 +48,21 @@ export const signUp = async (page: Page, name = 'E2E User', label = 'user') => {
   return { id: user.id, email, name };
 };
 
+export const subscribe = async (page: Page, tier: 'personal' | 'pro') => {
+  const response = await page.request.post('/api/shop/subscribe', { data: { tier } });
+  expect([201, 409], await response.text()).toContain(response.status());
+};
+
 export const createProject = async (
   page: Page,
   name: string,
   key = uniqueKey(),
-  kind: 'software' | 'household' = 'software',
+  module: 'software' | 'personal' | 'household' | 'skill' | 'startup' = 'software',
 ) => {
+  if (module !== 'software' && module !== 'personal') await subscribe(page, 'pro');
   const { project } = await apiPost<{
     project: { id: string; key: string; roles: { id: string; systemKey: string | null }[] };
-  }>(page, '/projects', { name, key, kind, description: '', color: '#4f56f0', icon: 'folder' });
+  }>(page, '/projects', { name, key, module, description: '', color: '#4f56f0', icon: 'folder' });
   return project;
 };
 

@@ -13,8 +13,11 @@ import { createAuthRouter } from './modules/auth/routes';
 import { createCalendarFeedRouter, createCalendarRouter } from './modules/calendar/routes';
 import { googleConfigured } from './modules/calendar/google';
 import { createDevRouter } from './modules/dev/routes';
+import { createPlannerRouter } from './modules/planner/routes';
 import { createProjectsRouter } from './modules/projects/routes';
 import { createTasksRouter } from './modules/tasks/routes';
+import { telegramEnabled } from './modules/telegram/api';
+import { createMeTelegramRouter, createTelegramWebhookRouter } from './modules/telegram/routes';
 import { createAttachmentsRouter } from './modules/attachments/routes';
 import { createChecklistRouter } from './modules/checklist/routes';
 import { createCommentsRouter } from './modules/comments/routes';
@@ -22,10 +25,12 @@ import { createConnectorApiRouter, createConnectorRouter } from './modules/conne
 import { createRelationsRouter } from './modules/relations/routes';
 import { createInsightsRouter } from './modules/insights/routes';
 import { createSearchRouter } from './modules/search/routes';
+import { createShopRouter } from './modules/shop/routes';
 import { createDemoRouter } from './modules/demo/routes';
 import { createImportTemplateRouter } from './modules/importer/routes';
 import { createInvitesRouter } from './modules/invites/routes';
 import { createMigrationsRouter } from './modules/migrations/routes';
+import { createAgentsRouter } from './modules/agents/routes';
 import { createAiKeysRouter } from './modules/aiKeys/routes';
 import { createTwoFactorRouter } from './modules/twoFactor/routes';
 import { createUsersRouter } from './modules/users/routes';
@@ -73,7 +78,7 @@ export const createApp = ({
     res.json({ ok: true });
   });
   api.get('/config', (_req, res) => {
-    res.json({ features: { demoData, googleCalendar: googleConfigured() } });
+    res.json({ features: { demoData, googleCalendar: googleConfigured(), telegram: telegramEnabled() } });
   });
   api.use('/auth', createAuthRouter(limits));
   api.use('/calendar-feed', createCalendarFeedRouter(limits));
@@ -83,10 +88,14 @@ export const createApp = ({
   api.use(createConnectorApiRouter());
   api.use('/me/2fa', createTwoFactorRouter(limits));
   api.use('/me/ai-keys', createAiKeysRouter(limits));
+  api.use('/me/agents', createAgentsRouter());
+  api.use('/me/telegram', createMeTelegramRouter());
   api.use('/invites', createInvitesRouter(limits));
   api.use('/import', createImportTemplateRouter());
   api.use('/migrations', createMigrationsRouter(limits));
   api.use('/calendar', createCalendarRouter(limits));
+  api.use('/shop', createShopRouter(limits));
+  api.use('/planner', createPlannerRouter(limits));
   api.use('/projects', createProjectsRouter());
   api.use(createAttachmentsRouter());
   api.use(createCommentsRouter());
@@ -101,6 +110,7 @@ export const createApp = ({
   });
 
   app.use(createConnectorRouter(rateLimit));
+  if (telegramEnabled()) app.use(createTelegramWebhookRouter());
   app.use('/api', api);
 
   if (clientDist && fs.existsSync(clientDist)) {

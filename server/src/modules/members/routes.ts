@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import { addAgentMemberSchema } from '@msr/shared/schemas/agents';
 import { addMemberSchema, updateMemberSchema } from '@msr/shared/schemas/project';
 import { badRequest, forbidden, notFound } from '../../lib/httpError';
+import { findOwnWorker } from '../agents/service';
 import { assertCanWrite, assertCovers, projectOf } from '../projects/access';
 import { getRole } from '../roles/service';
 import { findUserByEmail } from '../users/service';
@@ -18,12 +20,23 @@ export const createMembersRouter = () => {
     assertCanWrite(project, 'project.manage_members');
     const input = addMemberSchema.parse(req.body);
     const user = await findUserByEmail(input.email);
-    if (!user || (user.demo_owner_id && user.demo_owner_id !== req.user!.id))
+    if (!user || user.agent_owner_id || (user.demo_owner_id && user.demo_owner_id !== req.user!.id))
       throw notFound('No account uses that email');
     const role = await getRole(project.id, input.roleId);
     if (role.system_key === 'owner') throw badRequest('A project has exactly one owner');
     assertCovers(project, role.permissions);
     res.status(201).json({ member: await addMember(project.id, user.id, role.id) });
+  });
+
+  router.post('/agents', async (req, res) => {
+    const project = projectOf(req);
+    assertCanWrite(project, 'project.manage_members');
+    const input = addAgentMemberSchema.parse(req.body);
+    const worker = await findOwnWorker(req.user!.id, input.agentId);
+    const role = await getRole(project.id, input.roleId);
+    if (role.system_key === 'owner') throw badRequest('A project has exactly one owner');
+    assertCovers(project, role.permissions);
+    res.status(201).json({ member: await addMember(project.id, worker.id, role.id) });
   });
 
   router.patch('/:userId', async (req, res) => {

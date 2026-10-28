@@ -25,7 +25,7 @@ interface MappingStepProps {
 type Target = 'new' | 'existing';
 
 const UNASSIGNED = '__none__';
-const NEW_PROJECT_STYLE = { kind: 'software' as const, color: '#4f56f0', icon: 'hexagon', description: '' };
+const NEW_PROJECT_STYLE = { module: 'software' as const, color: '#4f56f0', icon: 'hexagon', description: '' };
 
 const statusFor = (statuses: ProjectStatus[], name: string, category: StatusCategory) => {
   const taskStatuses = statuses.filter((status) => status.workflow === 'task');

@@ -9,7 +9,7 @@ import { notFound } from '../../lib/httpError';
 import { assertValidPosition } from '../../lib/position';
 import { assertCanWrite, projectOf } from '../projects/access';
 import {
-  addItem,
+  addItems,
   clearChecked,
   createList,
   deleteItem,
@@ -63,7 +63,7 @@ export const createShoppingRouter = () => {
 
   router.post('/:listId/items', async (req, res) => {
     const { project, listId } = await editableList(req);
-    await addItem(listId, createItemSchema.parse(req.body), req.user!.id);
+    await addItems(listId, [createItemSchema.parse(req.body)], req.user!.id);
     res.status(201).json({ list: await getList(project.id, listId) });
   });
 
@@ -84,7 +84,7 @@ export const createShoppingRouter = () => {
 
   router.post('/:listId/clear-checked', async (req, res) => {
     const { project, listId } = await editableList(req);
-    await clearChecked(project.id, listId);
+    await clearChecked(project.id, listId, req.user!.id);
     res.json({ list: await getList(project.id, listId) });
   });
 

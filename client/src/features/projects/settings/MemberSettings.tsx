@@ -1,4 +1,4 @@
-import { Link2, LogOut, UserMinus, UserPlus } from 'lucide-react';
+import { Bot, Link2, LogOut, UserMinus, UserPlus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { useShell } from '../../../hooks/useShell';
 import { ApiError, errorMessage } from '../../../lib/api';
 import { formatShortDate } from '../../../lib/dates';
+import { AddWorkerDialog } from '../../agents/components/AddWorkerDialog';
 import { PendingInvites } from '../../invites/components/PendingInvites';
 import { SettingsSection } from '../../settings/components/SettingsSection';
 import { useAddMember, useChangeMemberRole, useRemoveMember } from '../api';
@@ -69,6 +70,7 @@ export function MemberSettings() {
   const remove = useRemoveMember(project.key);
   const [email, setEmail] = useState('');
   const [roleId, setRoleId] = useState<string | null>(null);
+  const [addingWorker, setAddingWorker] = useState(false);
   const manageable = can('project.manage_members');
   const grantable = project.roles.filter(
     (role) => role.systemKey !== 'owner' && isSubsetOf(role.permissions, project.permissions),
@@ -91,9 +93,14 @@ export function MemberSettings() {
       }
       footer={
         manageable && (
-          <Button variant="secondary" leftIcon={<Link2 />} onClick={() => openInvite(project)}>
-            Invite with a link
-          </Button>
+          <>
+            <Button variant="secondary" leftIcon={<Link2 />} onClick={() => openInvite(project)}>
+              Invite with a link
+            </Button>
+            <Button variant="secondary" leftIcon={<Bot />} onClick={() => setAddingWorker(true)}>
+              Add AI worker
+            </Button>
+          </>
         )
       }
     >
@@ -130,14 +137,15 @@ export function MemberSettings() {
         <div className="flex flex-col divide-y divide-border">
           {project.memberList.map((member) => (
             <div key={member.id} className="flex flex-wrap items-center gap-3 py-2.5">
-              <Avatar name={member.name} src={member.avatarUrl} size="md" decorative />
+              <Avatar name={member.name} src={member.avatarUrl} size="md" bot={member.isAgent} decorative />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 truncate text-sm font-medium">
                   {member.name}
                   {member.id === user.id && <Badge size="xs" label="You" />}
+                  {member.isAgent && <Badge size="xs" tone="violet" icon={<Bot />} label="AI worker" />}
                 </p>
                 <p className="truncate text-xs text-muted">
-                  {member.email} · joined {formatShortDate(member.joinedAt)}
+                  {member.isAgent ? 'Added' : member.email} · joined {formatShortDate(member.joinedAt)}
                 </p>
               </div>
               {member.isOwner ? (
@@ -178,6 +186,7 @@ export function MemberSettings() {
         </div>
         {manageable && <PendingInvites projectKey={project.key} />}
       </div>
+      {addingWorker && <AddWorkerDialog open onOpenChange={setAddingWorker} project={project} />}
     </SettingsSection>
   );
 }

@@ -2,7 +2,7 @@
 
 Everything below is a setting or an account only you can create. Do them in this order. Each step says why it matters and what breaks without it.
 
-Your live app is `https://msr-bug-tracker.onrender.com`. All the new work is on the branch `claude/app-feature-roadmap-ap7xa3`. It goes live once you merge that branch into the branch Render deploys from, usually `main`.
+Your live app is `https://msr-bug-tracker.onrender.com`. The plans, modules, AI workers, AI planning, appointments and Telegram work is on the branch `minka/wonderful-planck-vw2has`. It goes live once you merge that branch into the branch Render deploys from, usually `main`.
 
 > **Do step 1 before you merge.** The new server refuses to start in production without `ENCRYPTION_KEY`, so the site would go down.
 
@@ -18,6 +18,7 @@ Your live app is `https://msr-bug-tracker.onrender.com`. All the new work is on 
 | 6   | Custom domain                          | A nicer URL, and verifying the Google app                | Optional                                 |
 | 7   | App Store and Play Store listings      | Native store apps (the PWA works without them)           | Optional                                 |
 | 8   | Connect Claude and ChatGPT             | Asking Claude or ChatGPT about your tasks, lists, events | Optional, after the merge                |
+| 9   | Telegram bot                           | Commands and updates in Telegram chats and groups        | Optional, after the merge                |
 
 Nothing is needed from you for:
 
@@ -150,6 +151,28 @@ Both apps' menus get renamed from time to time. If a label above doesn't match, 
 
 Each person connects their own account and sees only what their roles allow. **Settings → Connected apps** in MSR shows the connector URL and the steps, lists every connected app with when it was last used, and disconnects it. Changing your password disconnects all of them.
 
+## 9. Telegram bot (optional)
+
+Without this, everything else works and the Telegram tab in project settings is hidden.
+
+1. In Telegram, open **@BotFather** and send `/newbot`. Pick a name (for example "MSR Tracker") and a username ending in `bot`. Copy the token it gives you.
+2. Still in BotFather:
+   - `/setprivacy` → your bot → **Disable**, so plain messages like "apples" reach it in groups.
+   - `/setjoingroups` → **Enable**.
+   - `/setcommands` → paste:
+     ```
+     help - What I understand
+     tasks - Open tasks by person
+     chores - Open chores by person
+     mine - My open tasks
+     appointments - The next two weeks
+     ```
+3. In Render, add `TELEGRAM_BOT_TOKEN` with the token and save. Nothing else is needed: the webhook secret comes from `ENCRYPTION_KEY`.
+4. After the deploy, the Render log shows **Telegram webhook set**. If it shows **Telegram webhook failed**, the message says why, usually a wrong token.
+5. In MSR, open a household → **Settings → Telegram → Connect me**, then **Add to a group** for the family group. The bot answers `help` in both.
+
+The bot needs the project owner's plan: **Personal** for households, **Pro** for any other project. The service must stay awake (step 3), or notifications and reminders stop while it sleeps.
+
 ---
 
 ## Things users set up themselves
@@ -163,6 +186,7 @@ Each person connects their own account and sees only what their roles allow. **S
 | AI keys                  | Settings → AI, then paste a Claude, ChatGPT, Gemini or Grok API key. Each key is tested before it's saved                                                                                                                                                                                                                                   |
 | Claude / ChatGPT         | Add the connector in Claude or ChatGPT (step 8), sign in to MSR and click **Allow**. Settings → Connected apps disconnects it                                                                                                                                                                                                               |
 | Moving from another tool | Projects → Import. Each tool asks for the user's own token, and the dialog links to where to create it: ClickUp (Settings → Apps), Jira (Atlassian API tokens), Trello (Power-Up admin), Asana (developer console), Linear (Security & access) and GitHub (fine-grained token with read-only Issues). Tokens are used once and never stored |
+| Telegram                 | Project → Settings → Telegram → **Connect me**, or **Add to a group** for a family or team group. Each chat picks its own updates, "only my tasks", and the list plain messages go to                                                                                                                                                       |
 | Households               | New project → Household, then invite the family. **Parent** can do everything. **Child** can only take and finish their own chores and edit the shopping lists. **Guest** can only look                                                                                                                                                     |
 
 ## Environment variables at a glance
@@ -177,6 +201,7 @@ Each person connects their own account and sees only what their roles allow. **S
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | From the Google Cloud web client              | For Google Calendar                          |
 | `APP_URL`                                  | Your custom domain's origin                   | Only with a custom domain                    |
 | `ENABLE_DEMO_DATA`                         | `true` (default) or `false`                   | Optional: `false` hides Settings → Demo data |
+| `TELEGRAM_BOT_TOKEN`                       | The token from @BotFather                     | For the Telegram bot                         |
 
 ## What I couldn't test here
 
@@ -187,5 +212,7 @@ The sandbox can't reach outside services. These parts were therefore built to ea
 - AI key checks
 - the Claude and ChatGPT connector handshake (the full OAuth and MCP flow is tested locally against the same endpoints)
 - the six migration APIs: ClickUp, Jira, Trello, Asana, Linear and GitHub
+- the Telegram Bot API: the webhook, commands and notifications are tested with recorded update shapes and a mocked `sendMessage`
+- AI planning against live providers. The ChatGPT, Gemini and Grok model ids in `server/src/lib/ai.ts` (`gpt-5`, `gemini-flash-latest`, `grok-4-latest`) couldn't be checked against the providers' model lists
 
 After you complete steps 4 and 5, try each one once: send a test email, connect a calendar, add a key and import one small project. Send me any error from the Render log and I'll fix it.

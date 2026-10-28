@@ -1,6 +1,7 @@
 import { Star } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
+import { MODULE_META } from '@msr/shared/modules';
 import type { ProjectSummary } from '@msr/shared/types';
 import { cn } from '../../../lib/cn';
 import { AvatarGroup } from '../../../components/ui/AvatarGroup';
@@ -40,11 +41,17 @@ export function ProjectCard({ project, onToggleFavorite, className }: ProjectCar
             strokeWidth={1.6}
           />
         )}
-        <Badge
-          size="xs"
-          className="absolute top-2 left-2 bg-surface/90 font-mono text-text"
-          label={project.key}
-        />
+        <div className="absolute top-2 left-2 flex gap-1">
+          <Badge size="xs" className="bg-surface/90 font-mono text-text" label={project.key} />
+          {project.module !== 'software' && (
+            <Badge
+              size="xs"
+              className="bg-surface/90 text-text"
+              icon={<ProjectIcon name={MODULE_META[project.module].icon} />}
+              label={MODULE_META[project.module].label}
+            />
+          )}
+        </div>
         {project.isDemo && (
           <Badge size="xs" tone="violet" className="absolute bottom-2 left-2" label="Demo" />
         )}
