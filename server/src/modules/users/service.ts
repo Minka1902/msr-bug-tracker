@@ -15,7 +15,7 @@ export interface UserRow {
   agent_owner_id: string | null;
 }
 
-const USER_COLUMNS =
+export const USER_COLUMNS =
   'id, email, name, avatar_key, email_verified_at, totp_enabled_at, preferences, created_at, demo_owner_id, agent_owner_id';
 
 const FIND_BY_ID = `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`;

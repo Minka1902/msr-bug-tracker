@@ -1,5 +1,6 @@
 import { CircleCheck, ListPlus, MoreHorizontal, Pencil, ShoppingCart, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
@@ -30,6 +31,16 @@ type Prompt = { mode: 'create' } | { mode: 'rename'; listId: string; name: strin
 
 export function ShoppingPage() {
   const onError = { onError: (error: Error) => toast.error(errorMessage(error)) };
+
+  const setSelectedId = (listId: string | null) =>
+    setSearchParams(
+      (params) => {
+        if (listId) params.set('list', listId);
+        else params.delete('list');
+        return params;
+      },
+      { replace: true },
+    );
 
   const submitPrompt = (name: string) => {
     if (prompt?.mode === 'rename')
@@ -67,8 +78,9 @@ export function ShoppingPage() {
   const updateItem = useUpdateItem(project.key);
   const removeItem = useRemoveItem(project.key);
   const clearChecked = useClearChecked(project.key);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [prompt, setPrompt] = useState<Prompt>(null);
+  const selectedId = searchParams.get('list');
   const canEdit = permissions.can('lists.edit');
   const list = lists.data?.find((item) => item.id === selectedId) ?? lists.data?.[0];
   const checkedCount = list?.items.filter((item) => item.isChecked).length ?? 0;

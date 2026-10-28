@@ -1,4 +1,4 @@
-import { generateKeyBetween } from 'fractional-indexing';
+import { generateNKeysBetween } from 'fractional-indexing';
 import type { CreateItemInput, UpdateItemInput } from '@msr/shared/schemas/shopping';
 import type { ShoppingItem, ShoppingList } from '@msr/shared/types';
 import { query, queryOne } from '../../db/pool';
@@ -42,8 +42,9 @@ const DELETE_LIST = 'DELETE FROM shopping_lists WHERE id = $1 AND project_id = $
 const LIST_IN_PROJECT = 'SELECT id FROM shopping_lists WHERE id = $1 AND project_id = $2';
 const FIRST_ITEM =
   'SELECT min(position) AS position FROM shopping_items WHERE list_id = $1 AND NOT is_checked';
-const INSERT_ITEM = `
-  INSERT INTO shopping_items (list_id, name, quantity, added_by, position) VALUES ($1, $2, $3, $4, $5) RETURNING id`;
+const INSERT_ITEMS = `
+  INSERT INTO shopping_items (list_id, name, quantity, added_by, position)
+  SELECT $1, name, quantity, $2, position FROM unnest($3::text[], $4::text[], $5::text[]) AS i(name, quantity, position)`;
 const UPDATE_ITEM = `
   UPDATE shopping_items i
   SET name = coalesce($3, i.name), quantity = coalesce($4, i.quantity), position = coalesce($6, i.position),
@@ -56,6 +57,12 @@ const UPDATE_ITEM = `
 const DELETE_ITEM = `
   DELETE FROM shopping_items i USING shopping_lists l
   WHERE i.id = $1 AND l.id = i.list_id AND l.id = $2 AND l.project_id = $3 RETURNING i.id`;
+const CHECK_ITEMS = `
+  UPDATE shopping_items i
+  SET is_checked = $3, checked_by = CASE WHEN $3 THEN $4::uuid END, checked_at = CASE WHEN $3 THEN now() END
+  FROM shopping_lists l
+  WHERE i.id = ANY($1::uuid[]) AND l.id = i.list_id AND l.project_id = $2
+  RETURNING i.id`;
 const CLEAR_CHECKED = `
   DELETE FROM shopping_items i USING shopping_lists l
   WHERE i.list_id = $1 AND l.id = i.list_id AND l.project_id = $2 AND i.is_checked`;
@@ -105,16 +112,15 @@ export const deleteList = (projectId: string, listId: string) =>
 export const listExists = (projectId: string, listId: string) =>
   queryOne<{ id: string }>(LIST_IN_PROJECT, [listId, projectId]).then(Boolean);
 
-export const addItem = async (listId: string, input: CreateItemInput, userId: string) => {
+export const addItems = async (listId: string, items: CreateItemInput[], userId: string) => {
   const first = await queryOne<{ position: string | null }>(FIRST_ITEM, [listId]);
-  const position = generateKeyBetween(null, first?.position ?? null);
-  return (await queryOne<{ id: string }>(INSERT_ITEM, [
+  await query(INSERT_ITEMS, [
     listId,
-    input.name,
-    input.quantity,
     userId,
-    position,
-  ]))!.id;
+    items.map((item) => item.name),
+    items.map((item) => item.quantity),
+    generateNKeysBetween(null, first?.position ?? null, items.length),
+  ]);
 };
 
 export const updateItem = (
@@ -134,6 +140,9 @@ export const updateItem = (
     userId,
     projectId,
   ]);
+
+export const checkItems = (projectId: string, itemIds: string[], isChecked: boolean, userId: string) =>
+  query<{ id: string }>(CHECK_ITEMS, [itemIds, projectId, isChecked, userId]);
 
 export const deleteItem = (projectId: string, listId: string, itemId: string) =>
   queryOne<{ id: string }>(DELETE_ITEM, [itemId, listId, projectId]);

@@ -7,6 +7,7 @@ import { purgePendingAttachments } from './modules/attachments/service';
 import { syncStaleConnections } from './modules/calendar/sync';
 import { purgeExpiredGrants } from './modules/connector/service';
 import { escalatePriorities } from './modules/tasks/escalation';
+import { setWebhook, telegramEnabled } from './modules/telegram/api';
 
 await migrate();
 await ensureStorage();
@@ -26,5 +27,14 @@ setInterval(
   () => syncStaleConnections().catch((err) => logger.error({ err }, 'Background calendar sync failed')),
   CALENDAR_SYNC_MS,
 ).unref();
+
+if (telegramEnabled())
+  setWebhook()
+    .then((answer) =>
+      answer.ok
+        ? logger.info('Telegram webhook set')
+        : logger.error({ answer: answer.description }, 'Telegram webhook failed'),
+    )
+    .catch((err) => logger.error({ err }, 'Telegram webhook failed'));
 
 createApp().listen(config.PORT, () => logger.info(`API listening on :${config.PORT}`));

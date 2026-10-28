@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import path from 'node:path';
 import { z } from 'zod';
 
@@ -34,6 +35,7 @@ export const envSchema = z
         ),
     ),
     MAIL_FROM: optional(z.string()),
+    TELEGRAM_BOT_TOKEN: optional(z.string()),
     ENABLE_DEMO_DATA: z
       .enum(['true', 'false'])
       .default('true')
@@ -63,6 +65,7 @@ try {
 
 const env = envSchema.parse(process.env);
 const isTest = env.NODE_ENV === 'test';
+const encryptionKey = Buffer.from(env.ENCRYPTION_KEY, 'base64');
 
 export const config = {
   ...env,
@@ -71,7 +74,8 @@ export const config = {
   databaseUrl: isTest && env.TEST_DATABASE_URL ? env.TEST_DATABASE_URL : env.DATABASE_URL,
   uploadDir: path.resolve(env.UPLOAD_DIR),
   maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
-  encryptionKey: Buffer.from(env.ENCRYPTION_KEY, 'base64'),
+  encryptionKey,
+  telegramWebhookSecret: createHmac('sha256', encryptionKey).update('telegram-webhook').digest('hex'),
   devMailbox: !env.SMTP_URL && !env.RESEND_API_KEY && env.NODE_ENV !== 'production',
   rateLimit: env.NODE_ENV === 'production' || !env.DISABLE_RATE_LIMIT,
 };
