@@ -27,6 +27,7 @@ import { createDemoRouter } from './modules/demo/routes';
 import { createImportTemplateRouter } from './modules/importer/routes';
 import { createInvitesRouter } from './modules/invites/routes';
 import { createMigrationsRouter } from './modules/migrations/routes';
+import { createAgentsRouter } from './modules/agents/routes';
 import { createAiKeysRouter } from './modules/aiKeys/routes';
 import { createTwoFactorRouter } from './modules/twoFactor/routes';
 import { createUsersRouter } from './modules/users/routes';
@@ -84,6 +85,7 @@ export const createApp = ({
   api.use(createConnectorApiRouter());
   api.use('/me/2fa', createTwoFactorRouter(limits));
   api.use('/me/ai-keys', createAiKeysRouter(limits));
+  api.use('/me/agents', createAgentsRouter());
   api.use('/invites', createInvitesRouter(limits));
   api.use('/import', createImportTemplateRouter());
   api.use('/migrations', createMigrationsRouter(limits));

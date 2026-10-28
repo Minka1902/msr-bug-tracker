@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Bot } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { cn } from '../../lib/cn';
 
@@ -24,6 +25,7 @@ export interface AvatarProps extends VariantProps<typeof avatarVariants> {
   className?: string;
   ring?: boolean;
   decorative?: boolean;
+  bot?: boolean;
 }
 
 const hueOf = (value: string) => [...value].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) % 360, 7);
@@ -36,7 +38,7 @@ const initialsOf = (name: string) =>
     .map((part) => part[0]!.toUpperCase())
     .join('') || '?';
 
-export function Avatar({ name, src, size, className, ring, decorative }: AvatarProps) {
+export function Avatar({ name, src, size, className, ring, decorative, bot }: AvatarProps) {
   const style = { '--h': hueOf(name) } as CSSProperties;
 
   return (
@@ -53,7 +55,13 @@ export function Avatar({ name, src, size, className, ring, decorative }: AvatarP
         className,
       )}
     >
-      {src ? <img src={src} alt="" className="size-full object-cover" /> : initialsOf(name)}
+      {src ? (
+        <img src={src} alt="" className="size-full object-cover" />
+      ) : bot ? (
+        <Bot className="size-3/5" aria-hidden />
+      ) : (
+        initialsOf(name)
+      )}
     </span>
   );
 }

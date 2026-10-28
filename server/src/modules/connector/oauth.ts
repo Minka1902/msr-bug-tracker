@@ -61,9 +61,9 @@ const REFRESH = `
 const VERIFY_ACCESS = `
   SELECT g.id AS grant_id, g.client_id, g.scopes, g.resource, g.access_expires_at, g.last_used_at,
          u.id, u.email, u.name, u.avatar_key, u.email_verified_at, u.totp_enabled_at, u.preferences, u.created_at,
-         u.demo_owner_id
+         u.demo_owner_id, u.agent_owner_id
   FROM oauth_grants g
-  JOIN users u ON u.id = g.user_id
+  JOIN users u ON u.id = coalesce(g.agent_id, g.user_id)
   WHERE g.access_hash = $1 AND g.access_expires_at > now()`;
 const TOUCH_GRANT = 'UPDATE oauth_grants SET last_used_at = now() WHERE id = $1';
 const REVOKE = 'DELETE FROM oauth_grants WHERE client_id = $2 AND (access_hash = $1 OR refresh_hash = $1)';

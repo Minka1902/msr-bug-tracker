@@ -27,12 +27,15 @@ describe('module catalog', () => {
   });
 
   it('only sells known modules, and each plan includes the one below', () => {
-    for (const tier of PLAN_TIERS) expect(PLAN_META[tier].modules.every((module) => CATALOG.includes(module))).toBe(true);
+    for (const tier of PLAN_TIERS)
+      expect(PLAN_META[tier].modules.every((module) => CATALOG.includes(module))).toBe(true);
     for (const [lower, higher] of [
       ['free', 'personal'],
       ['personal', 'pro'],
     ] as const)
-      expect(PLAN_META[lower].modules.every((module) => PLAN_META[higher].modules.includes(module))).toBe(true);
+      expect(PLAN_META[lower].modules.every((module) => PLAN_META[higher].modules.includes(module))).toBe(
+        true,
+      );
     expect(PLAN_TIERS.map((tier) => PLAN_META[tier].projectsPerYear)).toEqual([3, 150, 350]);
   });
 

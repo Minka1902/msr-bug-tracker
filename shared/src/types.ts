@@ -107,6 +107,7 @@ export interface ProjectMember extends UserRef {
   roleId: string;
   roleName: string;
   isOwner: boolean;
+  isAgent: boolean;
   joinedAt: string;
 }
 
@@ -350,6 +351,15 @@ export interface ConnectedApp {
   scopes: ConnectorScope[];
   connectedAt: string;
   lastUsedAt: string;
+  worker: { id: string; name: string } | null;
+}
+
+export interface AiWorker {
+  id: string;
+  name: string;
+  connection: { id: string; name: string } | null;
+  projects: { key: string; name: string; role: string }[];
+  createdAt: string;
 }
 
 export interface PlanStatus {

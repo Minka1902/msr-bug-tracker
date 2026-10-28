@@ -1,4 +1,5 @@
-import { Bot, Plug } from 'lucide-react';
+import { Bot, Plug, Plus } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
@@ -11,6 +12,9 @@ import { useConfirm } from '../../../hooks/useConfirm';
 import { useLocalState } from '../../../hooks/useLocalState';
 import { errorMessage } from '../../../lib/api';
 import { formatRelative, formatShortDate } from '../../../lib/dates';
+import { useWorkers } from '../../agents/api';
+import { AiWorkerList } from '../../agents/components/AiWorkerList';
+import { ConnectWorkerDialog } from '../../agents/components/ConnectWorkerDialog';
 import { AGENT_GUIDES, type AgentId } from '../../connector/agentGuides';
 import { mcpUrl, useConnectedApps, useDisconnectApp } from '../../connector/api';
 import { SettingsSection } from '../components/SettingsSection';
@@ -39,6 +43,8 @@ export function ConnectedAppsSettings() {
 
   const confirm = useConfirm();
   const apps = useConnectedApps();
+  const workers = useWorkers();
+  const [hiring, setHiring] = useState<{ grantId?: string } | null>(null);
   const disconnectApp = useDisconnectApp();
   const [agent, setAgent] = useLocalState<AgentId>('connector-agent', 'claude');
   const url = mcpUrl();
@@ -84,12 +90,18 @@ export function ConnectedAppsSettings() {
                       tone={app.scopes.includes('write') ? 'accent' : 'neutral'}
                       label={app.scopes.includes('write') ? 'Read and write' : 'Read only'}
                     />
+                    {app.worker && <Badge tone="violet" icon={<Bot />} label={app.worker.name} />}
                   </p>
                   <p className="text-xs text-muted">
                     {app.host} · connected {formatShortDate(app.connectedAt)} · used{' '}
                     {formatRelative(app.lastUsedAt)}
                   </p>
                 </div>
+                {!app.worker && (
+                  <Button variant="soft" size="sm" onClick={() => setHiring({ grantId: app.id })}>
+                    Make it an AI worker
+                  </Button>
+                )}
                 <Button
                   variant="danger-ghost"
                   size="sm"
@@ -110,6 +122,34 @@ export function ConnectedAppsSettings() {
           />
         )}
       </SettingsSection>
+      <SettingsSection
+        title="AI workers"
+        description="A connected app can work in your projects as its own member, with a role, and take tasks you assign it."
+        footer={
+          <Button
+            variant="secondary"
+            leftIcon={<Plus />}
+            disabled={!apps.data?.some((app) => !app.worker)}
+            onClick={() => setHiring({})}
+          >
+            New AI worker
+          </Button>
+        }
+      >
+        {workers.isPending ? (
+          <Skeleton className="h-16" />
+        ) : (
+          <AiWorkerList workers={workers.data ?? []} apps={apps.data ?? []} />
+        )}
+      </SettingsSection>
+      {hiring && (
+        <ConnectWorkerDialog
+          open
+          onOpenChange={(open) => !open && setHiring(null)}
+          apps={apps.data ?? []}
+          initialGrantId={hiring.grantId}
+        />
+      )}
     </div>
   );
 }

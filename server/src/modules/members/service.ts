@@ -11,12 +11,13 @@ interface MemberRow {
   role_name: string;
   role_permissions: number;
   is_owner: boolean;
+  is_agent: boolean;
   joined_at: Date;
 }
 
 const MEMBER_SELECT = `
   SELECT u.id, u.name, u.avatar_key, u.email, r.id AS role_id, r.name AS role_name, r.permissions AS role_permissions,
-         p.owner_id = u.id AS is_owner, m.joined_at
+         p.owner_id = u.id AS is_owner, u.agent_owner_id IS NOT NULL AS is_agent, m.joined_at
   FROM project_members m
   JOIN users u ON u.id = m.user_id
   JOIN project_roles r ON r.id = m.role_id
@@ -42,10 +43,11 @@ export const toMember = (row: MemberRow): ProjectMember => ({
   id: row.id,
   name: row.name,
   avatarUrl: avatarUrl(row.id, row.avatar_key),
-  email: row.email,
+  email: row.is_agent ? '' : row.email,
   roleId: row.role_id,
   roleName: row.role_name,
   isOwner: row.is_owner,
+  isAgent: row.is_agent,
   joinedAt: row.joined_at.toISOString(),
 });
 

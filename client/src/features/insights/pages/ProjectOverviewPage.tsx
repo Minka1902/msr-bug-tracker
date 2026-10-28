@@ -10,13 +10,7 @@ import {
   Timer,
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import {
-  PRIORITIES,
-  PRIORITY_META,
-  TYPE_META,
-  WORKFLOW_META,
-  WORKFLOWS,
-} from '@msr/shared/enums';
+import { PRIORITIES, PRIORITY_META, TYPE_META, WORKFLOW_META, WORKFLOWS } from '@msr/shared/enums';
 import { MODULE_META } from '@msr/shared/modules';
 import { Badge } from '../../../components/ui/Badge';
 import { EmptyState } from '../../../components/ui/EmptyState';

@@ -58,9 +58,9 @@ export const useTaskOptions = (
       assignee: project.memberList.map((member) => ({
         value: member.id,
         label: member.name,
-        description: member.email,
-        keywords: [member.email],
-        icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" decorative />,
+        description: member.isAgent ? 'AI worker' : member.email,
+        keywords: [member.isAgent ? 'ai worker' : member.email],
+        icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" bot={member.isAgent} decorative />,
       })),
       label: project.labels.map((item) => ({ value: item.id, label: item.name, color: item.color })),
     };
