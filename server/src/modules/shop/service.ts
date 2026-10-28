@@ -20,17 +20,18 @@ interface PlanRow {
   used: number;
 }
 
+export const activeSubscription = (userId: string) => `
+  SELECT tier, starts_at, expires_at FROM subscriptions
+  WHERE user_id = ${userId} AND expires_at > now()
+  ORDER BY tier DESC, expires_at DESC LIMIT 1`;
+
 const CURRENT_PLAN = `
   SELECT s.tier, coalesce(s.starts_at, now() - interval '1 year') AS starts_at, s.expires_at,
          (SELECT count(*)::int FROM project_creations c
           WHERE c.user_id = $1 AND c.pack_id IS NULL
             AND c.created_at >= coalesce(s.starts_at, now() - interval '1 year')) AS used
   FROM (SELECT 1) AS one
-  LEFT JOIN LATERAL (
-    SELECT tier, starts_at, expires_at FROM subscriptions
-    WHERE user_id = $1 AND expires_at > now()
-    ORDER BY tier DESC, expires_at DESC LIMIT 1
-  ) s ON true`;
+  LEFT JOIN LATERAL (${activeSubscription('$1')}) s ON true`;
 const OPEN_PACKS = `
   SELECT module, sum(projects - projects_used)::int AS projects_left FROM module_packs
   WHERE user_id = $1 AND projects_used < projects GROUP BY module ORDER BY module`;

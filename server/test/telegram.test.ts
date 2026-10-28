@@ -1,87 +1,32 @@
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { config } from '../src/config';
 import { pool } from '../src/db/pool';
 import {
-  addMember,
   agentFor,
   createHousehold,
   createProject,
   registerUser,
   resetDb,
-  roleId,
   subscribe,
-  testApp,
   type Agent,
 } from './helpers';
-
-interface Chat {
-  id: number;
-  type: 'private' | 'group';
-  title?: string;
-}
-
-const BOT = 'msr_test_bot';
-const PARENT_TG = 101;
-const CHILD_TG = 202;
-const GUEST_TG = 303;
-const GROUP: Chat = { id: -500, type: 'group', title: 'Family' };
-
-let app: ReturnType<typeof testApp>;
-let updateId = 0;
-
-const dm = (id: number): Chat => ({ id, type: 'private' });
-
-const send = (chat: Chat, from: number, text: string, secret = config.telegramWebhookSecret) => {
-  updateId += 1;
-  return request(app)
-    .post('/telegram/webhook')
-    .set('X-Telegram-Bot-Api-Secret-Token', secret)
-    .send({ update_id: updateId, message: { message_id: updateId, chat, from: { id: from }, text } });
-};
-
-const reply = async (chat: Chat, from: number, text: string) =>
-  (await send(chat, from, text).expect(200)).body.text as string;
-
-const linkCode = async (agent: Agent, key: string, target: 'private' | 'group') => {
-  const { body } = await agent.post(`/api/projects/${key}/telegram/link`).send({ target }).expect(200);
-  const url = new URL(body.url as string);
-  expect(url.pathname).toBe(`/${BOT}`);
-  return url.searchParams.get(target === 'group' ? 'startgroup' : 'start')!;
-};
-
-const connect = async (agent: Agent, key: string, chat: Chat, from: number) => {
-  const code = await linkCode(agent, key, chat.type === 'group' ? 'group' : 'private');
-  const text = chat.type === 'group' ? `/start@${BOT} ${code}` : `/start ${code}`;
-  expect(await reply(chat, from, text)).toContain(`Connected to <b>${key}</b>`);
-};
-
-const setupFamily = async () => {
-  const parent = agentFor(app);
-  const parentAccount = await registerUser(parent, { name: 'Dana Levi' });
-  const project = await createHousehold(parent);
-  const people: Record<string, { agent: Agent; id: string }> = {};
-  for (const [name, systemKey] of [
-    ['Mia Levi', 'member'],
-    ['Mike Levi', 'member'],
-    ['Grandpa Joe', 'viewer'],
-  ] as const) {
-    const agent = agentFor(app);
-    const account = await registerUser(agent, { name });
-    await addMember(parent, project.key, account.email, roleId(project, systemKey));
-    people[name] = { agent, id: account.user.id };
-  }
-  await connect(parent, 'HOME', dm(PARENT_TG), PARENT_TG);
-  await connect(parent, 'HOME', GROUP, PARENT_TG);
-  return {
-    parent,
-    parentId: parentAccount.user.id,
-    project,
-    child: people['Mia Levi']!,
-    sibling: people['Mike Levi']!,
-    guest: people['Grandpa Joe']!,
-  };
-};
+import {
+  BOT,
+  CHILD_TG,
+  GROUP,
+  GUEST_TG,
+  PARENT_TG,
+  connect,
+  dm,
+  linkCode,
+  reply,
+  send,
+  setupFamily,
+  startTelegram,
+  stopTelegram,
+  telegramApp,
+} from './telegramHelpers';
 
 const listItems = async (agent: Agent) =>
   (
@@ -101,26 +46,14 @@ const tomorrow = () => {
   return new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 };
 
-beforeAll(() => {
-  config.TELEGRAM_BOT_TOKEN = 'test-token';
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => Response.json({ ok: true, result: { username: BOT } })),
-  );
-  app = testApp();
-});
-
-afterAll(() => {
-  config.TELEGRAM_BOT_TOKEN = undefined;
-  vi.unstubAllGlobals();
-});
-
+beforeAll(startTelegram);
+afterAll(stopTelegram);
 beforeEach(resetDb);
 
 describe('Telegram webhook', () => {
   it('only accepts updates signed with the webhook secret', async () => {
     await send(GROUP, PARENT_TG, 'help', 'wrong-secret').expect(401);
-    await request(app)
+    await request(telegramApp())
       .post('/telegram/webhook')
       .send({ message: { text: 'help' } })
       .expect(401);
@@ -128,7 +61,7 @@ describe('Telegram webhook', () => {
   });
 
   it('links private chats and groups with single-use codes', async () => {
-    const parent = agentFor(app);
+    const parent = agentFor(telegramApp());
     await registerUser(parent);
     await createHousehold(parent);
     const code = await linkCode(parent, 'HOME', 'private');
@@ -190,6 +123,7 @@ describe('Telegram webhook', () => {
       /^Added <a href=".+\/t\/HOME-1">Feed the cat<\/a> for Mia Levi, due \w{3} \d+ \w{3}\.$/,
     );
     expect(await reply(GROUP, PARENT_TG, 'm needs to tidy up')).toBe('Who do you mean: Mia Levi, Mike Levi?');
+    expect(await reply(GROUP, PARENT_TG, 'mia needs to tidy up on 31/2')).toBe('That date does not exist');
     expect(await reply(GROUP, PARENT_TG, 'zed needs to tidy up')).toMatch(
       /^No one called "zed" here\. Members: /,
     );
@@ -274,7 +208,7 @@ describe('Telegram webhook', () => {
     );
     await parent.post('/api/projects/HOME/telegram/link').send({ target: 'private' }).expect(402);
 
-    const owner = agentFor(app);
+    const owner = agentFor(telegramApp());
     await registerUser(owner);
     await createProject(owner, { key: 'WEB' });
     await owner.post('/api/projects/WEB/telegram/link').send({ target: 'private' }).expect(402);
@@ -288,7 +222,7 @@ describe('Telegram webhook', () => {
   });
 
   it('switches between the projects a chat follows', async () => {
-    const parent = agentFor(app);
+    const parent = agentFor(telegramApp());
     await registerUser(parent);
     await subscribe(parent, 'pro');
     await createProject(parent, { key: 'HOME', name: 'Home', module: 'household' });
@@ -301,7 +235,7 @@ describe('Telegram webhook', () => {
     expect(await reply(GROUP, PARENT_TG, 'use home')).toBe('Now working in <b>HOME</b>.');
     expect(await reply(GROUP, PARENT_TG, 'apples')).toBe('Added apples to <b>Groceries</b>.');
     expect(await reply(GROUP, PARENT_TG, 'use nope')).toBe('Project not found');
-    const other = agentFor(app);
+    const other = agentFor(telegramApp());
     await registerUser(other);
     await createProject(other, { key: 'SIDE' });
     expect(await reply(GROUP, PARENT_TG, 'use side')).toBe('Project not found');
@@ -367,7 +301,7 @@ describe('Telegram settings', () => {
   });
 
   it('keeps household-only notifications to households', async () => {
-    const owner = agentFor(app);
+    const owner = agentFor(telegramApp());
     await registerUser(owner);
     await subscribe(owner, 'pro');
     await createProject(owner, { key: 'WEB' });

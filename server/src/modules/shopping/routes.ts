@@ -84,7 +84,7 @@ export const createShoppingRouter = () => {
 
   router.post('/:listId/clear-checked', async (req, res) => {
     const { project, listId } = await editableList(req);
-    await clearChecked(project.id, listId);
+    await clearChecked(project.id, listId, req.user!.id);
     res.json({ list: await getList(project.id, listId) });
   });
 

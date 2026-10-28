@@ -58,6 +58,11 @@ const UPDATE_CHAT = `
   WHERE chat_id = $1 AND project_id = $2 RETURNING chat_id`;
 const DELETE_CHAT = 'DELETE FROM telegram_chats WHERE chat_id = $1 AND project_id = $2 RETURNING chat_id';
 const DROP_CHAT = 'DELETE FROM telegram_chats WHERE chat_id = $1';
+const MIGRATE_CHAT = 'UPDATE telegram_chats SET chat_id = $2 WHERE chat_id = $1';
+const QUEUE_NOTIFICATION = `
+  INSERT INTO telegram_outbox (project_id, kind, payload, actor_id)
+  SELECT $1, $2, $3, $4
+  WHERE EXISTS (SELECT 1 FROM telegram_chats WHERE project_id = $1 AND $2::text = ANY(notify))`;
 const HAS_TELEGRAM = 'SELECT telegram_user_id IS NOT NULL AS linked FROM users WHERE id = $1';
 const STATUS_NAME = 'SELECT name FROM project_statuses WHERE id = $1';
 const OPEN_TASKS = `
@@ -120,6 +125,15 @@ export const updateChat = (
 export const deleteChat = (chatId: number, projectId: string) => queryOne(DELETE_CHAT, [chatId, projectId]);
 
 export const dropChat = (chatId: number) => query(DROP_CHAT, [chatId]);
+
+export const migrateChat = (chatId: number, newChatId: number) => query(MIGRATE_CHAT, [chatId, newChatId]);
+
+export const queueNotification = (
+  projectId: string,
+  kind: NotifyKind,
+  payload: unknown,
+  actorId: string | null,
+) => query(QUEUE_NOTIFICATION, [projectId, kind, JSON.stringify(payload), actorId]);
 
 export const hasTelegram = (userId: string) =>
   queryOne<{ linked: boolean }>(HAS_TELEGRAM, [userId]).then((row) => !!row?.linked);

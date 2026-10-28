@@ -1,7 +1,6 @@
 import { Bell } from 'lucide-react';
-import { REMINDER_PRESETS } from '@msr/shared/calendar';
+import { REMINDER_PRESETS, formatMinutes } from '@msr/shared/calendar';
 import { cn } from '../../lib/cn';
-import { formatMinutes } from '../../lib/dates';
 
 interface ReminderPickerProps {
   value: number[];

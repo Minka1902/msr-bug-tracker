@@ -1,10 +1,10 @@
 import { CalendarClock, CalendarDays, MapPin, Star } from 'lucide-react';
 import { format, isToday, parseISO } from 'date-fns';
 import type { CSSProperties } from 'react';
+import { formatMinutes } from '@msr/shared/calendar';
 import type { CalendarItem } from '@msr/shared/types';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { cn } from '../../../lib/cn';
-import { formatMinutes } from '../../../lib/dates';
 import { itemDays, itemEnd, itemStart } from '../calendarDates';
 
 interface AgendaListProps {

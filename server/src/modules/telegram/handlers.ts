@@ -4,7 +4,6 @@ import { MODULE_META, PLAN_META, botAllowed, minimumBotPlan } from '@msr/shared/
 import { createItemSchema } from '@msr/shared/schemas/shopping';
 import { createTaskSchema } from '@msr/shared/schemas/task';
 import type { ShoppingItem, ShoppingList } from '@msr/shared/types';
-import { config } from '../../config';
 import { HttpError, badRequest } from '../../lib/httpError';
 import { logger } from '../../lib/logger';
 import { listCalendarItems } from '../calendar/service';
@@ -16,12 +15,14 @@ import { assertCanAssignOnCreate, assertCanPatchTask, findTaskByIdentifier } fro
 import { createTask, getTaskDetail, updateTask } from '../tasks/service';
 import { DEFAULT_PREFERENCES, type UserRow } from '../users/service';
 import { parseCommand, type Command, type When } from './commands';
+import { escape, formatDay, formatTime, link, localToday } from './format';
 import {
   consumeLinkCode,
   currentChat,
   findSender,
   linkChat,
   linkUser,
+  migrateChat,
   openTasks,
   selectProject,
   statusName,
@@ -30,6 +31,7 @@ import {
 
 export interface TelegramMessage {
   text?: string;
+  migrate_to_chat_id?: number;
   chat: { id: number; type: string; title?: string; first_name?: string };
   from?: { id: number; first_name?: string };
 }
@@ -45,11 +47,6 @@ const APPOINTMENT_DAYS = 14;
 const TASKS_LIMIT = 60;
 const GROUP_TYPES = new Set(['group', 'supergroup']);
 
-const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const link = (path: string, text: string) =>
-  `<a href="${new URL(path, config.APP_URL).href}">${escape(text)}</a>`;
-
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 const pluralsOf = (word: string) => {
@@ -60,26 +57,8 @@ const pluralsOf = (word: string) => {
 const singularOrPlural = (a: string, b: string) =>
   pluralsOf(a).includes(b.trim().toLowerCase()) || pluralsOf(b).includes(a.trim().toLowerCase());
 
-const localToday = (timezone: string) =>
-  new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
-
-const formatDay = (day: string, timezone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    timeZone: 'UTC',
-  }).format(new Date(`${day}T00:00:00Z`)) + (day === localToday(timezone) ? ' (today)' : '');
-
-const formatTime = (instant: string, timezone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: timezone,
-  }).format(new Date(instant));
+const realDate = (day: string) =>
+  !Number.isNaN(Date.parse(day)) && new Date(`${day}T00:00:00Z`).toISOString().startsWith(day);
 
 const dueDateOf = (when: When | null, timezone: string) => {
   if (!when) return null;
@@ -92,9 +71,9 @@ const dueDateOf = (when: When | null, timezone: string) => {
   }
   const year = Number(today.slice(0, 4));
   const candidate = `${year}-${String(when.month).padStart(2, '0')}-${String(when.day).padStart(2, '0')}`;
-  if (Number.isNaN(Date.parse(candidate)) || when.month > 12 || when.day > 31)
-    throw badRequest('That date does not exist');
-  return candidate < today ? `${year + 1}${candidate.slice(4)}` : candidate;
+  const day = candidate < today ? `${year + 1}${candidate.slice(4)}` : candidate;
+  if (!realDate(day)) throw badRequest('That date does not exist');
+  return day;
 };
 
 const listNames = (lists: ShoppingList[]) => lists.map((list) => `"${escape(list.name)}"`).join(', ');
@@ -152,6 +131,7 @@ const addToList = async (context: Context, items: string[], listName: string | n
     list.id,
     items.map((name) => createItemSchema.parse({ name })),
     context.sender.id,
+    context.chat.chat_id,
   );
   return `Added ${items.map(escape).join(', ')} to <b>${escape(list.name)}</b>.`;
 };
@@ -279,20 +259,20 @@ const showAppointments = async (context: Context) => {
     .join('\n');
 };
 
-const switchProject = async (context: Context, key: string, chatId: number) => {
+const switchProject = async (context: Context, key: string) => {
   const project = await findProjectContext(key, context.sender.id);
-  if (!(await selectProject(chatId, project.key)))
+  if (!(await selectProject(context.chat.chat_id, project.key)))
     return `This chat isn't connected to ${escape(key)}. Connect it from that project's Settings → Telegram.`;
   return `Now working in <b>${escape(project.key)}</b>.`;
 };
 
-const run = (context: Context, command: Command, chatId: number): Promise<string> | string => {
+const run = (context: Context, command: Command): Promise<string> | string => {
   switch (command.kind) {
     case 'help':
     case 'start':
       return helpText(context.project.module === 'household');
     case 'use':
-      return switchProject(context, command.key, chatId);
+      return switchProject(context, command.key);
     case 'add':
       return addToList(context, command.items, command.list);
     case 'bought':
@@ -350,6 +330,10 @@ const linkWithCode = async (message: TelegramMessage, code: string) => {
 };
 
 export const handleMessage = async (message: TelegramMessage): Promise<string | null> => {
+  if (message.migrate_to_chat_id) {
+    await migrateChat(message.chat.id, message.migrate_to_chat_id);
+    return null;
+  }
   const text = message.text?.trim();
   if (!text || !message.from) return null;
   const command = parseCommand(text);
@@ -366,7 +350,7 @@ export const handleMessage = async (message: TelegramMessage): Promise<string | 
     if (!botAllowed(tier, project.module))
       return `This project's Telegram bot needs the ${PLAN_META[minimumBotPlan(project.module)].label} plan.`;
     const timezone = sender.preferences.timezone ?? DEFAULT_PREFERENCES.timezone;
-    return await run({ chat, project, sender, timezone }, command, message.chat.id);
+    return await run({ chat, project, sender, timezone }, command);
   } catch (error) {
     if (error instanceof HttpError) {
       const missing = (error.details as { missing?: string[] } | undefined)?.missing;

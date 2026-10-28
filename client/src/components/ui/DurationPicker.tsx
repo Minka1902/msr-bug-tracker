@@ -1,5 +1,4 @@
-import { DURATION_PRESETS } from '@msr/shared/calendar';
-import { formatMinutes } from '../../lib/dates';
+import { DURATION_PRESETS, formatMinutes } from '@msr/shared/calendar';
 import { OptionPicker } from './OptionPicker';
 
 interface DurationPickerProps {

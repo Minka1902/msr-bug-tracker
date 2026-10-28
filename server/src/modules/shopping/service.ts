@@ -42,9 +42,16 @@ const DELETE_LIST = 'DELETE FROM shopping_lists WHERE id = $1 AND project_id = $
 const LIST_IN_PROJECT = 'SELECT id FROM shopping_lists WHERE id = $1 AND project_id = $2';
 const FIRST_ITEM =
   'SELECT min(position) AS position FROM shopping_items WHERE list_id = $1 AND NOT is_checked';
+const TELEGRAM_LISTENS = `
+  EXISTS (SELECT 1 FROM telegram_chats c WHERE c.project_id = l.project_id AND 'shopping_changes' = ANY(c.notify))`;
 const INSERT_ITEMS = `
-  INSERT INTO shopping_items (list_id, name, quantity, added_by, position)
-  SELECT $1, name, quantity, $2, position FROM unnest($3::text[], $4::text[], $5::text[]) AS i(name, quantity, position)`;
+  WITH added AS (
+    INSERT INTO shopping_items (list_id, name, quantity, added_by, position)
+    SELECT $1, name, quantity, $2, position FROM unnest($3::text[], $4::text[], $5::text[]) AS i(name, quantity, position)
+  )
+  INSERT INTO telegram_outbox (project_id, kind, payload, actor_id, source_chat_id)
+  SELECT l.project_id, 'shopping_changes', jsonb_build_object('list', l.name, 'added', to_jsonb($3::text[])), $2, $6
+  FROM shopping_lists l WHERE l.id = $1 AND ${TELEGRAM_LISTENS}`;
 const UPDATE_ITEM = `
   UPDATE shopping_items i
   SET name = coalesce($3, i.name), quantity = coalesce($4, i.quantity), position = coalesce($6, i.position),
@@ -64,8 +71,16 @@ const CHECK_ITEMS = `
   WHERE i.id = ANY($1::uuid[]) AND l.id = i.list_id AND l.project_id = $2
   RETURNING i.id`;
 const CLEAR_CHECKED = `
-  DELETE FROM shopping_items i USING shopping_lists l
-  WHERE i.list_id = $1 AND l.id = i.list_id AND l.project_id = $2 AND i.is_checked`;
+  WITH cleared AS (
+    DELETE FROM shopping_items i USING shopping_lists l
+    WHERE i.list_id = $1 AND l.id = i.list_id AND l.project_id = $2 AND i.is_checked
+    RETURNING i.name
+  )
+  INSERT INTO telegram_outbox (project_id, kind, payload, actor_id)
+  SELECT l.project_id, 'shopping_changes',
+         jsonb_build_object('list', l.name, 'cleared', (SELECT jsonb_agg(name) FROM cleared)), $3
+  FROM shopping_lists l
+  WHERE l.id = $1 AND EXISTS (SELECT 1 FROM cleared) AND ${TELEGRAM_LISTENS}`;
 
 const toList = (row: ListRow): ShoppingList => ({
   id: row.id,
@@ -112,7 +127,12 @@ export const deleteList = (projectId: string, listId: string) =>
 export const listExists = (projectId: string, listId: string) =>
   queryOne<{ id: string }>(LIST_IN_PROJECT, [listId, projectId]).then(Boolean);
 
-export const addItems = async (listId: string, items: CreateItemInput[], userId: string) => {
+export const addItems = async (
+  listId: string,
+  items: CreateItemInput[],
+  userId: string,
+  sourceChatId: number | null = null,
+) => {
   const first = await queryOne<{ position: string | null }>(FIRST_ITEM, [listId]);
   await query(INSERT_ITEMS, [
     listId,
@@ -120,6 +140,7 @@ export const addItems = async (listId: string, items: CreateItemInput[], userId:
     items.map((item) => item.name),
     items.map((item) => item.quantity),
     generateNKeysBetween(null, first?.position ?? null, items.length),
+    sourceChatId,
   ]);
 };
 
@@ -147,4 +168,5 @@ export const checkItems = (projectId: string, itemIds: string[], isChecked: bool
 export const deleteItem = (projectId: string, listId: string, itemId: string) =>
   queryOne<{ id: string }>(DELETE_ITEM, [itemId, listId, projectId]);
 
-export const clearChecked = (projectId: string, listId: string) => query(CLEAR_CHECKED, [listId, projectId]);
+export const clearChecked = (projectId: string, listId: string, userId: string) =>
+  query(CLEAR_CHECKED, [listId, projectId, userId]);

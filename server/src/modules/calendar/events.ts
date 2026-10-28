@@ -1,6 +1,7 @@
 import type { CreateEventInput } from '@msr/shared/schemas/calendar';
 import { badRequest } from '../../lib/httpError';
 import { assertCanWrite, findProjectContext, type ProjectContext } from '../projects/access';
+import { queueNotification } from '../telegram/service';
 import { assertProjectAttendees, getConnection, insertEvent, normalizeRange } from './service';
 import { connectionClient } from './sync';
 
@@ -43,11 +44,25 @@ export const createEvent = async (userId: string, input: CreateEventInput) => {
       ...(await provider.createEvent(credentials, calendar.id, fields)),
     };
   }
-  return insertEvent({
+  const id = await insertEvent({
     ...fields,
     ownerId: project ? null : userId,
     projectId: project?.id ?? null,
     createdBy: userId,
     external,
   });
+  if (project)
+    await queueNotification(
+      project.id,
+      'new_events',
+      {
+        title: input.title,
+        location: input.location,
+        startsAt: range.startsAt,
+        allDay: input.allDay,
+        appointment: input.appointment,
+      },
+      userId,
+    );
+  return id;
 };

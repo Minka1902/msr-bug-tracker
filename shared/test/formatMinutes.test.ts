@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMinutes } from '../dates';
+import { formatMinutes } from '../src/calendar';
 
 describe('formatMinutes', () => {
   it('reads like a duration or reminder', () => {

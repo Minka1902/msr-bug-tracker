@@ -5,6 +5,7 @@ interface TelegramResult<T> {
   status: number;
   result?: T;
   description?: string;
+  parameters?: { migrate_to_chat_id?: number };
 }
 
 const API = 'https://api.telegram.org';

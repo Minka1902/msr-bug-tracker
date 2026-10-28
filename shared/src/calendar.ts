@@ -41,6 +41,14 @@ const zoneOffset = (instant: number, timeZone: string) => {
   return local - Math.floor(instant / 1000) * 1000;
 };
 
+export const formatMinutes = (minutes: number) => {
+  if (minutes >= 1440 && minutes % 1440 === 0) return minutes === 1440 ? '1 day' : `${minutes / 1440} days`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} min`;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+};
+
 export const addDays = (isoDate: string, days: number) =>
   new Date(Date.parse(`${isoDate}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
 

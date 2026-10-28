@@ -25,7 +25,7 @@ export const NOTIFY_META: Record<NotifyKind, { label: string; description: strin
     description: 'Every morning at 08:00: what is due today and overdue',
   },
   overdue: { label: 'Overdue', description: 'A task passes its due date' },
-  priority_raised: { label: 'Priority raised', description: 'The priority schedule raises a task' },
+  priority_raised: { label: 'Priority raised', description: "A task's priority goes up" },
   appointment_reminders: { label: 'Appointment reminders', description: 'Before each appointment' },
   shopping_changes: { label: 'Shopping lists', description: 'Items added in the app, or a list cleared' },
   new_events: { label: 'New events', description: 'Someone adds an event or appointment' },

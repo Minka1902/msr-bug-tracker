@@ -1,10 +1,10 @@
 import { format } from 'date-fns';
 import { CalendarClock, MapPin } from 'lucide-react';
+import { formatMinutes } from '@msr/shared/calendar';
 import type { CalendarItem } from '@msr/shared/types';
 import { AvatarGroup } from '../../../components/ui/AvatarGroup';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { cn } from '../../../lib/cn';
-import { formatMinutes } from '../../../lib/dates';
 import { itemEnd, itemStart } from '../../calendar/calendarDates';
 
 interface UpcomingAppointmentsProps {
