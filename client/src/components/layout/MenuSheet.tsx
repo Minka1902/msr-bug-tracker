@@ -1,4 +1,4 @@
-import { CalendarDays, Palette, Search, Settings } from 'lucide-react';
+import { CalendarDays, Palette, Search, Settings, Store } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router';
 import { Sheet } from '../ui/Sheet';
@@ -45,10 +45,14 @@ export function MenuSheet({ open, onOpenChange, user, projects, actions }: MenuS
             <Search className="size-4.5" />
             Search tasks, projects…
           </button>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <NavLink to="/calendar" onClick={() => onOpenChange(false)} className={TILE}>
               <CalendarDays />
               Calendar
+            </NavLink>
+            <NavLink to="/shop" onClick={() => onOpenChange(false)} className={TILE}>
+              <Store />
+              Shop
             </NavLink>
             <NavLink to="/settings" onClick={() => onOpenChange(false)} className={TILE}>
               <Settings />

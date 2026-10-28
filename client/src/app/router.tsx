@@ -78,6 +78,10 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/shop',
+            lazy: lazyRoute(() => import('../features/shop/pages/ShopPage').then((m) => m.ShopPage)),
+          },
+          {
             path: '/t/:identifier',
             lazy: lazyRoute(() =>
               import('../features/tasks/pages/IdentifierRedirect').then((m) => m.IdentifierRedirect),

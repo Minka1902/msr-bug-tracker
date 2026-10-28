@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   ListTodo,
   Settings,
+  Store,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -21,4 +22,7 @@ export const WORKSPACE_NAV: NavItem[] = [
   { to: '/projects', label: 'Projects', icon: FolderKanban, end: true },
 ];
 
-export const SYSTEM_NAV: NavItem[] = [{ to: '/settings', label: 'Settings', icon: Settings }];
+export const SYSTEM_NAV: NavItem[] = [
+  { to: '/shop', label: 'Shop', icon: Store },
+  { to: '/settings', label: 'Settings', icon: Settings },
+];
