@@ -1,14 +1,17 @@
 import { addDays, addHours, format, parseISO, startOfHour } from 'date-fns';
 import { CircleAlert, Lock, Star, Trash2 } from 'lucide-react';
+import { DEFAULT_REMINDERS } from '@msr/shared/calendar';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import type { CalendarItem } from '@msr/shared/types';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
+import { DurationPicker } from '../../../components/ui/DurationPicker';
 import { Field } from '../../../components/ui/Field';
 import { Input } from '../../../components/ui/Input';
 import { Modal } from '../../../components/ui/Modal';
 import { OptionPicker } from '../../../components/ui/OptionPicker';
+import { ReminderPicker } from '../../../components/ui/ReminderPicker';
 import { Switch } from '../../../components/ui/Switch';
 import { Textarea } from '../../../components/ui/Textarea';
 import { useConfirm } from '../../../hooks/useConfirm';
@@ -32,6 +35,7 @@ interface EventModalProps {
   event?: CalendarItem | null;
   defaults?: EventDefaults;
   lockTarget?: boolean;
+  appointment?: boolean;
 }
 
 interface EventForm {
@@ -46,9 +50,13 @@ interface EventForm {
   important: boolean;
   target: string | null;
   attendeeIds: string[];
+  duration: number;
+  reminders: number[];
 }
 
 const MAX_CONFLICT_PEOPLE = 50;
+const DEFAULT_DURATION = 60;
+const MINUTE_MS = 60_000;
 const DAY_FORMAT = 'yyyy-MM-dd';
 
 const formFor = (event: CalendarItem | null | undefined, defaults: EventDefaults): EventForm => {
@@ -69,6 +77,8 @@ const formFor = (event: CalendarItem | null | undefined, defaults: EventDefaults
       important: event.important,
       target: null,
       attendeeIds: event.attendees.map((person) => person.id),
+      duration: Math.max(1, Math.round((Date.parse(event.endsAt) - Date.parse(event.startsAt)) / MINUTE_MS)),
+      reminders: event.reminders,
     };
   }
   const start = defaults.time
@@ -89,11 +99,17 @@ const formFor = (event: CalendarItem | null | undefined, defaults: EventDefaults
     important: false,
     target: null,
     attendeeIds: [],
+    duration: DEFAULT_DURATION,
+    reminders: DEFAULT_REMINDERS,
   };
 };
 
-const rangeOf = (form: EventForm) =>
-  form.allDay
+const rangeOf = (form: EventForm, appointment = false) => {
+  if (appointment) {
+    const startsAt = fromLocalInputs(form.startDate, form.startTime);
+    return { startsAt, endsAt: new Date(Date.parse(startsAt) + form.duration * MINUTE_MS).toISOString() };
+  }
+  return form.allDay
     ? {
         startsAt: `${form.startDate}T00:00:00.000Z`,
         endsAt: `${format(addDays(parseISO(form.endDate < form.startDate ? form.startDate : form.endDate), 1), DAY_FORMAT)}T00:00:00.000Z`,
@@ -102,8 +118,16 @@ const rangeOf = (form: EventForm) =>
         startsAt: fromLocalInputs(form.startDate, form.startTime),
         endsAt: fromLocalInputs(form.endDate, form.endTime),
       };
+};
 
-export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarget }: EventModalProps) {
+export function EventModal({
+  open,
+  onOpenChange,
+  event,
+  defaults = {},
+  lockTarget,
+  appointment,
+}: EventModalProps) {
   const set = <K extends keyof EventForm>(key: K, value: EventForm[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
 
@@ -139,7 +163,7 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
     submitEvent.preventDefault();
     setTouched(true);
     if (invalid) return;
-    const range = rangeOf(form);
+    const range = rangeOf(form, isAppointment);
     const people = form.attendeeIds.length
       ? form.attendeeIds
       : chosen?.projectKey
@@ -148,7 +172,7 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
     const proceed = await guard({
       userIds: people.slice(0, MAX_CONFLICT_PEOPLE),
       ...range,
-      allDay: form.allDay,
+      allDay: !isAppointment && form.allDay,
       excludeEventId: event?.id,
     });
     if (!proceed) return;
@@ -156,14 +180,16 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
       title: form.title.trim(),
       description: form.description,
       location: form.location.trim(),
-      allDay: form.allDay,
+      allDay: !isAppointment && form.allDay,
       important: form.important,
+      appointment: isAppointment,
+      reminders: isAppointment ? form.reminders : [],
       ...range,
     };
     if (event)
       update.mutate(
         { id: event.id, patch: { ...fields, ...(event.project ? { attendeeIds: form.attendeeIds } : {}) } },
-        { onSuccess: done('Event saved') },
+        { onSuccess: done(isAppointment ? 'Appointment saved' : 'Event saved') },
       );
     else
       create.mutate(
@@ -173,7 +199,7 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
           calendar: chosen?.calendar ?? null,
           attendeeIds: chosen?.projectKey ? form.attendeeIds : [],
         },
-        { onSuccess: done('Event added') },
+        { onSuccess: done(isAppointment ? 'Appointment added' : 'Event added') },
       );
   };
 
@@ -195,6 +221,8 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
   const create = useCreateEvent();
   const update = useUpdateEvent();
   const remover = useDeleteEvent();
+  const isAppointment = event ? event.appointment : !!appointment;
+  const noun = isAppointment ? 'appointment' : 'event';
   const [form, setForm] = useState(() => formFor(event, defaults));
   const [touched, setTouched] = useState(false);
   const [lastOpen, setLastOpen] = useState(open);
@@ -204,12 +232,13 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
   const projectKey = event ? event.project?.key : chosen?.projectKey;
   const project = useProject(projectKey ?? '');
   const readOnly = !!event && !event.editable;
-  const range = rangeOf(form);
-  const endError = form.allDay
-    ? undefined
-    : Date.parse(range.endsAt) <= Date.parse(range.startsAt)
-      ? 'The end must be after the start'
-      : undefined;
+  const range = rangeOf(form, isAppointment);
+  const endError =
+    form.allDay || isAppointment
+      ? undefined
+      : Date.parse(range.endsAt) <= Date.parse(range.startsAt)
+        ? 'The end must be after the start'
+        : undefined;
   const titleError = form.title.trim() ? undefined : 'Add a title';
   const invalid = !!(titleError || endError || !form.startDate || !form.endDate);
   const error = create.error ?? update.error ?? remover.error;
@@ -227,7 +256,7 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
     <Modal
       open={open}
       onOpenChange={(next) => !next && close()}
-      title={event ? (readOnly ? event.title : 'Edit event') : 'New event'}
+      title={event ? (readOnly ? event.title : `Edit ${noun}`) : `New ${noun}`}
       description={event ? event.calendarName : undefined}
       footer={
         <>
@@ -247,7 +276,7 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
           </Button>
           {!readOnly && (
             <Button type="submit" form="event-form" loading={create.isPending || update.isPending}>
-              {event ? 'Save' : 'Add event'}
+              {event ? 'Save' : `Add ${noun}`}
             </Button>
           )}
         </>
@@ -277,55 +306,100 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
               onChange={(change) => set('title', change.target.value)}
             />
           </Field>
-          <Switch
-            checked={form.allDay}
-            onCheckedChange={(checked) => set('allDay', checked)}
-            label="All day"
-            size="sm"
-          />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Starts">
-              <div className="flex gap-2">
+          {isAppointment ? (
+            <>
+              <Field label="Where" htmlFor="event-location">
                 <Input
-                  type="date"
-                  aria-label="Start date"
-                  value={form.startDate}
-                  onChange={(change) => moveStart(change.target.value, form.startTime)}
+                  id="event-location"
+                  value={form.location}
+                  maxLength={300}
+                  placeholder="Clinic, school or address"
+                  onChange={(change) => set('location', change.target.value)}
                 />
-                {!form.allDay && (
-                  <Input
-                    type="time"
-                    aria-label="Start time"
-                    value={form.startTime}
-                    wrapperClassName="w-36 shrink-0"
-                    onChange={(change) => moveStart(form.startDate, change.target.value)}
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_11rem]">
+                <Field label="When">
+                  <div className="flex gap-2">
+                    <Input
+                      type="date"
+                      aria-label="Date"
+                      value={form.startDate}
+                      onChange={(change) => set('startDate', change.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      aria-label="Time"
+                      value={form.startTime}
+                      wrapperClassName="w-36 shrink-0"
+                      onChange={(change) => set('startTime', change.target.value)}
+                    />
+                  </div>
+                </Field>
+                <Field label="How long">
+                  <DurationPicker
+                    value={form.duration}
+                    onChange={(minutes) => set('duration', minutes)}
+                    className="w-full"
                   />
-                )}
+                </Field>
               </div>
-            </Field>
-            <Field label="Ends" error={touched ? endError : undefined}>
-              <div className="flex gap-2">
-                <Input
-                  type="date"
-                  aria-label="End date"
-                  value={form.endDate}
-                  min={form.startDate}
-                  invalid={touched && !!endError}
-                  onChange={(change) => set('endDate', change.target.value)}
-                />
-                {!form.allDay && (
+              <Field label="Remind" hint="The household's Telegram chats get the reminder.">
+                <ReminderPicker value={form.reminders} onChange={(minutes) => set('reminders', minutes)} />
+              </Field>
+            </>
+          ) : (
+            <Switch
+              checked={form.allDay}
+              onCheckedChange={(checked) => set('allDay', checked)}
+              label="All day"
+              size="sm"
+            />
+          )}
+          {!isAppointment && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Starts">
+                <div className="flex gap-2">
                   <Input
-                    type="time"
-                    aria-label="End time"
-                    value={form.endTime}
-                    wrapperClassName="w-36 shrink-0"
+                    type="date"
+                    aria-label="Start date"
+                    value={form.startDate}
+                    onChange={(change) => moveStart(change.target.value, form.startTime)}
+                  />
+                  {!form.allDay && (
+                    <Input
+                      type="time"
+                      aria-label="Start time"
+                      value={form.startTime}
+                      wrapperClassName="w-36 shrink-0"
+                      onChange={(change) => moveStart(form.startDate, change.target.value)}
+                    />
+                  )}
+                </div>
+              </Field>
+              <Field label="Ends" error={touched ? endError : undefined}>
+                <div className="flex gap-2">
+                  <Input
+                    type="date"
+                    aria-label="End date"
+                    value={form.endDate}
+                    min={form.startDate}
                     invalid={touched && !!endError}
-                    onChange={(change) => set('endTime', change.target.value)}
+                    onChange={(change) => set('endDate', change.target.value)}
                   />
-                )}
-              </div>
-            </Field>
-          </div>
+                  {!form.allDay && (
+                    <Input
+                      type="time"
+                      aria-label="End time"
+                      value={form.endTime}
+                      wrapperClassName="w-36 shrink-0"
+                      invalid={touched && !!endError}
+                      onChange={(change) => set('endTime', change.target.value)}
+                    />
+                  )}
+                </div>
+              </Field>
+            </div>
+          )}
           {!event && !lockTarget && (
             <Field label="Calendar">
               <OptionPicker
@@ -360,14 +434,16 @@ export function EventModal({ open, onOpenChange, event, defaults = {}, lockTarge
               />
             </Field>
           )}
-          <Field label="Location" htmlFor="event-location">
-            <Input
-              id="event-location"
-              value={form.location}
-              maxLength={300}
-              onChange={(change) => set('location', change.target.value)}
-            />
-          </Field>
+          {!isAppointment && (
+            <Field label="Location" htmlFor="event-location">
+              <Input
+                id="event-location"
+                value={form.location}
+                maxLength={300}
+                onChange={(change) => set('location', change.target.value)}
+              />
+            </Field>
+          )}
           <Field label="Notes" htmlFor="event-notes">
             <Textarea
               id="event-notes"

@@ -9,6 +9,11 @@ export interface CalendarRange {
   allDay: boolean;
 }
 
+export const REMINDER_MAX_MINUTES = 10_080;
+export const REMINDER_PRESETS = [2880, 1440, 120, 60, 30, 15];
+export const DEFAULT_REMINDERS = [1440, 60];
+export const DURATION_PRESETS = [15, 30, 45, 60, 90, 120, 180, 240];
+
 const DAY_MS = 86_400_000;
 const MIN_SPAN_MS = 60_000;
 

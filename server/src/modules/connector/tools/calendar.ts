@@ -23,6 +23,8 @@ const compactItem = (item: CalendarItem) => ({
   endsAt: item.endsAt,
   allDay: item.allDay,
   ...(item.important && { important: true }),
+  ...(item.appointment && { appointment: true }),
+  ...(item.reminders.length && { remindMinutesBefore: item.reminders }),
   calendar: item.calendarName,
   ...(item.project && { project: item.project.key }),
   ...(item.location && { location: item.location }),
@@ -75,6 +77,15 @@ export const registerCalendarTools = (server: McpServer, context: ToolContext) =
         description: z.string().max(5000).optional(),
         location: z.string().max(200).optional(),
         projectKey: projectKey.optional(),
+        appointment: z
+          .boolean()
+          .default(false)
+          .describe('A household appointment, like a doctor visit; needs a household project key and a start time'),
+        reminders: z
+          .array(z.number().int().min(0).max(10_080))
+          .max(5)
+          .default([])
+          .describe('Appointments only: remind this many minutes before, for example [1440, 60]'),
       },
       annotations: WRITE,
     },

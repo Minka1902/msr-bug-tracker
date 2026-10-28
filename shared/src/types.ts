@@ -272,6 +272,8 @@ export interface CalendarItem {
   attendees: UserRef[];
   editable: boolean;
   connectionId: string | null;
+  appointment: boolean;
+  reminders: number[];
 }
 
 export interface CalendarConflict {

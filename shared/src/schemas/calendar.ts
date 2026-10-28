@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { REMINDER_MAX_MINUTES } from '../calendar';
 import { emailSchema } from './auth';
 import { projectKeySchema, uuidSchema } from './project';
 
@@ -17,6 +18,11 @@ const eventFields = {
   allDay: z.boolean(),
   important: z.boolean(),
   attendeeIds: z.array(uuidSchema).max(50),
+  appointment: z.boolean(),
+  reminders: z
+    .array(z.int().min(0).max(REMINDER_MAX_MINUTES))
+    .max(5)
+    .transform((minutes) => [...new Set(minutes)].sort((a, b) => b - a)),
 };
 
 const endsAfterStart = (value: { startsAt?: string; endsAt?: string }) =>
@@ -31,6 +37,8 @@ export const createEventSchema = z
     allDay: eventFields.allDay.default(false),
     important: eventFields.important.default(false),
     attendeeIds: eventFields.attendeeIds.default([]),
+    appointment: eventFields.appointment.default(false),
+    reminders: eventFields.reminders.default([]),
     projectKey: projectKeySchema.nullable().default(null),
     calendar: z
       .object({ connectionId: uuidSchema, calendarId: z.string().min(1).max(500) })

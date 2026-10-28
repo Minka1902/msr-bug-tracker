@@ -9,8 +9,10 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
+import { CalendarClock } from 'lucide-react';
 import { useState } from 'react';
 import type { CalendarItem } from '@msr/shared/types';
+import { Button } from '../../../components/ui/Button';
 import { ErrorState } from '../../../components/ui/ErrorState';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useLocalState } from '../../../hooks/useLocalState';
@@ -28,6 +30,7 @@ import { WeekGrid } from './WeekGrid';
 interface CalendarViewProps {
   projectKey?: string;
   lockTarget?: boolean;
+  appointments?: boolean;
   storageKey?: string;
   agendaDays?: number;
   className?: string;
@@ -36,6 +39,7 @@ interface CalendarViewProps {
 interface Editor {
   event: CalendarItem | null;
   defaults: EventDefaults;
+  appointment?: boolean;
 }
 
 const rangeOf = (mode: CalendarMode, anchor: Date, weekStart: WeekStart, agendaDays: number) => {
@@ -61,6 +65,7 @@ const titleOf = (mode: CalendarMode, anchor: Date, range: { start: Date; end: Da
 export function CalendarView({
   projectKey,
   lockTarget,
+  appointments,
   storageKey = 'msr-calendar-mode',
   agendaDays = 42,
   className,
@@ -111,7 +116,18 @@ export function CalendarView({
         onNext={() => step(1)}
         onToday={() => setAnchor(new Date())}
         onNewEvent={() => create()}
-      />
+      >
+        {appointments && (
+          <Button
+            size="sm"
+            variant="secondary"
+            leftIcon={<CalendarClock />}
+            onClick={() => openEditor({ event: null, defaults: { projectKey }, appointment: true })}
+          >
+            New appointment
+          </Button>
+        )}
+      </CalendarToolbar>
       {items.error && <ErrorState error={items.error} onRetry={items.refetch} />}
       {items.isPending && <Skeleton className="h-[32rem] rounded-card" />}
       {items.data && mode === 'month' && (
@@ -145,6 +161,7 @@ export function CalendarView({
         event={editor.event}
         defaults={editor.defaults}
         lockTarget={lockTarget}
+        appointment={editor.appointment}
       />
     </div>
   );

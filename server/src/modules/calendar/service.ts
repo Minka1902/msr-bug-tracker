@@ -44,6 +44,8 @@ export interface EventRow {
   external_id: string | null;
   etag: string | null;
   project_key: string | null;
+  is_appointment: boolean;
+  reminders: number[];
 }
 
 interface ListedEventRow extends EventRow {
@@ -91,6 +93,8 @@ export interface NewEvent {
   allDay: boolean;
   important: boolean;
   attendeeIds: string[];
+  appointment: boolean;
+  reminders: number[];
   external: { connectionId: string; calendarId: string; externalId: string; etag: string | null } | null;
 }
 
@@ -167,11 +171,13 @@ const GET_EVENT = `
   SELECT e.*, p.key::text AS project_key FROM calendar_events e LEFT JOIN projects p ON p.id = e.project_id WHERE e.id = $1`;
 const INSERT_EVENT = `
   INSERT INTO calendar_events (owner_id, project_id, created_by, title, description, location, starts_at, ends_at, all_day,
-                               is_important, connection_id, external_calendar_id, external_id, etag)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`;
+                               is_important, connection_id, external_calendar_id, external_id, etag, is_appointment, reminders)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`;
 const UPDATE_EVENT = `
   UPDATE calendar_events SET title = $2, description = $3, location = $4, starts_at = $5, ends_at = $6, all_day = $7,
-         is_important = $8, etag = $9, updated_at = now()
+         is_important = $8, etag = $9, is_appointment = $10, reminders = $11,
+         reminders_sent = CASE WHEN starts_at IS DISTINCT FROM $5 OR reminders IS DISTINCT FROM $11 THEN '{}' ELSE reminders_sent END,
+         updated_at = now()
   WHERE id = $1`;
 const DELETE_EVENT = 'DELETE FROM calendar_events WHERE id = $1';
 const CLEAR_ATTENDEES = 'DELETE FROM calendar_event_attendees WHERE event_id = $1';
@@ -250,6 +256,8 @@ const deadlineItem = (row: DeadlineRow): CalendarItem => ({
   attendees: [],
   editable: false,
   connectionId: null,
+  appointment: false,
+  reminders: [],
 });
 
 const eventItem = (row: ListedEventRow, userId: string): CalendarItem => ({
@@ -276,6 +284,8 @@ const eventItem = (row: ListedEventRow, userId: string): CalendarItem => ({
     ? row.created_by === userId || can(row.my_permissions ?? 0, 'task.edit_any')
     : row.owner_id === userId && !row.read_only,
   connectionId: row.connection_id,
+  appointment: row.is_appointment,
+  reminders: row.reminders,
 });
 
 export const listCalendarItems = async (
@@ -437,6 +447,8 @@ export const insertEvent = (input: NewEvent) =>
         input.external?.calendarId ?? null,
         input.external?.externalId ?? null,
         input.external?.etag ?? null,
+        input.appointment,
+        input.reminders,
       ],
       db,
     );
@@ -448,7 +460,7 @@ export const saveEvent = (
   event: EventRow,
   fields: Pick<
     NewEvent,
-    'title' | 'description' | 'location' | 'startsAt' | 'endsAt' | 'allDay' | 'important'
+    'title' | 'description' | 'location' | 'startsAt' | 'endsAt' | 'allDay' | 'important' | 'appointment' | 'reminders'
   >,
   etag: string | null,
   attendeeIds?: string[],
@@ -466,6 +478,8 @@ export const saveEvent = (
         fields.allDay,
         fields.important,
         etag,
+        fields.appointment,
+        fields.reminders,
       ],
       db,
     );
