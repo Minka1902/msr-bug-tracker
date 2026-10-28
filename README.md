@@ -6,7 +6,11 @@ On phones it is built for one hand: navigation, the + button and sheet buttons s
 
 It also covers:
 
-- **Households:** chores, errands, recurring tasks with turn-taking, Parent/Child/Guest roles and shared shopping lists.
+- **Modules and plans:** each project is a Software, Personal, Household, Skill or Startup project, with its own task types, starter labels and AI prompts. Yearly Free, Personal and Pro plans decide which modules you can start and how many new projects a year, and the Shop also sells 10- and 25-project packs for one module. Everything is free during launch.
+- **AI planning:** a new idea gets a few clarifying questions from your own AI key, then a plan of small, dated steps. A step goes to you only when AI can't do it.
+- **AI workers:** turn a connected AI app into a project member with its own role, then assign it tasks.
+- **Households:** chores, errands, recurring tasks with turn-taking, Parent/Child/Guest roles, shared shopping lists, and appointments with a place, time, duration and reminders.
+- **Telegram bot:** connect any project to a private chat or a family or team group. Add to shopping lists, list and add chores, finish tasks and check appointments by chat, and pick which updates, reminders and daily digest each chat gets.
 - **Calendar:** month, week and agenda views; two-way sync with Google Calendar and iCloud; a subscribable feed for any calendar app; and a warning whenever a deadline or meeting overlaps a very important event.
 - **Accounts:** email verification through Resend, two-factor sign-in with Google or Microsoft Authenticator, and saved Claude, ChatGPT, Gemini and Grok API keys.
 - **AI connector:** a remote MCP server with OAuth sign-in, so Claude, ChatGPT and coding agents can read and update your projects, tasks, shopping lists and calendar. Settings → Connected apps has step-by-step setup for Claude, ChatGPT, Claude Code, Cursor, VS Code, Codex CLI, Gemini CLI and any other MCP client.
@@ -55,6 +59,7 @@ Before the first `pnpm e2e`, install the browser once with `pnpm exec playwright
 3. When asked, fill in the variables below. The full checklist is in [docs/setup-requirements.md](docs/setup-requirements.md).
    - `RESEND_API_KEY` and `MAIL_FROM`: `MAIL_FROM` must be an address on the domain you verified in Resend, for example `MSR Tracker <no-reply@example.com>`. Without these, verification and password-reset links go to the service log instead of being emailed.
    - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: optional, only needed for Google Calendar sync.
+   - `TELEGRAM_BOT_TOKEN`: optional, from @BotFather. It turns on the Telegram bot; the webhook is registered on boot.
    - `ENCRYPTION_KEY`: the Blueprint generates it. Never change it once it's set.
 4. Apply. The first deploy builds the image, runs migrations and goes live at `https://<service>.onrender.com`. `APP_URL` defaults to that address; set it yourself only if you add a custom domain.
 

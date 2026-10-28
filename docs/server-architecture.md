@@ -19,7 +19,8 @@ server/src
 └── modules/<domain>/     # routes.ts (HTTP) + service.ts (SQL) per domain
                           # auth, twoFactor, users, aiKeys, invites, projects, statuses, labels,
                           # roles, members, tasks, comments, checklist, relations, attachments,
-                          # importer, migrations, calendar, shopping, insights, search, connector, demo, dev
+                          # importer, migrations, calendar, shopping, insights, search, connector, demo, dev,
+                          # shop, agents, planner, telegram
 ```
 
 Inside a module, `routes.ts` only parses input with shared zod schemas, runs permission checks, and calls a service. `service.ts` holds the SQL. Its SQL strings are consts at the top of the file, followed by the functions. A service never touches `req` or `res`, so tests and the demo generator can reuse it.
@@ -187,7 +188,7 @@ A project's `kind` is `software` or `household`, fixed when the project is creat
 - the starter labels Kitchen, Laundry, Outdoor, School and Pets
 - a Groceries list
 
-The client offers chore, errand and task (`KIND_TASK_TYPES`). Its tabs are Home, Chores (the board grouped by person), All tasks, Shopping, Calendar, Activity and Settings.
+The client offers chore, errand and task (`MODULE_META.household.taskTypes`). Its tabs are Home, Chores (the board grouped by person), All tasks, Shopping, Calendar, Activity and Settings.
 
 `modules/shopping` serves lists and items under `/projects/:key/lists`:
 
@@ -195,6 +196,48 @@ The client offers chore, errand and task (`KIND_TASK_TYPES`). Its tabs are Home,
 - Reads need membership. Writes need `lists.edit`.
 - Each write answers with the whole updated list in one query, items aggregated with `json_agg`.
 - The client polls every 10 seconds while the page is open, so two people shopping together see each other's ticks.
+
+## Plans, modules and the Shop
+
+`shared/src/modules.ts` is the catalog: the five modules you can start (software, personal, household, skill, startup), the five shown as Coming soon (event, renovation, job search, trip, fitness), and the plans.
+
+| Plan     | Modules                                                  | Telegram bot    | New projects a year |
+| -------- | -------------------------------------------------------- | --------------- | ------------------- |
+| Free     | Software, Personal                                       | No              | 3                   |
+| Personal | Software, Personal, Household, Skill (and 3 coming soon) | Households only | 150                 |
+| Pro      | All                                                      | Every project   | 350                 |
+
+`modules/shop`:
+
+- `GET /shop` returns the current plan, the year's usage and the projects left in packs, summed per module.
+- `POST /shop/subscribe {tier}` starts a year; the same or a lower tier answers 409.
+- `POST /shop/packs {module, projects}` buys 1–100 projects for one module. Both are free (`price_cents = 0`) until payments are added.
+
+`createProject` checks the plan inside its transaction: it locks the user row, uses the plan's yearly allowance when the plan includes the module, and otherwise takes the oldest pack for the module. Without either it answers 402 with what to buy. Members never need a plan; only starting a project and the bot are gated.
+
+## AI workers
+
+`modules/agents` turns one of your connected apps (an OAuth grant) into an AI worker: a password-less `users` row owned by you, with `oauth_grants.agent_id` pointing at it. The connector resolves a token to `coalesce(agent_id, user_id)`, so the app then works as the worker, sees only the projects the worker was added to, and follows its role there.
+
+- `GET`/`POST /me/agents`, `PATCH`/`DELETE /me/agents/:id` manage your workers. Renaming or moving a worker to another connection revokes the old one.
+- `POST /projects/:key/members/agents {agentId, roleId}` adds your worker to a project, with `project.manage_members` and never as owner.
+- Deleting a worker deletes its connection and unassigns its open tasks.
+
+## AI planner
+
+`modules/planner` plans a new idea with the user's own saved AI key (`lib/ai.ts`):
+
+- **Claude** goes through the Anthropic SDK with structured output from the zod schema, `effort: medium` and server-side model fallbacks.
+- **ChatGPT and Grok** use chat completions with a strict JSON schema.
+- **Gemini** uses `generateContent` with a response schema.
+
+Every answer is parsed with the shared zod schema, and errors become clear 400/429/502/504 messages.
+
+- `POST /planner/questions` asks 3–6 clarifying questions.
+- `POST /planner/plan` returns small steps. A step goes to a human only when AI can't do it, and every human step says what, when and how. Steps are dated from the user's pace in Settings → AI → Motivation.
+- `POST /projects/:key/plan {tasks, agentId}` commits the picked steps through `commitImport`: AI steps go to the chosen AI worker, with checklists.
+
+`planner/prompts.ts` holds the shared rules and one prompt per module.
 
 ## Calendar
 
@@ -240,7 +283,40 @@ The client asks before saving a due date, an assignee or an event, then confirms
 - **Storing:** one `unnest` upsert, then a prune of events that are gone from the source.
 - **Edits:** an edit to a synced event is pushed back with `If-Match` on its etag. A 409 triggers a fresh sync.
 
+**Appointments.** In a household, an event can be an appointment, with a place, a start time, a duration and up to five reminders (minutes before). Appointments can't be all-day. The Telegram notifier sends the reminders.
+
 **Feed.** `GET /calendar-feed/:token.ics` is public and rate-limited. It answers with a hand-written ICS file (escaping and line folding), so Apple, Google, Outlook and Android calendars can subscribe to it.
+
+## Telegram bot
+
+`modules/telegram` is on when `TELEGRAM_BOT_TOKEN` is set. At boot the server registers `APP_URL/telegram/webhook` with a secret derived from `ENCRYPTION_KEY`. Every update must carry it in `X-Telegram-Bot-Api-Secret-Token`, or the webhook answers 401.
+
+**Linking.** Settings → Telegram creates a 15-minute, single-use code and a `t.me/<bot>?start=` link, or `?startgroup=` for a group, which needs `project.edit`. `/start <code>` links the sender's Telegram account to their MSR user and the chat to the project. A chat can follow several projects; `use KEY` switches the one commands go to.
+
+**Commands.** `commands.ts` is a pure parser, and `handlers.ts` runs each command as the sender, through the same guards and services as the HTTP routes. The answer goes back inside the webhook response, so a command costs no extra request to Telegram.
+
+| Message                                               | Does                                                                    |
+| ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `apples, milk` · `add nails to hardware list`         | Adds to the chat's default list or a named one (households)             |
+| `i bought apples and cheese`                          | Ticks matching items, exact first, then singular or plural (households) |
+| `?` · `groceries?` · `open groceries list page`       | Lists or links the shopping lists (households)                          |
+| `appointments?`                                       | The next 14 days of appointments (households)                           |
+| `chores?` / `tasks?` · `mine?`                        | Open tasks by person, or the sender's                                   |
+| `dana needs to wash the car tomorrow` · `i need to …` | Creates a task for that member, due in the sender's timezone            |
+| `KEY-12?` · `done KEY-12`                             | Shows a task, or moves it to its first done status                      |
+| `open project page` · `use KEY` · `help`              | A link, switching projects, the command list                            |
+
+The bot works only while the project owner's plan includes it: Personal for households, Pro for every project. It checks that on every message and every notification run.
+
+**Notifications.** `notifier.ts` runs every minute. It claims each source in one statement, so nothing is sent twice:
+
+- task activity after a cursor that holds back the newest 5 seconds;
+- the outbox, for shopping changes and new events;
+- tasks that just became overdue;
+- the 08:00 daily digest in the linking user's timezone;
+- appointment reminders, sending only the closest due one.
+
+Then it loads the target chats once and builds **one message per chat**, capped at 30 lines. A chat gets only the kinds it picked. A private chat skips its own user's actions, and with "only my tasks" it gets task updates only for tasks assigned to or added by its user. A 403 from Telegram unlinks the chat, and an upgraded group is followed to its new id.
 
 ## Import, export and migration
 
@@ -316,6 +392,10 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 | Invites             | `GET`/`POST /invites`, `DELETE /invites/:id`, `POST /invites/:token/accept`; `GET`/`POST /projects/:key/invites`                                                                                                                                                                                                                                                           |
 | Import & migration  | `GET /import/template`, `GET /projects/:key/tasks/export`, `POST /projects/:key/tasks/import`; `POST /migrations/:tool/sources`, `POST /migrations/:tool/jobs`, `GET`/`DELETE /migrations/jobs/:id`, `POST /migrations/jobs/:id/commit`                                                                                                                                    |
 | Calendar            | `GET`/`POST /calendar/events`, `PATCH`/`DELETE /calendar/events/:id`, `GET /calendar/conflicts`, `/conflicts/upcoming`; `GET /calendar/connections`, `PATCH`/`DELETE …/connections/:id`, `POST …/connections/:id/sync`; `POST /calendar/feed`; `GET /calendar/google/connect`, `/google/callback`; `POST /calendar/icloud/connect`; public `GET /calendar-feed/:token.ics` |
+| Shop & plans        | `GET /shop`, `POST /shop/subscribe`, `POST /shop/packs`                                                                                                                                                                                                                                                                                                                    |
+| AI workers          | `GET`/`POST /me/agents`, `PATCH`/`DELETE /me/agents/:id`, `POST /projects/:key/members/agents`                                                                                                                                                                                                                                                                             |
+| AI planner          | `POST /planner/questions`, `POST /planner/plan`, `POST /projects/:key/plan`                                                                                                                                                                                                                                                                                                |
+| Telegram            | `GET /projects/:key/telegram`, `POST …/telegram/link`, `PATCH`/`DELETE …/telegram/chats/:chatId`, `DELETE /me/telegram`. Outside `/api`: `POST /telegram/webhook`                                                                                                                                                                                                          |
 | Shopping lists      | `GET`/`POST /projects/:key/lists`, `PATCH`/`DELETE …/lists/:listId`, `POST …/lists/:listId/items`, `PATCH`/`DELETE …/items/:itemId`, `POST …/lists/:listId/clear-checked`                                                                                                                                                                                                  |
 | Me                  | `PATCH /me` (name, preferences), `PUT /me/password`, `PUT /me/email`, `DELETE /me/avatar` (uploads are off for now), `GET /users/:id/avatar`, `GET /me/tasks`                                                                                                                                                                                                              |
 | Projects            | `GET`/`POST /projects`, `GET /projects/key-available`, `GET`/`PATCH`/`DELETE /projects/:key`, `POST /projects/:key/archive`, `/restore`, `PUT /projects/:key/favorite`                                                                                                                                                                                                     |
@@ -333,6 +413,7 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 
 | Threat                           | Mitigation                                                                                                                                                                                                                                |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Telegram spoofing                | The webhook needs a secret derived from `ENCRYPTION_KEY`, compared in constant time. Single-use 15-minute link codes stored hashed. Linking a group needs `project.edit`. Commands run with the sender's own permissions                  |
 | Connector abuse                  | OAuth 2.1 with PKCE (S256) only. Single-use 5-minute codes. Hashed, rotating tokens. A consent page that names the app and its host. Redirect URIs limited to https or localhost. Write tools only with the `write` scope, and no deletes |
 | Credential theft                 | argon2id passwords. Hashed session and email tokens. httpOnly `__Host-` cookie. Rolling expiry. Revocation on password change or reset                                                                                                    |
 | CSRF                             | `SameSite=Lax`, plus an `Origin` check on every mutating request                                                                                                                                                                          |
@@ -357,16 +438,17 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 | `ENABLE_DEMO_DATA`                         | Turns the demo-data module on or off (default on)                                                                                                     |
 | `ENCRYPTION_KEY`                           | 32 random bytes, base64 (`openssl rand -base64 32`). Seals 2FA secrets, AI keys and calendar credentials. Required in production; never change it     |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Calendar OAuth web client. Without them the "Connect Google Calendar" button is hidden                                                         |
+| `TELEGRAM_BOT_TOKEN`                       | The bot's token from @BotFather. Turns on the Telegram bot, its webhook and the notifier. Without it the Telegram settings are hidden                 |
 | `CLIENT_DIST`                              | When set, Express serves the built SPA from this path                                                                                                 |
 
 ## Testing
 
-| Suite  | Command                       | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Server | `pnpm --filter ./server test` | Vitest and supertest against the real `msr_test` database. Migrations run once in `globalSetup`, and tables are truncated between files. Table-driven 404 tests for non-members on every project and task route. A permission-matrix test for every flag. Escalation and owner invariants, counters against recounts, workflows and remapping, move and aliases, uploads (spoofed types, SVG, size), demo determinism and isolation, static caching, and config fallbacks. Also: Resend mail, 2FA login and recovery codes, AI key checks (mocked providers), invites, CSV/XLSX round trips, the six migration adapters (recorded samples), calendar CRUD, clashes, ICS feed and Google/iCloud sync (mocked), household roles, recurrence exactly-once, shopping list permissions, project emblem validation, and the connector: discovery, PKCE code flow, refresh rotation, revocation, scopes and tool permissions |
-| Shared | `pnpm --filter ./shared test` | Permission logic, identifiers, branch slugs, the calendar overlap rule (time zones, all-day, touching edges) and recurrence dates and rotation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Client | `pnpm --filter ./client test` | jsdom tests for the theme provider, the offline `ErrorState`, the API client's network errors, `safeNextPath`, and rich-text sanitization                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| E2E    | `pnpm e2e`                    | Playwright on Chromium. It recreates `msr_e2e`, builds the app and serves it on port 4300. There is one spec per MVP criterion (`e2e/01`–`10`), plus demo data, the Claude connector's sign-in and consent flow, the project flag builder, touch specs on five sizes (320, 375, 393 and 430 px phones and a 744 px iPad mini): installability, offline shell, no horizontal overflow, 44 px tap targets (52 px with Large), the tab bar and menu sheet, the + button following the hand setting, swipe to finish, dropping cards on board pills, the task action bar, and axe on the touch shell. Desktop gets an axe WCAG 2 A/AA scan in all four themes                                                                                                                                                                                                                                                             |
+| Suite  | Command                       | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Server | `pnpm --filter ./server test` | Vitest and supertest against the real `msr_test` database. Migrations run once in `globalSetup`, and tables are truncated between files. Table-driven 404 tests for non-members on every project and task route. A permission-matrix test for every flag. Escalation and owner invariants, counters against recounts, workflows and remapping, move and aliases, uploads (spoofed types, SVG, size), demo determinism and isolation, static caching, and config fallbacks. Also: Resend mail, 2FA login and recovery codes, AI key checks (mocked providers), invites, CSV/XLSX round trips, the six migration adapters (recorded samples), calendar CRUD, clashes, ICS feed and Google/iCloud sync (mocked), household roles, recurrence exactly-once, shopping list permissions, project emblem validation, and the connector: discovery, PKCE code flow, refresh rotation, revocation, scopes and tool permissions. Plans, packs and their limits under parallel creates; AI workers; the planner with mocked providers; appointments; the Telegram parser, every command through the webhook, and the notifier (each kind, only-my-tasks, digest, overdue, reminders, plan lapse, 403 and group upgrades) |
+| Shared | `pnpm --filter ./shared test` | Permission logic, identifiers, branch slugs, the calendar overlap rule (time zones, all-day, touching edges), recurrence dates and rotation, the module catalog and plan rules, and duration wording                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Client | `pnpm --filter ./client test` | jsdom tests for the theme provider, the offline `ErrorState`, the API client's network errors, `safeNextPath`, and rich-text sanitization                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| E2E    | `pnpm e2e`                    | Playwright on Chromium. It recreates `msr_e2e`, builds the app and serves it on port 4300. There is one spec per MVP criterion (`e2e/01`–`10`), plus demo data, the Claude connector's sign-in and consent flow, the project flag builder, touch specs on five sizes (320, 375, 393 and 430 px phones and a 744 px iPad mini): installability, offline shell, no horizontal overflow, 44 px tap targets (52 px with Large), the tab bar and menu sheet, the + button following the hand setting, swipe to finish, dropping cards on board pills, the task action bar, plans and the Shop (`19-plans`), and axe on the touch shell. Desktop gets an axe WCAG 2 A/AA scan in all four themes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 The e2e specs locate elements by role and accessible name rather than test ids. A control that can't be found that way is usually an accessibility bug, and several were fixed that way. The suite runs fully parallel and has been checked repeatedly under CPU load for flakiness.
 

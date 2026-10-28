@@ -50,6 +50,13 @@ erDiagram
   oauth_clients ||--o{ oauth_codes : issues
   oauth_clients ||--o{ oauth_grants : holds
   users ||--o{ oauth_grants : authorizes
+  users ||--o{ subscriptions : buys
+  users ||--o{ module_packs : buys
+  users ||--o{ project_creations : counts
+  users ||--o{ users : "agent_owner_id (AI workers)"
+  users ||--o| oauth_grants : "agent_id"
+  projects ||--o{ telegram_chats : notifies
+  projects ||--o{ telegram_outbox : queues
 ```
 
 ## Tables
@@ -240,6 +247,36 @@ Task deadlines are not stored here. They are read from `tasks.due_date` and belo
 | `oauth_codes`   | `code_hash` PK, `client_id`, `user_id`, `redirect_uri`, `code_challenge`, `scopes`, `resource`, `expires_at`                             | Five-minute, single-use authorization codes. Exchanging one deletes it and creates the grant in the same statement.                                                                       |
 | `oauth_grants`  | `client_id`, `user_id`, `scopes`, `access_hash` unique, `access_expires_at`, `refresh_hash` unique, `refresh_expires_at`, `last_used_at` | One row per connected app. Tokens are stored as sha256 only. A refresh rotates both hashes. Password changes delete the user's grants, and an hourly job purges expired codes and grants. |
 
+### Plans and modules — migration 014
+
+`projects.module` (`software | personal | household | skill | startup`) picks the task types, starter labels and AI prompts. `projects.kind` stays and follows from it: only Household is `household`.
+
+| Table               | Key columns                                                                           | Notes                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `subscriptions`     | `user_id`, `tier ∈ personal \| pro`, `price_cents`, `starts_at`, `expires_at`         | Yearly plans. The current plan is the best active row; none means Free. An upgrade adds a row and restarts the year                     |
+| `module_packs`      | `user_id`, `module`, `projects` (1–100), `projects_used`                              | Extra new projects for one module. They never expire and never unlock the Telegram bot. A partial index covers packs with projects left |
+| `project_creations` | `user_id`, `project_id` (set null on delete), `pack_id` (null = the plan's allowance) | The ledger the yearly allowance counts. Deleting a project keeps its row, so the slot isn't given back. Demo projects don't write one   |
+
+### AI workers — migration 015
+
+An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents.invalid` email and no password, so it can't sign in. `oauth_grants.agent_id` (unique) points a connected app at the worker it acts as; deleting the worker deletes that connection, so it can never fall back to the owner's access.
+
+### Appointments — migration 016
+
+`calendar_events` gains `is_appointment`, `reminders` (minutes before the start, at most 5, each up to 7 days) and `reminders_sent`. Appointments belong to a project (`CHECK`), and only appointments have reminders. Moving the start or changing the reminders resets `reminders_sent` in the same `UPDATE`. A partial index on `starts_at` covers appointments with reminders.
+
+### Telegram — migrations 017–018
+
+| Table                 | Key columns                                                                                                                           | Notes                                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `users`               | `telegram_user_id` bigint unique                                                                                                      | Who a Telegram sender is in MSR                                                                                                                                          |
+| `telegram_chats`      | PK `(chat_id, project_id)`, `is_group`, `linked_by`, `notify` text[], `only_mine`, `default_list_id`, `digest_sent_on`, `selected_at` | A chat can follow several projects. Commands go to the row with the latest `selected_at`                                                                                 |
+| `telegram_link_codes` | `code_hash` PK, `user_id`, `project_id`, `is_group`, `expires_at`                                                                     | 15-minute, single-use codes, stored as sha256 and consumed with `DELETE … RETURNING`                                                                                     |
+| `telegram_state`      | one row, `activity_cursor`                                                                                                            | The last `task_activity` id the notifier has claimed                                                                                                                     |
+| `telegram_outbox`     | `project_id`, `kind`, `payload` jsonb, `actor_id`, `source_chat_id`                                                                   | Shopping changes and new events, written in the same statement as the change and only when a chat listens. `source_chat_id` stops bot changes echoing back to their chat |
+
+`tasks.overdue_alerted_for` remembers the due date an overdue alert was sent for, so changing the due date re-arms it.
+
 ## Invariants
 
 - **Project keys** are globally unique (case-insensitive), match `^[A-Z][A-Z0-9]{1,5}$`, and never change after creation.
@@ -252,6 +289,8 @@ Task deadlines are not stored here. They are read from `tasks.due_date` and belo
 - **Demo tagging:** demo rows carry `projects.is_demo = true`, and demo users have `users.demo_owner_id` set. Demo users have no password.
 - **Secrets at rest:** 2FA secrets, AI keys, calendar credentials and feed tokens are sealed with AES-256-GCM under `ENCRYPTION_KEY`, in the format `v1.iv.tag.ciphertext`. Changing or losing the key makes them unreadable.
 - **Recurrence:** finishing a recurring task creates exactly one next occurrence. The recurrence moves to the new task.
+- **Plan limits:** starting a project locks the user's row, counts `project_creations` for the plan's year, then takes the oldest open pack in one `UPDATE … RETURNING`, so parallel creates never go over a plan or a pack.
+- **Notifications exactly once:** every Telegram source is claimed in one statement (the activity cursor, `DELETE … RETURNING` on the outbox, and `UPDATE … RETURNING` for overdue tasks, digests and reminders) before anything is sent.
 
 ## Key query patterns
 
