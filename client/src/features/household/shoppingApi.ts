@@ -11,11 +11,12 @@ export const shoppingKeys = {
 
 const listsPath = (projectKey: string) => `/projects/${projectKey}/lists`;
 
-export const useShoppingLists = (projectKey: string, live = true) =>
+export const useShoppingLists = (projectKey: string, live = true, enabled = true) =>
   useQuery({
     queryKey: shoppingKeys.lists(projectKey),
     queryFn: () => api<{ lists: ShoppingList[] }>(listsPath(projectKey)).then((data) => data.lists),
     refetchInterval: live ? REFRESH_MS : false,
+    enabled,
   });
 
 const useListMutation = <TInput>(

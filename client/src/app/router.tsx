@@ -191,6 +191,12 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: 'telegram',
+                    lazy: lazyRoute(() =>
+                      import('../features/telegram/pages/TelegramSettings').then((m) => m.TelegramSettings),
+                    ),
+                  },
+                  {
                     path: 'danger',
                     lazy: lazyRoute(() =>
                       import('../features/projects/settings/DangerSettings').then((m) => m.DangerSettings),
