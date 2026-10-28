@@ -40,6 +40,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   touch: 'standard',
   timezone: 'UTC',
   aiProvider: null,
+  motivation: { pace: 'steady', taskSize: 'small', aiShare: 'max' },
 };
 
 export const avatarUrl = (id: string, avatarKey: string | null) =>

@@ -18,6 +18,7 @@ import type {
   Workflow,
 } from './enums';
 import type { PlanTier, ProjectModule } from './modules';
+import type { Motivation } from './schemas/planner';
 
 export interface UserRef {
   id: string;
@@ -33,6 +34,7 @@ export interface UserPreferences {
   touch: TouchSize;
   timezone: string;
   aiProvider: AiProvider | null;
+  motivation: Motivation;
 }
 
 export interface CurrentUser extends UserRef {

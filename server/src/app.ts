@@ -13,6 +13,7 @@ import { createAuthRouter } from './modules/auth/routes';
 import { createCalendarFeedRouter, createCalendarRouter } from './modules/calendar/routes';
 import { googleConfigured } from './modules/calendar/google';
 import { createDevRouter } from './modules/dev/routes';
+import { createPlannerRouter } from './modules/planner/routes';
 import { createProjectsRouter } from './modules/projects/routes';
 import { createTasksRouter } from './modules/tasks/routes';
 import { createAttachmentsRouter } from './modules/attachments/routes';
@@ -91,6 +92,7 @@ export const createApp = ({
   api.use('/migrations', createMigrationsRouter(limits));
   api.use('/calendar', createCalendarRouter(limits));
   api.use('/shop', createShopRouter(limits));
+  api.use('/planner', createPlannerRouter(limits));
   api.use('/projects', createProjectsRouter());
   api.use(createAttachmentsRouter());
   api.use(createCommentsRouter());

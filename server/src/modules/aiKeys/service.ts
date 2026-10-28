@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { AiProvider } from '@msr/shared/enums';
 import { query } from '../../db/pool';
-import { sealSecret } from '../../lib/secretBox';
+import { badRequest } from '../../lib/httpError';
+import { openSecret, sealSecret } from '../../lib/secretBox';
 
 export type KeyCheck = 'valid' | 'invalid' | 'unreachable';
 
@@ -26,6 +27,9 @@ const UPSERT_KEY = `
   INSERT INTO user_api_keys (user_id, provider, key_sealed, last4) VALUES ($1, $2, $3, $4)
   ON CONFLICT (user_id, provider) DO UPDATE SET key_sealed = EXCLUDED.key_sealed, last4 = EXCLUDED.last4, verified_at = now()`;
 const DELETE_KEY = 'DELETE FROM user_api_keys WHERE user_id = $1 AND provider = $2';
+const PICK_KEY = `
+  SELECT provider, key_sealed FROM user_api_keys WHERE user_id = $1
+  ORDER BY provider = $2 DESC, verified_at DESC LIMIT 1`;
 
 const checkAnthropic = async (apiKey: string): Promise<KeyCheck> => {
   try {
@@ -68,3 +72,9 @@ export const saveApiKey = (userId: string, provider: AiProvider, key: string) =>
   query(UPSERT_KEY, [userId, provider, sealSecret(key), key.slice(-4)]);
 
 export const deleteApiKey = (userId: string, provider: AiProvider) => query(DELETE_KEY, [userId, provider]);
+
+export const openApiKey = async (userId: string, preferred: AiProvider | null) => {
+  const [row] = await query<{ provider: AiProvider; key_sealed: string }>(PICK_KEY, [userId, preferred]);
+  if (!row) throw badRequest('Add an AI key in Settings → AI to plan with AI');
+  return { provider: row.provider, apiKey: openSecret(row.key_sealed) };
+};

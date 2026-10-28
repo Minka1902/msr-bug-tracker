@@ -17,6 +17,7 @@ import { createShoppingRouter } from '../shopping/routes';
 import { createStatusesRouter } from '../statuses/routes';
 import { createProjectTasksRouter } from '../tasks/projectRoutes';
 import { createProjectInsightsRouter } from '../insights/routes';
+import { createProjectPlanRouter } from '../planner/routes';
 import { DEFAULT_PREFERENCES } from '../users/service';
 import { assertCan, assertCanWrite, assertOwner, loadProject, projectOf } from './access';
 import {
@@ -103,6 +104,7 @@ export const createProjectsRouter = () => {
   scoped.use('/members', createMembersRouter());
   scoped.use('/invites', createProjectInvitesRouter());
   scoped.use('/lists', createShoppingRouter());
+  scoped.use('/plan', createProjectPlanRouter());
   scoped.use(createProjectImportRouter());
   scoped.use(createProjectTasksRouter());
   scoped.use(createProjectInsightsRouter());

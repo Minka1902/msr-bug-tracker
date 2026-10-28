@@ -1,4 +1,5 @@
 import type { Request, RequestHandler } from 'express';
+import type { ProjectModule } from '@msr/shared/modules';
 import { can, isSubsetOf, type Permission } from '@msr/shared/permissions';
 import { prepared } from '../../db/pool';
 import { conflict, forbidden, notFound } from '../../lib/httpError';
@@ -6,6 +7,7 @@ import { conflict, forbidden, notFound } from '../../lib/httpError';
 export interface ProjectContext {
   id: string;
   key: string;
+  module: ProjectModule;
   ownerId: string;
   isOwner: boolean;
   isArchived: boolean;
@@ -17,6 +19,7 @@ export interface ProjectContext {
 interface AccessRow {
   id: string;
   key: string;
+  module: ProjectModule;
   owner_id: string;
   archived_at: Date | null;
   permissions: number;
@@ -25,7 +28,7 @@ interface AccessRow {
 }
 
 const LOAD_PROJECT = `
-  SELECT p.id, p.key, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
+  SELECT p.id, p.key, p.module, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
   FROM projects p
   JOIN project_members m ON m.project_id = p.id AND m.user_id = $2
   JOIN project_roles r ON r.id = m.role_id
@@ -34,6 +37,7 @@ const LOAD_PROJECT = `
 export const toProjectContext = (row: AccessRow, userId: string): ProjectContext => ({
   id: row.id,
   key: row.key,
+  module: row.module,
   ownerId: row.owner_id,
   isOwner: row.owner_id === userId,
   isArchived: row.archived_at !== null,

@@ -99,7 +99,10 @@ const resolve = async (
     const mapped = mappedId && statuses.find((status) => status.id === mappedId);
     if (mapped)
       return mapped.workflow === workflow ? mapped : pickStatus(statuses, workflow, mapped.category);
-    if (!name) return statuses.find((status) => status.workflow === workflow)!;
+    if (!name)
+      return task.statusCategory
+        ? pickStatus(statuses, workflow, task.statusCategory)
+        : statuses.find((status) => status.workflow === workflow)!;
     const byName = statuses.find(
       (status) => status.workflow === workflow && status.name.toLowerCase() === name.toLowerCase(),
     );

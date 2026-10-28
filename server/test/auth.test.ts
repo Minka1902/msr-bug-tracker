@@ -193,6 +193,7 @@ describe('account settings', () => {
       touch: 'standard',
       timezone: 'Asia/Jerusalem',
       aiProvider: null,
+      motivation: { pace: 'steady', taskSize: 'small', aiShare: 'max' },
     });
     await agent
       .patch('/api/me')

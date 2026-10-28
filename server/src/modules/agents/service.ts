@@ -35,7 +35,7 @@ const CREATE_WORKER = `
     RETURNING id
   )
   UPDATE oauth_grants g SET agent_id = worker.id FROM worker WHERE g.id = $2 RETURNING worker.id`;
-const OWN_WORKER = 'SELECT id, name FROM users WHERE id = $1 AND agent_owner_id = $2';
+const OWN_WORKER = 'SELECT id, name, email FROM users WHERE id = $1 AND agent_owner_id = $2';
 const RENAME = 'UPDATE users SET name = $3, updated_at = now() WHERE id = $1 AND agent_owner_id = $2';
 const DROP_OLD_GRANT = 'DELETE FROM oauth_grants WHERE agent_id = $1';
 const BIND_GRANT = `
@@ -64,7 +64,7 @@ export const listWorkers = async (ownerId: string): Promise<AiWorker[]> =>
   }));
 
 export const findOwnWorker = async (ownerId: string, workerId: string) => {
-  const worker = await queryOne<Pick<UserRow, 'id' | 'name'>>(OWN_WORKER, [workerId, ownerId]);
+  const worker = await queryOne<Pick<UserRow, 'id' | 'name' | 'email'>>(OWN_WORKER, [workerId, ownerId]);
   if (!worker) throw notFound('AI worker not found');
   return worker;
 };

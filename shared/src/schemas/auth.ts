@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AI_PROVIDERS, HANDS, NAV_LAYOUTS, THEME_MODES, THEME_STYLES, TOUCH_SIZES } from '../enums';
+import { motivationSchema } from './planner';
 
 const isTimezone = (value: string) => {
   try {
@@ -45,6 +46,7 @@ export const preferencesSchema = z
     touch: z.enum(TOUCH_SIZES),
     timezone: timezoneSchema,
     aiProvider: z.enum(AI_PROVIDERS).nullable(),
+    motivation: motivationSchema,
   })
   .partial()
   .strict();

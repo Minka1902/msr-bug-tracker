@@ -38,6 +38,7 @@ export const createRateLimits = (enabled: boolean) => {
     calendarConnect: make(60 * MINUTE, 30, userKey),
     calendarFeed: make(15 * MINUTE, 120),
     shop: make(60 * MINUTE, 30, userKey),
+    planner: make(60 * MINUTE, 40, userKey),
   };
 };
 
