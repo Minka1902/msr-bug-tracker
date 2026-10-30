@@ -46,7 +46,9 @@ export function CommentsSection({ taskId, canComment, canModerate, canUpload }: 
             autoFocus
             loading={edit.isPending}
             onCancel={() => setEditingId(null)}
-            onSubmit={(body) => edit.mutateAsync({ id: comment.id, body }).then(() => setEditingId(null))}
+            onSubmit={(body, attachmentIds) =>
+              edit.mutateAsync({ id: comment.id, body, attachmentIds }).then(() => setEditingId(null))
+            }
           />
         ) : undefined
       }

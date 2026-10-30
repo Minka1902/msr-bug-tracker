@@ -6,10 +6,6 @@ services:
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
     autoDeploy: true
-    disk:
-      name: uploads
-      mountPath: /var/data/uploads
-      sizeGB: 1
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -17,8 +13,14 @@ services:
           property: connectionString
       - key: ENABLE_DEMO_DATA
         value: 'true'
-      - key: UPLOAD_DIR
-        value: /var/data/uploads
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: MAIL_FROM

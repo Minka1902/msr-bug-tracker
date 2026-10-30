@@ -45,6 +45,11 @@ interface RichTextEditorProps {
 
 const SAFE_IMAGE_SRC = /^(\/(?!\/)|https?:|blob:|data:image\/(png|jpe?g|gif|webp);)/i;
 
+const markdownOf = (editor: Editor) => (editor.isEmpty ? '' : editor.getMarkdown());
+
+const fileMarkdown = (file: UploadedFile) =>
+  `${file.mime.startsWith('image/') ? '!' : ''}[${file.name.replace(/[[\]\\]/g, '')}](${file.url})`;
+
 const SafeImage = Image.extend({
   addAttributes() {
     return {
@@ -151,10 +156,27 @@ export function RichTextEditor({
   className,
   ...aria
 }: RichTextEditorProps) {
+  const persist = (markdown: string) => {
+    if (!callbacks.current.onSave || markdown === lastSaved.current) return;
+    lastSaved.current = markdown;
+    callbacks.current.onSave(markdown);
+  };
+
+  const save = (current: Editor) => {
+    const markdown = markdownOf(current);
+    if (markdown === loaded.current) return;
+    loaded.current = markdown;
+    persist(markdown);
+  };
+
   const insertFiles = async (editor: Editor, files: File[], position?: number) => {
     if (!uploadRef.current || !files.length) return false;
     try {
       const uploaded = await uploadRef.current(files);
+      if (editor.isDestroyed) {
+        persist([lastSaved.current, ...uploaded.map(fileMarkdown)].filter(Boolean).join('\n\n'));
+        return true;
+      }
       const content = uploaded.map((file) =>
         file.mime.startsWith('image/')
           ? { type: 'image', attrs: { src: file.url, alt: file.name } }
@@ -167,6 +189,7 @@ export function RichTextEditor({
       );
       if (position === undefined) editor.chain().focus().insertContent(content).run();
       else editor.chain().focus().insertContentAt(position, content).run();
+      save(editor);
     } catch (error) {
       toast.error(errorMessage(error));
     }
@@ -177,6 +200,7 @@ export function RichTextEditor({
   const editableRef = useRef(editable);
   const callbacks = useRef({ onChange, onSave, onSubmit });
   const lastSaved = useRef(value);
+  const loaded = useRef<string | null>(null);
   const editor = useEditor({
     editable,
     autofocus: autoFocus ? 'end' : false,
@@ -222,15 +246,12 @@ export function RichTextEditor({
         return false;
       },
     },
-    onUpdate: ({ editor: current }) =>
-      callbacks.current.onChange?.(current.isEmpty ? '' : current.getMarkdown()),
-    onBlur: ({ editor: current }) => {
-      const markdown = current.isEmpty ? '' : current.getMarkdown();
-      if (callbacks.current.onSave && markdown !== lastSaved.current) {
-        lastSaved.current = markdown;
-        callbacks.current.onSave(markdown);
-      }
+    onCreate: ({ editor: current }) => {
+      loaded.current = markdownOf(current);
     },
+    onUpdate: ({ editor: current }) => callbacks.current.onChange?.(markdownOf(current)),
+    onBlur: ({ editor: current }) => save(current),
+    onDestroy: () => editorRef.current && save(editorRef.current),
   });
   const editorRef = useRef(editor);
   const activeTools = useEditorState({
@@ -248,6 +269,7 @@ export function RichTextEditor({
     if (!editor || editor.isFocused || value === lastSaved.current) return;
     lastSaved.current = value;
     editor.commands.setContent(value, { contentType: 'markdown', emitUpdate: false });
+    loaded.current = markdownOf(editor);
   }, [editor, value]);
 
   useEffect(() => {

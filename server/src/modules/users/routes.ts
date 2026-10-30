@@ -3,7 +3,7 @@ import { changeEmailSchema, changePasswordSchema, updateMeSchema } from '@msr/sh
 import { badRequest, conflict, notFound } from '../../lib/httpError';
 import { logger } from '../../lib/logger';
 import { hashPassword, verifyPassword } from '../../lib/passwords';
-import { removeStored, storagePath } from '../../lib/storage';
+import { removeStored, sendStored } from '../../lib/storage';
 import { deleteUserSessions, sendVerificationEmail } from '../auth/service';
 import {
   findUserByEmail,
@@ -56,7 +56,7 @@ export const createUsersRouter = () => {
     const user = await findUserById(req.params.id);
     if (!user?.avatar_key) throw notFound();
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
-    res.sendFile(storagePath(user.avatar_key));
+    await sendStored(req, res, user.avatar_key);
   });
 
   return router;

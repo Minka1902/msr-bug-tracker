@@ -5,12 +5,14 @@ import { positionSchema, uuidSchema } from './project';
 
 const body = z.string().trim().min(1, 'Write something first').max(20000);
 
+const attachmentIds = z.array(uuidSchema).max(20).optional();
+
 export const createCommentSchema = z.object({
   body,
   parentId: uuidSchema.nullable().optional(),
-  attachmentIds: z.array(uuidSchema).max(20).optional(),
+  attachmentIds,
 });
-export const updateCommentSchema = z.object({ body });
+export const updateCommentSchema = z.object({ body, attachmentIds });
 
 const itemText = z.string().trim().min(1).max(500);
 export const createChecklistItemSchema = z.object({ text: itemText });

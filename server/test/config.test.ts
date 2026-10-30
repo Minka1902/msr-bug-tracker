@@ -35,4 +35,11 @@ describe('env schema', () => {
     );
     expect(Buffer.from(envSchema.parse(BASE).ENCRYPTION_KEY, 'base64')).toHaveLength(32);
   });
+
+  it('needs all four R2 variables or none', () => {
+    expect(() => envSchema.parse({ ...BASE, R2_BUCKET: 'files' })).toThrow(/all four R2_/);
+    const r2 = { R2_ACCOUNT_ID: 'a', R2_ACCESS_KEY_ID: 'b', R2_SECRET_ACCESS_KEY: 'c', R2_BUCKET: 'd' };
+    expect(envSchema.parse({ ...BASE, ...r2 })).toMatchObject(r2);
+    expect(envSchema.parse({ ...BASE, R2_BUCKET: '' }).R2_BUCKET).toBeUndefined();
+  });
 });

@@ -1,8 +1,10 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { maskOf } from '@msr/shared/permissions';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { config } from '../src/config';
 import { pool } from '../src/db/pool';
-import { createProject, createTask, resetDb, setupTeam, type Agent } from './helpers';
+import { createProject, createTask, resetDb, setupTeam, statusOf, type Agent } from './helpers';
 
 const fixture = (name: string) => path.join(import.meta.dirname, 'fixtures', name);
 
@@ -37,6 +39,13 @@ const upload = (agent: Agent, url: string, ...files: string[]) => {
   files.forEach((file) => request.attach('files', fixture(file)));
   return request;
 };
+
+const storedPath = async (attachmentId: string) =>
+  path.join(
+    config.uploadDir,
+    (await pool.query('SELECT storage_key FROM attachments WHERE id = $1', [attachmentId])).rows[0]
+      .storage_key,
+  );
 
 describe('attachments', () => {
   it('uploads to a task, serves it to members only, and deletes', async () => {
@@ -86,6 +95,59 @@ describe('attachments', () => {
     expect(body.attachments.map((file: { id: string }) => file.id)).toEqual([mine.id]);
     await member.agent.get(mine.url).expect(200);
     await expectCountersConsistent(task.id);
+  });
+
+  it('answers 404 when a stored file is missing', async () => {
+    const { owner, project } = await setupTeam();
+    const task = await createTask(owner, project.key);
+    const image = (await upload(owner, `/api/tasks/${task.id}/attachments`, 'red.png').expect(201)).body
+      .attachments[0];
+    fs.rmSync(await storedPath(image.id));
+    await owner.get(image.url).expect(404);
+  });
+
+  it('gives duplicates and repeats their own copy of the images in their text', async () => {
+    const { owner, project } = await setupTeam();
+    const task = await createTask(owner, project.key, {
+      dueDate: '2030-01-07',
+      recurrence: { freq: 'weekly', interval: 1 },
+    });
+    const [image] = (
+      await upload(owner, `/api/tasks/${task.id}/attachments`, 'red.png', 'notes.log').expect(201)
+    ).body.attachments;
+    await owner
+      .patch(`/api/tasks/${task.id}`)
+      .send({ description: `See ![shot](${image.url})` })
+      .expect(200);
+    const file = await storedPath(image.id);
+
+    const duplicate = (await owner.post(`/api/tasks/${task.id}/duplicate`).expect(201)).body.task;
+    await owner
+      .patch(`/api/tasks/${task.id}`)
+      .send({ statusId: statusOf(project, 'task', 'Done') })
+      .expect(200);
+    const spawned = (
+      await pool.query('SELECT id FROM tasks WHERE project_id = $1 AND id <> ALL($2::uuid[])', [
+        project.id,
+        [task.id, duplicate.id],
+      ])
+    ).rows[0].id;
+
+    for (const copyId of [duplicate.id, spawned]) {
+      const files = (await owner.get(`/api/tasks/${copyId}/attachments`).expect(200)).body.attachments;
+      expect(files).toEqual([expect.objectContaining({ name: 'red.png' })]);
+      expect(files[0].id).not.toBe(image.id);
+      expect((await owner.get(`/api/tasks/${copyId}`).expect(200)).body.task.description).toBe(
+        `See ![shot](${files[0].url})`,
+      );
+      await expectCountersConsistent(copyId);
+    }
+
+    await owner.delete(`/api/tasks/${task.id}`).expect(204);
+    await owner.delete(`/api/tasks/${duplicate.id}`).expect(204);
+    expect(fs.existsSync(file)).toBe(true);
+    await owner.delete(`/api/tasks/${spawned}`).expect(204);
+    expect(fs.existsSync(file)).toBe(false);
   });
 });
 
@@ -139,6 +201,22 @@ describe('comments', () => {
       .expect(201);
     const files = (await owner.get(`/api/tasks/${task.id}/attachments`)).body.attachments;
     expect(files).toEqual([expect.objectContaining({ id: image.id, commentId: body.comment.id })]);
+    await expectCountersConsistent(task.id);
+  });
+
+  it('links images pasted while editing a comment', async () => {
+    const { owner, project, member } = await setupTeam();
+    const task = await createTask(owner, project.key);
+    const comment = (await owner.post(`/api/tasks/${task.id}/comments`).send({ body: 'Draft' }).expect(201))
+      .body.comment;
+    const image = (await upload(owner, '/api/attachments', 'red.png')).body.attachments[0];
+    await owner
+      .patch(`/api/comments/${comment.id}`)
+      .send({ body: `![shot](${image.url})`, attachmentIds: [image.id] })
+      .expect(200);
+    const files = (await owner.get(`/api/tasks/${task.id}/attachments`)).body.attachments;
+    expect(files).toEqual([expect.objectContaining({ id: image.id, commentId: comment.id })]);
+    await member.agent.get(image.url).expect(200);
     await expectCountersConsistent(task.id);
   });
 });

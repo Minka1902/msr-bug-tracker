@@ -182,7 +182,7 @@ export const generateDemoData = async (db: Db, ownerId: string, size: DemoSize, 
     attachments: [] as Record<string, unknown>[],
     activity: [] as Record<string, unknown>[],
   };
-  const copies: { source: string; key: string }[] = [];
+  const copies: { source: string; key: string; mime: string }[] = [];
 
   templates.forEach((template, projectIndex) => {
     const projectId = randomUUID();
@@ -434,7 +434,7 @@ export const generateDemoData = async (db: Db, ownerId: string, size: DemoSize, 
       if (!parentId && random.chance(isBug ? 0.12 : 0.05)) {
         random.sample(ATTACHMENTS, random.int(1, 2)).forEach((asset) => {
           const key = `attachments/demo/${randomUUID()}${path.extname(asset.file)}`;
-          copies.push({ source: path.join(ASSETS_DIR, asset.file), key });
+          copies.push({ source: path.join(ASSETS_DIR, asset.file), key, mime: asset.mime });
           rows.attachments.push({
             task_id: id,
             uploader_id: reporter,
@@ -511,7 +511,7 @@ export const generateDemoData = async (db: Db, ownerId: string, size: DemoSize, 
     rows.projects.at(-1)!.task_seq = number;
   });
 
-  await Promise.all(copies.map((copy) => copyIntoStorage(copy.source, copy.key)));
+  await Promise.all(copies.map((copy) => copyIntoStorage(copy.source, copy.key, copy.mime)));
   const sizes = new Map(
     await Promise.all(
       ATTACHMENTS.map(

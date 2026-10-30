@@ -3,7 +3,7 @@ import { canTransitionTask } from '@msr/shared/permissions';
 import { moveTaskSchema, updateTaskSchema } from '@msr/shared/schemas/task';
 import { prepared } from '../../db/pool';
 import { forbidden, notFound } from '../../lib/httpError';
-import { removeStored } from '../../lib/storage';
+import { removeUnreferenced } from '../attachments/service';
 import { assertCanWrite, assertWritable, projectOf, toProjectContext } from '../projects/access';
 import { listTaskActivity } from './activity';
 import { assertCanPatchTask, findTaskByIdentifier, loadTask } from './access';
@@ -47,7 +47,7 @@ export const createTasksRouter = () => {
   scoped.delete('/', async (req, res) => {
     const project = projectOf(req);
     assertCanWrite(project, 'task.delete');
-    await removeStored(await deleteTasks(project, [req.task!.id], req.user!.id));
+    await removeUnreferenced(await deleteTasks(project, [req.task!.id], req.user!.id));
     res.status(204).end();
   });
 
