@@ -1,4 +1,4 @@
-import { Bot, Lock, MessageCircle, Unplug, Users } from 'lucide-react';
+import { Lock, MessageCircle, Unplug, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
@@ -91,12 +91,6 @@ export function TelegramSettings() {
   const disconnectMe = useDisconnectTelegram();
   const [url, setUrl] = useState<string | null>(null);
 
-  if (config.data && !enabled)
-    return (
-      <SettingsSection title={BOT_META.label}>
-        <EmptyState compact icon={<Bot />} title="Telegram isn't set up on this server yet" />
-      </SettingsSection>
-    );
   if (settings.error) return <ErrorState error={settings.error} onRetry={settings.refetch} />;
   if (!settings.data) return <Skeleton className="h-64 rounded-card" />;
 
@@ -107,17 +101,11 @@ export function TelegramSettings() {
         <EmptyState
           icon={<Lock />}
           title={`Needs the ${plan} plan`}
-          description={
-            project.isOwner
-              ? `The ${plan} plan adds the Telegram bot to ${household ? 'households' : 'every project'}.`
-              : `Ask the project owner to get the ${plan} plan.`
-          }
+          description={`The ${plan} plan adds the Telegram bot to ${household ? 'households' : 'every project'}.`}
           action={
-            project.isOwner && (
-              <Button size="sm" asChild>
-                <Link to="/shop">See plans</Link>
-              </Button>
-            )
+            <Button size="sm" asChild>
+              <Link to="/shop">See plans</Link>
+            </Button>
           }
         />
       </SettingsSection>
@@ -183,8 +171,6 @@ export function TelegramSettings() {
                 chat={chat}
                 kinds={kindsFor(household)}
                 lists={household ? (lists.data ?? []) : undefined}
-                disabled={!chat.canEdit}
-                disabledReason="Only people who can edit the project change a group's updates."
                 unlinking={unlinkChat.isPending && unlinkChat.variables === chat.chatId}
                 onChange={(patch) => update(chat.chatId, patch)}
                 onUnlink={() => unlink(chat)}

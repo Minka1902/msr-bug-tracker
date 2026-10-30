@@ -65,3 +65,45 @@ test('a Viewer can read but not create, edit or assign', async ({ page, browser 
   expect(assign.status()).toBe(403);
   await viewerPage.context().close();
 });
+
+test('project settings show only what the role can change', async ({ page, browser }) => {
+  await signUp(page, 'Owner');
+  const project = await createProject(page, 'Settings Access');
+  const roleId = (systemKey: string) => project.roles.find((role) => role.systemKey === systemKey)!.id;
+  const join = async (label: string, systemKey: string) => {
+    const guest = await (await browser.newContext()).newPage();
+    const { email } = await signUp(guest, label, label.toLowerCase());
+    await apiPost(page, `/projects/${project.key}/members`, { email, roleId: roleId(systemKey) });
+    return guest;
+  };
+  const tabs = (target: typeof page) =>
+    target.getByRole('navigation', { name: 'Project settings' }).getByRole('link');
+
+  const member = await join('Member', 'member');
+  await member.goto(`/p/${project.key}/settings`);
+  await expect(member).toHaveURL(`/p/${project.key}/settings/labels`);
+  await expect(tabs(member)).toHaveText(['Labels', 'Danger zone']);
+  await member.goto(`/p/${project.key}/settings/members`);
+  await expect(member).toHaveURL(`/p/${project.key}/settings/labels`);
+  await member.context().close();
+
+  const viewer = await join('Viewer', 'viewer');
+  await viewer.goto(`/p/${project.key}/settings/general`);
+  await expect(viewer).toHaveURL(`/p/${project.key}/settings/danger`);
+  await expect(tabs(viewer)).toHaveText(['Danger zone']);
+  await expect(viewer.getByRole('button', { name: 'Archive project' })).toHaveCount(0);
+  await expect(viewer.getByRole('button', { name: 'Delete project' })).toHaveCount(0);
+  await viewer.getByRole('button', { name: 'Leave project' }).click();
+  await viewer.getByRole('alertdialog').getByRole('button', { name: 'Leave project' }).click();
+  await expect(viewer).toHaveURL('/projects');
+  expect((await viewer.request.get(`/api/projects/${project.key}`)).status()).toBe(404);
+  await viewer.context().close();
+
+  await page.goto(`/p/${project.key}/settings/members`);
+  await expect(tabs(page)).toHaveText(['General', 'Workflows', 'Labels', /^Members/, 'Roles', 'Danger zone']);
+  await expect(page.getByRole('button', { name: 'Role of Member' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Leave project' })).toHaveCount(0);
+  await page.goto(`/p/${project.key}/settings/roles`);
+  await expect(page.getByRole('columnheader', { name: /^Owner/ })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: /^Admin/ })).toBeVisible();
+});

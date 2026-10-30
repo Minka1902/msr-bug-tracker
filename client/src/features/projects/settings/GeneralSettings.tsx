@@ -14,7 +14,6 @@ import { ProjectAppearanceEditor } from '../components/ProjectAppearanceEditor';
 import { ProjectLinkFields } from '../components/ProjectLinkFields';
 import { useAppearanceField } from '../useAppearanceField';
 import { useProjectContext } from '../useProjectContext';
-import { useProjectPermissions } from '../useProjectPermissions';
 
 export function GeneralSettings() {
   const submit = (event: FormEvent) =>
@@ -29,7 +28,6 @@ export function GeneralSettings() {
     )(event);
 
   const project = useProjectContext();
-  const { can, deniedReason } = useProjectPermissions(project);
   const update = useUpdateProject(project.key);
   const form = useZodForm(projectDetailsSchema, {
     name: project.name,
@@ -42,7 +40,6 @@ export function GeneralSettings() {
   });
   const appearance = useAppearanceField(form);
   const { errors } = form.formState;
-  const editable = can('project.edit');
 
   return (
     <form onSubmit={submit} noValidate>
@@ -50,20 +47,18 @@ export function GeneralSettings() {
         title="Project details"
         description={
           <span className="flex flex-col gap-1">
-            {editable ? 'Name, description and how the project looks.' : deniedReason}
+            Name, description and how the project looks.
             <span className="text-xs">Created {formatDateTime(project.createdAt)}</span>
             <span className="text-xs">Updated {formatDateTime(project.lastActivityAt)}</span>
           </span>
         }
         footer={
-          editable && (
-            <Button type="submit" loading={update.isPending} disabled={!form.formState.isDirty}>
-              Save changes
-            </Button>
-          )
+          <Button type="submit" loading={update.isPending} disabled={!form.formState.isDirty}>
+            Save changes
+          </Button>
         }
       >
-        <fieldset disabled={!editable} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <Field label="Name" htmlFor="name" error={errors.name?.message}>
             <Input id="name" {...form.register('name')} />
           </Field>
@@ -81,7 +76,7 @@ export function GeneralSettings() {
           <Field label="Look">
             <ProjectAppearanceEditor value={appearance.value} onChange={appearance.onChange} />
           </Field>
-        </fieldset>
+        </div>
       </SettingsSection>
     </form>
   );

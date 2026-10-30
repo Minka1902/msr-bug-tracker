@@ -13,7 +13,6 @@ import { errorMessage } from '../../../lib/api';
 import { SettingsSection } from '../../settings/components/SettingsSection';
 import { useCreateLabel, useDeleteLabel, useUpdateLabel } from '../api';
 import { useProjectContext } from '../useProjectContext';
-import { useProjectPermissions } from '../useProjectPermissions';
 
 const onError = (error: unknown) => toast.error(errorMessage(error));
 
@@ -36,67 +35,56 @@ export function LabelSettings() {
   };
 
   const project = useProjectContext();
-  const { can, deniedReason } = useProjectPermissions(project);
   const confirm = useConfirm();
   const create = useCreateLabel(project.key);
   const update = useUpdateLabel(project.key);
   const remove = useDeleteLabel(project.key);
   const [name, setName] = useState('');
   const [color, setColor] = useState(PROJECT_COLORS[16]!);
-  const editable = can('project.manage_labels');
 
   return (
-    <SettingsSection
-      title="Labels"
-      description={editable ? 'Tag tasks to group and filter them.' : deniedReason}
-    >
+    <SettingsSection title="Labels" description="Tag tasks to group and filter them.">
       <div className="flex flex-col gap-3">
-        {editable && (
-          <form onSubmit={submit} className="flex items-center gap-2">
-            <ColorSwatchPicker value={color} onChange={setColor} size="md" label="Label color" />
-            <Input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="New label name"
-              maxLength={40}
-              size="sm"
-              wrapperClassName="flex-1"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              leftIcon={<Plus />}
-              loading={create.isPending}
-              disabled={!name.trim()}
-            >
-              Add
-            </Button>
-          </form>
-        )}
+        <form onSubmit={submit} className="flex items-center gap-2">
+          <ColorSwatchPicker value={color} onChange={setColor} size="md" label="Label color" />
+          <Input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="New label name"
+            maxLength={40}
+            size="sm"
+            wrapperClassName="flex-1"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            leftIcon={<Plus />}
+            loading={create.isPending}
+            disabled={!name.trim()}
+          >
+            Add
+          </Button>
+        </form>
         {project.labels.length === 0 && <EmptyState compact icon={<Tag />} title="No labels yet" />}
         <div className="flex flex-col divide-y divide-border">
           {project.labels.map((label) => (
             <div key={label.id} className="flex items-center gap-2 py-1.5">
               <ColorSwatchPicker
                 value={label.color}
-                disabled={!editable}
                 onChange={(next) => update.mutate({ id: label.id, color: next }, { onError })}
               />
               <InlineText
                 aria-label="Label name"
                 value={label.name}
                 maxLength={40}
-                disabled={!editable}
                 onSave={(next) => update.mutate({ id: label.id, name: next }, { onError })}
               />
-              {editable && (
-                <IconButton
-                  icon={<Trash2 />}
-                  label={`Delete ${label.name}`}
-                  variant="danger-ghost"
-                  onClick={() => removeLabel(label.id, label.name)}
-                />
-              )}
+              <IconButton
+                icon={<Trash2 />}
+                label={`Delete ${label.name}`}
+                variant="danger-ghost"
+                onClick={() => removeLabel(label.id, label.name)}
+              />
             </div>
           ))}
         </div>

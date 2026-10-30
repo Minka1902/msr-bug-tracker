@@ -26,7 +26,6 @@ interface WorkflowEditorProps {
   projectKey: string;
   workflow: Workflow;
   statuses: ProjectStatus[];
-  editable: boolean;
 }
 
 const CATEGORY_OPTIONS = STATUS_CATEGORIES.map((category) => ({
@@ -37,7 +36,7 @@ const CATEGORY_OPTIONS = STATUS_CATEGORIES.map((category) => ({
 
 const onError = (error: unknown) => toast.error(errorMessage(error));
 
-export function WorkflowEditor({ projectKey, workflow, statuses, editable }: WorkflowEditorProps) {
+export function WorkflowEditor({ projectKey, workflow, statuses }: WorkflowEditorProps) {
   const move = (status: ProjectStatus, previous: ProjectStatus | null, next: ProjectStatus | null) =>
     update.mutate(
       { id: status.id, position: generateKeyBetween(previous?.position ?? null, next?.position ?? null) },
@@ -60,48 +59,40 @@ export function WorkflowEditor({ projectKey, workflow, statuses, editable }: Wor
       <div className="flex items-center gap-2 border-b border-border px-4 py-3">
         <Badge tone={WORKFLOW_META[workflow].tone} label={WORKFLOW_META[workflow].label} />
         <span className="flex-1 text-sm text-muted">{statuses.length} statuses</span>
-        {editable && (
-          <Button size="sm" variant="ghost" leftIcon={<Plus />} onClick={add} loading={create.isPending}>
-            Add status
-          </Button>
-        )}
+        <Button size="sm" variant="ghost" leftIcon={<Plus />} onClick={add} loading={create.isPending}>
+          Add status
+        </Button>
       </div>
       <SortableList
         items={statuses}
         getId={(status) => status.id}
         onMove={move}
-        disabled={!editable}
         className="flex flex-col p-2"
         renderItem={(status, handle, dragging) => (
           <div
             className={`flex items-center gap-2 rounded-control px-1 py-1 ${dragging ? 'bg-surface shadow-pop' : 'hover:bg-surface-muted/60'}`}
           >
-            {editable && (
-              <button
-                type="button"
-                aria-label={`Reorder ${status.name}`}
-                className="cursor-grab touch-none text-subtle active:cursor-grabbing"
-                {...handle}
-              >
-                <GripVertical className="size-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              aria-label={`Reorder ${status.name}`}
+              className="cursor-grab touch-none text-subtle active:cursor-grabbing"
+              {...handle}
+            >
+              <GripVertical className="size-4" />
+            </button>
             <ColorSwatchPicker
               value={status.color}
-              disabled={!editable}
               onChange={(color) => update.mutate({ id: status.id, color }, { onError })}
             />
             <InlineText
               aria-label="Status name"
               value={status.name}
               maxLength={40}
-              disabled={!editable}
               onSave={(name) => update.mutate({ id: status.id, name }, { onError })}
             />
             <OptionPicker
               aria-label="Category"
               value={status.category}
-              disabled={!editable}
               onChange={(category) =>
                 category &&
                 update.mutate({ id: status.id, category: category as StatusCategory }, { onError })
@@ -109,14 +100,12 @@ export function WorkflowEditor({ projectKey, workflow, statuses, editable }: Wor
               options={CATEGORY_OPTIONS}
               className="h-8 w-36 shrink-0"
             />
-            {editable && (
-              <IconButton
-                icon={<Trash2 />}
-                label={`Delete ${status.name}`}
-                variant="danger-ghost"
-                onClick={() => setDeleting(status)}
-              />
-            )}
+            <IconButton
+              icon={<Trash2 />}
+              label={`Delete ${status.name}`}
+              variant="danger-ghost"
+              onClick={() => setDeleting(status)}
+            />
           </div>
         )}
       />

@@ -1,7 +1,7 @@
 import { Copy, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { can, isSubsetOf, PERMISSIONS, type Permission } from '@msr/shared/permissions';
+import { isSubsetOf, listPermissions, PERMISSIONS, type Permission } from '@msr/shared/permissions';
 import type { ProjectRole } from '@msr/shared/types';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
@@ -15,7 +15,6 @@ import { PermissionMatrix, type MatrixRole } from '../../../components/ui/Permis
 import { errorMessage } from '../../../lib/api';
 import { useCreateRole, useDeleteRole, useUpdateRole } from '../api';
 import { useProjectContext } from '../useProjectContext';
-import { useProjectPermissions } from '../useProjectPermissions';
 
 type Dialog =
   | { kind: 'create'; cloneFrom: ProjectRole | null }
@@ -36,9 +35,6 @@ export function RoleSettings() {
       },
       { onError },
     );
-
-  const canToggle = (role: MatrixRole, permission: Permission) =>
-    manageable && isSubsetOf(role.permissions, project.permissions) && can(project.permissions, permission);
 
   const openDialog = (next: Dialog) => {
     setDialog(next);
@@ -66,27 +62,30 @@ export function RoleSettings() {
   };
 
   const project = useProjectContext();
-  const { can: allowed, deniedReason } = useProjectPermissions(project);
   const create = useCreateRole(project.key);
   const update = useUpdateRole(project.key);
   const remove = useDeleteRole(project.key);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [name, setName] = useState('');
   const [reassignTo, setReassignTo] = useState<string | null>(null);
-  const manageable = allowed('project.manage_roles');
   const reassignOptions = project.roles
-    .filter((role) => role.systemKey !== 'owner' && (dialog?.kind !== 'delete' || role.id !== dialog.role.id))
+    .filter(
+      (role) =>
+        role.systemKey !== 'owner' &&
+        isSubsetOf(role.permissions, project.permissions) &&
+        (dialog?.kind !== 'delete' || role.id !== dialog.role.id),
+    )
     .map((role) => ({ value: role.id, label: role.name }));
   const reassignId = reassignTo ?? project.roles.find((role) => role.systemKey === 'viewer')?.id ?? null;
 
-  const matrixRoles: MatrixRole[] = project.roles.map((role) => ({
-    ...role,
-    locked: role.systemKey === 'owner',
-    header: (
-      <span className="flex items-center gap-1">
-        {role.name}
-        <span className="text-xs font-normal text-subtle">({role.memberCount})</span>
-        {manageable && role.systemKey !== 'owner' && (
+  const matrixRoles: MatrixRole[] = project.roles
+    .filter((role) => role.systemKey !== 'owner' && isSubsetOf(role.permissions, project.permissions))
+    .map((role) => ({
+      ...role,
+      header: (
+        <span className="flex items-center gap-1">
+          {role.name}
+          <span className="text-xs font-normal text-subtle">({role.memberCount})</span>
           <Menu
             trigger={
               <IconButton
@@ -117,25 +116,25 @@ export function RoleSettings() {
               },
             ]}
           />
-        )}
-      </span>
-    ),
-  }));
+        </span>
+      ),
+    }));
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <Banner tone="info" className="flex-1">
-          Roles decide what members can do in this project. Changes apply immediately.{' '}
-          {!manageable && `${deniedReason}.`}
+          Roles decide what members can do in this project. Changes apply immediately.
         </Banner>
-        {manageable && (
-          <Button leftIcon={<Plus />} onClick={() => openDialog({ kind: 'create', cloneFrom: null })}>
-            New role
-          </Button>
-        )}
+        <Button leftIcon={<Plus />} onClick={() => openDialog({ kind: 'create', cloneFrom: null })}>
+          New role
+        </Button>
       </div>
-      <PermissionMatrix roles={matrixRoles} canToggle={canToggle} onToggle={toggle} />
+      <PermissionMatrix
+        roles={matrixRoles}
+        permissions={listPermissions(project.permissions)}
+        onToggle={toggle}
+      />
       <Modal
         open={!!dialog}
         onOpenChange={(open) => !open && setDialog(null)}

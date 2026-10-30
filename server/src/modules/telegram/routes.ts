@@ -39,7 +39,7 @@ const botAccess = async (project: ProjectContext) => {
 const canEditChat = (project: ProjectContext, chat: ChatRow, userId: string) =>
   chat.is_group ? can(project.permissions, 'project.edit') : chat.linked_by === userId;
 
-const toChat = (project: ProjectContext, chat: ChatRow, userId: string): TelegramChat => ({
+const toChat = (chat: ChatRow, userId: string): TelegramChat => ({
   chatId: chat.chat_id,
   title: chat.title,
   isGroup: chat.is_group,
@@ -47,7 +47,6 @@ const toChat = (project: ProjectContext, chat: ChatRow, userId: string): Telegra
   onlyMine: chat.only_mine,
   defaultListId: chat.default_list_id,
   mine: chat.linked_by === userId,
-  canEdit: canEditChat(project, chat, userId),
 });
 
 const visibleChats = async (project: ProjectContext, userId: string) =>
@@ -78,7 +77,9 @@ export const createProjectTelegramRouter = () => {
       ...access,
       botUsername: username,
       connected,
-      chats: chats.map((chat) => toChat(project, chat, req.user!.id)),
+      chats: chats
+        .filter((chat) => canEditChat(project, chat, req.user!.id))
+        .map((chat) => toChat(chat, req.user!.id)),
     } satisfies TelegramSettings);
   });
 
@@ -112,7 +113,7 @@ export const createProjectTelegramRouter = () => {
     const updated = (await visibleChats(project, req.user!.id)).find(
       (item) => item.chat_id === chat.chat_id,
     )!;
-    res.json({ chat: toChat(project, updated, req.user!.id) });
+    res.json({ chat: toChat(updated, req.user!.id) });
   });
 
   router.delete('/chats/:chatId', async (req, res) => {

@@ -78,7 +78,7 @@ describe('Telegram webhook', () => {
     const { body } = await parent.get('/api/projects/HOME/telegram').expect(200);
     expect(body).toMatchObject({ enabled: true, allowed: true, botUsername: BOT, connected: true });
     expect(body.chats).toEqual([
-      expect.objectContaining({ chatId: GROUP.id, title: 'Family', isGroup: true, canEdit: true }),
+      expect.objectContaining({ chatId: GROUP.id, title: 'Family', isGroup: true }),
       expect.objectContaining({ chatId: PARENT_TG, isGroup: false, mine: true, onlyMine: true }),
     ]);
   });
@@ -251,10 +251,7 @@ describe('Telegram settings', () => {
     const { parent, child } = await setupFamily();
     await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);
     const { body } = await child.agent.get('/api/projects/HOME/telegram').expect(200);
-    expect(body.chats).toEqual([
-      expect.objectContaining({ chatId: GROUP.id, canEdit: false }),
-      expect.objectContaining({ chatId: CHILD_TG, mine: true, canEdit: true }),
-    ]);
+    expect(body.chats).toEqual([expect.objectContaining({ chatId: CHILD_TG, mine: true })]);
     await child.agent
       .patch(`/api/projects/HOME/telegram/chats/${GROUP.id}`)
       .send({ notify: ['comments'] })

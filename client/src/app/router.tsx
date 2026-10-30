@@ -157,7 +157,6 @@ export const router = createBrowserRouter([
                   ),
                 ),
                 children: [
-                  { index: true, element: <Navigate to="general" replace /> },
                   {
                     path: 'general',
                     lazy: lazyRoute(() =>
