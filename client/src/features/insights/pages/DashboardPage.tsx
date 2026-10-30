@@ -131,7 +131,7 @@ export function DashboardPage() {
                 </Button>
               }
             >
-              <div className="grid gap-1 lg:grid-cols-2 lg:gap-x-4">
+              <div className="grid grid-cols-1 gap-1 lg:grid-cols-2 lg:gap-x-4">
                 {data.projects.slice(0, 8).map((project) => (
                   <ProjectProgressRow key={project.id} project={project} />
                 ))}
