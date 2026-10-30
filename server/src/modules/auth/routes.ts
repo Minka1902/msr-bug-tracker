@@ -57,8 +57,14 @@ export const createAuthRouter = (limits: RateLimits) => {
       input.timezone ? { timezone: input.timezone } : {},
     );
     setSessionCookie(res, await createSession(req, user.id));
-    await sendVerificationEmail(user).catch((err) => logger.error({ err }, 'Verification email failed'));
-    res.status(201).json({ user: toCurrentUser(user) });
+    const verificationSent = await sendVerificationEmail(user).then(
+      () => true,
+      (err) => {
+        logger.error({ err }, 'Verification email failed');
+        return false;
+      },
+    );
+    res.status(201).json({ user: toCurrentUser(user), verificationSent });
   });
 
   router.post('/login', limits.login, async (req, res) => {
@@ -118,7 +124,8 @@ export const createAuthRouter = (limits: RateLimits) => {
   router.post('/forgot-password', limits.emailAction, async (req, res) => {
     const { email } = forgotPasswordSchema.parse(req.body);
     const user = await findUserByEmail(email);
-    if (user?.password_hash) await sendPasswordResetEmail(user);
+    if (user?.password_hash)
+      await sendPasswordResetEmail(user).catch((err) => logger.error({ err }, 'Password reset email failed'));
     res.status(204).end();
   });
 

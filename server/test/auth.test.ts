@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { config } from '../src/config';
 import { pool } from '../src/db/pool';
-import { mailbox } from '../src/lib/mailer';
+import { mailbox, sendMail } from '../src/lib/mailer';
 import { agentFor, lastLink, registerUser, resetDb, testApp } from './helpers';
 
 beforeEach(resetDb);
@@ -125,13 +125,51 @@ describe('email verification', () => {
     expect(JSON.parse(init.body).text).toContain('/verify-email?token=');
   });
 
-  it('still registers when the mail provider fails, and reports a failed resend', async () => {
+  it('still registers when the mail provider fails, says so, and reports a failed resend', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('down', { status: 503 })));
     config.RESEND_API_KEY = 're_test';
     const agent = agentFor();
-    await registerUser(agent);
+    const registered = await agent
+      .post('/api/auth/register')
+      .send({ name: 'Unlucky', email: 'unlucky@test.dev', password: 'correct-horse-1' })
+      .expect(201);
+    expect(registered.body.verificationSent).toBe(false);
     const { body } = await agent.post('/api/auth/resend-verification').expect(502);
     expect(body.error).toMatch(/couldn't send/);
+  });
+
+  it('reports a sent verification email on register', async () => {
+    const { body } = await agentFor()
+      .post('/api/auth/register')
+      .send({ name: 'Lucky', email: 'lucky@test.dev', password: 'correct-horse-1' })
+      .expect(201);
+    expect(body.verificationSent).toBe(true);
+  });
+
+  it('keeps the previous link working when a new one fails to send', async () => {
+    const agent = agentFor();
+    const { email } = await registerUser(agent);
+    const token = lastLink(email, '/verify-email');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('down', { status: 503 })));
+    config.RESEND_API_KEY = 're_test';
+    await agent.post('/api/auth/resend-verification').expect(502);
+    await agentFor().post('/api/auth/verify-email').send({ token }).expect(204);
+  });
+
+  it('answers forgot-password the same way when the mail provider fails', async () => {
+    const { email } = await registerUser(agentFor());
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('down', { status: 503 })));
+    config.RESEND_API_KEY = 're_test';
+    await agentFor().post('/api/auth/forgot-password').send({ email }).expect(204);
+  });
+
+  it('refuses to pretend an email went out in production without a mail provider', async () => {
+    config.isProd = true;
+    try {
+      await expect(sendMail('someone@test.dev', 'Hi', 'Body')).rejects.toThrow(/No email provider/);
+    } finally {
+      config.isProd = false;
+    }
   });
 
   it('rejects expired tokens', async () => {
@@ -227,7 +265,8 @@ describe('account settings', () => {
     const { email, password } = await registerUser(agent);
     const oldToken = lastLink(email, '/verify-email');
     await agent.put('/api/me/email').send({ email: 'moved@test.dev', password: 'wrong-pass-1' }).expect(400);
-    await agent.put('/api/me/email').send({ email: 'moved@test.dev', password }).expect(200);
+    const moved = await agent.put('/api/me/email').send({ email: 'moved@test.dev', password }).expect(200);
+    expect(moved.body.verificationSent).toBe(true);
     await agentFor().post('/api/auth/verify-email').send({ token: oldToken }).expect(400);
     const me = await agent.get('/api/auth/me');
     expect(me.body.user).toMatchObject({ email: 'moved@test.dev', emailVerified: false });
@@ -235,6 +274,23 @@ describe('account settings', () => {
       .post('/api/auth/verify-email')
       .send({ token: lastLink('moved@test.dev', '/verify-email') })
       .expect(204);
+  });
+
+  it('says when the new address could not be emailed', async () => {
+    const agent = agentFor();
+    const { password } = await registerUser(agent);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('down', { status: 503 })));
+    config.RESEND_API_KEY = 're_test';
+    try {
+      const { body } = await agent
+        .put('/api/me/email')
+        .send({ email: 'stuck@test.dev', password })
+        .expect(200);
+      expect(body).toMatchObject({ user: { email: 'stuck@test.dev' }, verificationSent: false });
+    } finally {
+      config.RESEND_API_KEY = undefined;
+      vi.unstubAllGlobals();
+    }
   });
 
   it('requires a session for account routes', async () => {

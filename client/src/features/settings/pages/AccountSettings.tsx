@@ -28,9 +28,13 @@ export function AccountSettings() {
   const submitEmail = (event: FormEvent) =>
     emailForm.handleSubmit((values) =>
       changeEmail.mutate(values, {
-        onSuccess: () => {
+        onSuccess: ({ verificationSent }) => {
           emailForm.reset({ email: values.email, password: '' });
-          toast.success(`Email changed. Check ${values.email} to verify it.`);
+          if (verificationSent) toast.success(`Email changed. Check ${values.email} to verify it.`);
+          else
+            toast.warning(
+              `Email changed, but we couldn't email ${values.email}. Use Resend link in the banner to try again.`,
+            );
         },
         onError: (error) => toast.error(errorMessage(error)),
       }),

@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { CircleAlert } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
+import { toast } from 'sonner';
 import { registerSchema } from '@msr/shared/schemas/auth';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
@@ -20,7 +21,15 @@ export function RegisterPage() {
     form.handleSubmit((values) =>
       registerUser.mutate(
         { ...values, timezone: TIMEZONE },
-        { onSuccess: () => navigate(safeNextPath(next), { replace: true }) },
+        {
+          onSuccess: ({ verificationSent }) => {
+            if (!verificationSent)
+              toast.warning(
+                "We couldn't send your verification email. Use Resend link in the banner to try again.",
+              );
+            navigate(safeNextPath(next), { replace: true });
+          },
+        },
       ),
     )(event);
 

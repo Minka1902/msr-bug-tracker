@@ -43,8 +43,14 @@ export const createUsersRouter = () => {
     if (input.email === req.user!.email) throw badRequest('That is already your email');
     if (await findUserByEmail(input.email)) throw conflict('An account with this email already exists');
     const user = await setEmail(req.user!.id, input.email);
-    await sendVerificationEmail(user).catch((err) => logger.error({ err }, 'Verification email failed'));
-    res.json({ user: toCurrentUser(user, req.user!.impersonator) });
+    const verificationSent = await sendVerificationEmail(user).then(
+      () => true,
+      (err) => {
+        logger.error({ err }, 'Verification email failed');
+        return false;
+      },
+    );
+    res.json({ user: toCurrentUser(user, req.user!.impersonator), verificationSent });
   });
 
   router.delete('/me/avatar', async (req, res) => {

@@ -36,6 +36,7 @@ export const sendMail = async (to: string, subject: string, text: string) => {
     await transport.sendMail({ from: config.MAIL_FROM, to, subject, text });
     return;
   }
+  if (config.isProd) throw new Error('No email provider is configured: set RESEND_API_KEY or SMTP_URL');
   if (config.devMailbox) {
     mailbox.push({ to, subject, text, sentAt: new Date().toISOString() });
     if (mailbox.length > MAILBOX_LIMIT) mailbox.shift();

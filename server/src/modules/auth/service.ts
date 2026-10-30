@@ -33,8 +33,8 @@ const VERIFIED_TOKEN = `
   SELECT 1 FROM auth_tokens t JOIN users u ON u.id = t.user_id
   WHERE t.token_hash = $1 AND t.type = 'verify_email' AND t.used_at IS NOT NULL
     AND u.email = t.email AND u.email_verified_at IS NOT NULL`;
-const VOID_TOKENS =
-  'UPDATE auth_tokens SET used_at = now() WHERE user_id = $1 AND type = $2 AND used_at IS NULL';
+const VOID_OTHER_TOKENS =
+  'UPDATE auth_tokens SET used_at = now() WHERE user_id = $1 AND type = $2 AND used_at IS NULL AND token_hash <> $3';
 
 export const createSession = async (
   req: Request,
@@ -78,25 +78,25 @@ export const peekToken = (token: string, type: TokenType) =>
 export const isVerifiedToken = async (token: string) =>
   !!(await queryOne(VERIFIED_TOKEN, [hashToken(token)]));
 
-export const voidTokens = (userId: string, type: TokenType, db?: Db) =>
-  query(VOID_TOKENS, [userId, type], db);
+const voidOtherTokens = (userId: string, type: TokenType, token: string) =>
+  query(VOID_OTHER_TOKENS, [userId, type, hashToken(token)]);
 
 export const sendVerificationEmail = async (user: { id: string; email: string; name: string }) => {
-  await voidTokens(user.id, 'verify_email');
   const token = await issueToken(user.id, 'verify_email', user.email);
   await sendMail(
     user.email,
     'Verify your email · MSR Tracker',
     `Hi ${user.name},\n\nConfirm your email address to secure your account:\n${appLink('/verify-email', token)}\n\nThis link expires in 48 hours.`,
   );
+  await voidOtherTokens(user.id, 'verify_email', token);
 };
 
 export const sendPasswordResetEmail = async (user: { id: string; email: string; name: string }) => {
-  await voidTokens(user.id, 'reset_password');
   const token = await issueToken(user.id, 'reset_password', user.email);
   await sendMail(
     user.email,
     'Reset your password · MSR Tracker',
     `Hi ${user.name},\n\nReset your password with this link:\n${appLink('/reset-password', token)}\n\nIt expires in 1 hour. If you didn't ask for this, you can ignore this email.`,
   );
+  await voidOtherTokens(user.id, 'reset_password', token);
 };
