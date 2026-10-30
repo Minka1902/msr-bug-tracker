@@ -393,7 +393,6 @@ export interface TelegramChat {
   onlyMine: boolean;
   defaultListId: string | null;
   mine: boolean;
-  canEdit: boolean;
 }
 
 export interface TelegramSettings {

@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import { config } from '../../config';
 import { badRequest, forbidden, notFound } from '../../lib/httpError';
-import { storagePath } from '../../lib/storage';
+import { sendStored } from '../../lib/storage';
 import { ATTACHMENT_TYPES, storeUploads, uploadFiles } from '../../lib/upload';
 import { assertCanWrite, assertWritable } from '../projects/access';
 import { loadTaskAccess } from '../tasks/access';
@@ -60,7 +60,7 @@ export const createAttachmentsRouter = () => {
       'Content-Disposition',
       `${INLINE_TYPES.test(file.mime) ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
     );
-    res.sendFile(storagePath(file.storage_key));
+    await sendStored(req, res, file.storage_key);
   });
 
   router.delete('/attachments/:id', async (req, res) => {

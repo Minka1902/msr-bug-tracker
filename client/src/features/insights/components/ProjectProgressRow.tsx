@@ -14,9 +14,9 @@ export function ProjectProgressRow({ project }: { project: ProjectSummary }) {
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{project.name}</span>
-          <span className="font-mono text-[11px] text-subtle">{project.key}</span>
+          <span className="shrink-0 font-mono text-[11px] text-subtle">{project.key}</span>
           <span className="flex-1" />
-          <ProjectHealthBadge project={project} />
+          <ProjectHealthBadge project={project} className="shrink-0" />
         </div>
         <ProgressBar
           value={project.stats.progress}

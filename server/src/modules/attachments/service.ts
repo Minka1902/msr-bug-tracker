@@ -40,6 +40,37 @@ const LINK_TO_COMMENT = `
   UPDATE tasks SET attachment_count = attachment_count + (SELECT count(*) FROM linked) WHERE id = $1`;
 const PURGE_PENDING =
   "DELETE FROM attachments WHERE task_id IS NULL AND created_at < now() - interval '24 hours' RETURNING storage_key";
+const UNREFERENCED_KEYS =
+  'SELECT key FROM unnest($1::text[]) AS key WHERE NOT EXISTS (SELECT 1 FROM attachments WHERE storage_key = key)';
+const COPY_TEXT_FILES = `
+  WITH source AS (
+    SELECT x.id AS task_id, a.id AS old_id, gen_random_uuid() AS new_id, a.uploader_id, a.storage_key, a.name, a.mime, a.size,
+           a.created_at, t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior
+    FROM unnest($1::uuid[], $2::uuid[]) AS x(id, source_id)
+    JOIN tasks t ON t.id = x.id
+    JOIN attachments a ON a.task_id = x.source_id AND a.comment_id IS NULL
+    WHERE strpos(concat_ws(' ', t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior), a.id::text) > 0
+  ), copied AS (
+    INSERT INTO attachments (id, task_id, uploader_id, storage_key, name, mime, size, created_at)
+    SELECT new_id, task_id, uploader_id, storage_key, name, mime, size, created_at FROM source
+  )
+  SELECT task_id, old_id, new_id, description, steps_to_reproduce, expected_behavior, actual_behavior FROM source`;
+const REWRITE_TEXTS = `
+  UPDATE tasks t SET description = x.description, steps_to_reproduce = x.steps, expected_behavior = x.expected,
+         actual_behavior = x.actual, attachment_count = t.attachment_count + x.files
+  FROM unnest($1::uuid[], $2::text[], $3::text[], $4::text[], $5::text[], $6::int[])
+    AS x(id, description, steps, expected, actual, files)
+  WHERE t.id = x.id`;
+
+interface CopiedFile {
+  task_id: string;
+  old_id: string;
+  new_id: string;
+  description: string | null;
+  steps_to_reproduce: string | null;
+  expected_behavior: string | null;
+  actual_behavior: string | null;
+}
 
 export const toAttachment = (row: AttachmentRow): Attachment => ({
   id: row.id,
@@ -140,7 +171,35 @@ export const deleteAttachment = async (id: string, actorId: string) => {
     }
     return row;
   });
-  await removeStored([removed?.storage_key]);
+  await removeUnreferenced([removed?.storage_key]);
+};
+
+export const removeUnreferenced = async (keys: (string | null | undefined)[]) => {
+  const candidates = keys.filter((key): key is string => !!key);
+  if (candidates.length)
+    await removeStored((await query<{ key: string }>(UNREFERENCED_KEYS, [candidates])).map((row) => row.key));
+};
+
+export const copyTextAttachments = async (db: Db, taskIds: string[], sourceIds: string[]) => {
+  const copies = await query<CopiedFile>(COPY_TEXT_FILES, [taskIds, sourceIds], db);
+  if (!copies.length) return;
+  const tasks = new Map<string, CopiedFile[]>();
+  copies.forEach((copy) => tasks.set(copy.task_id, [...(tasks.get(copy.task_id) ?? []), copy]));
+  const rewrite = (text: string | null, files: CopiedFile[]) =>
+    text && files.reduce((next, file) => next.replaceAll(file.old_id, file.new_id), text);
+  const rows = [...tasks.values()];
+  await query(
+    REWRITE_TEXTS,
+    [
+      rows.map((files) => files[0]!.task_id),
+      rows.map((files) => rewrite(files[0]!.description, files)),
+      rows.map((files) => rewrite(files[0]!.steps_to_reproduce, files)),
+      rows.map((files) => rewrite(files[0]!.expected_behavior, files)),
+      rows.map((files) => rewrite(files[0]!.actual_behavior, files)),
+      rows.map((files) => files.length),
+    ],
+    db,
+  );
 };
 
 export const purgePendingAttachments = async () =>

@@ -15,15 +15,26 @@ export interface MatrixRole {
 
 interface PermissionMatrixProps {
   roles: MatrixRole[];
-  canToggle: (role: MatrixRole, permission: Permission, next: boolean) => boolean;
+  permissions?: readonly Permission[];
+  canToggle?: (role: MatrixRole, permission: Permission, next: boolean) => boolean;
   onToggle: (role: MatrixRole, permission: Permission, next: boolean) => void;
   className?: string;
 }
 
-export function PermissionMatrix({ roles, canToggle, onToggle, className }: PermissionMatrixProps) {
+export function PermissionMatrix({
+  roles,
+  permissions,
+  canToggle = () => true,
+  onToggle,
+  className,
+}: PermissionMatrixProps) {
   const template = {
     gridTemplateColumns: `minmax(220px, 1.6fr) repeat(${roles.length}, minmax(110px, 1fr))`,
   };
+  const groups = PERMISSION_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !permissions || permissions.includes(item.key)),
+  })).filter((group) => group.items.length);
 
   return (
     <div
@@ -52,7 +63,7 @@ export function PermissionMatrix({ roles, canToggle, onToggle, className }: Perm
             </div>
           ))}
         </div>
-        {PERMISSION_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label} role="rowgroup">
             <div className="border-b border-border bg-surface-muted/40 px-4 py-2 text-xs font-semibold tracking-wide text-subtle uppercase">
               {group.label}

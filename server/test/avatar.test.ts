@@ -18,7 +18,7 @@ describe('avatars', () => {
   it('serves and removes an existing profile image', async () => {
     const agent = agentFor();
     const { user } = await registerUser(agent);
-    await copyIntoStorage(fixture('red.png'), 'avatars/existing.png');
+    await copyIntoStorage(fixture('red.png'), 'avatars/existing.png', 'image/png');
     await pool.query("UPDATE users SET avatar_key = 'avatars/existing.png' WHERE id = $1", [user.id]);
     const { body } = await agent.get('/api/auth/me').expect(200);
     expect(body.user.avatarUrl).toMatch(new RegExp(`^/api/users/${user.id}/avatar\\?v=`));

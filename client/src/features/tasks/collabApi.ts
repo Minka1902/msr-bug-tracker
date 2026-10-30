@@ -57,8 +57,8 @@ export const useCreateComment = (taskId: string) =>
   );
 
 export const useUpdateComment = (taskId: string) =>
-  useTaskMutation(taskId, ({ id, body }: { id: string; body: string }) =>
-    api(`/comments/${id}`, { method: 'PATCH', body: { body } }),
+  useTaskMutation(taskId, ({ id, ...input }: { id: string; body: string; attachmentIds: string[] }) =>
+    api(`/comments/${id}`, { method: 'PATCH', body: input }),
   );
 
 export const useDeleteComment = (taskId: string) =>

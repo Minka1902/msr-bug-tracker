@@ -7,7 +7,7 @@ import {
   updateProjectSchema,
 } from '@msr/shared/schemas/project';
 import { conflict } from '../../lib/httpError';
-import { removeStored } from '../../lib/storage';
+import { removeUnreferenced } from '../attachments/service';
 import { createLabelsRouter } from '../labels/routes';
 import { createProjectImportRouter } from '../importer/routes';
 import { createProjectInvitesRouter } from '../invites/routes';
@@ -90,7 +90,7 @@ export const createProjectsRouter = () => {
   scoped.delete('/', async (req, res) => {
     const project = projectOf(req);
     assertOwner(project);
-    await removeStored(await deleteProject(project.id));
+    await removeUnreferenced(await deleteProject(project.id));
     res.status(204).end();
   });
 

@@ -34,6 +34,10 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     res.status(413).json({ error: 'Payload too large' });
     return;
   }
+  if (error?.status >= 400 && error.status < 500) {
+    res.status(error.status).json({ error: error.status === 404 ? 'Not found' : 'Bad request' });
+    return;
+  }
   logger.error({ err: error, path: req.path }, 'Unhandled error');
   res.status(500).json({ error: 'Something went wrong' });
 };

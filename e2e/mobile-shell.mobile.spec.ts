@@ -163,6 +163,29 @@ test('task details open as a sheet with the actions at the bottom on phones, and
   await expect(page.getByRole('menuitem', { name: 'Copy link' })).toBeVisible();
 });
 
+test('dashboard project rows stay inside the Projects card', async ({ page }) => {
+  await signUp(page, 'Row Checker');
+  const { key } = await createProject(page, 'Household chores and weekly errands for everyone');
+  await createTask(page, key, { title: 'Counts toward progress' });
+  await page.goto('/');
+  const card = page.getByRole('region', { name: 'Projects' });
+  await expect(card.getByText(key)).toBeVisible();
+
+  const clipped = await card.evaluate((region) => {
+    const edge = region.getBoundingClientRect().right;
+    return [...region.querySelectorAll<HTMLElement>('a[href^="/p/"] *')]
+      .filter(
+        (part) =>
+          part.getBoundingClientRect().right - edge > 0.5 ||
+          (!part.matches('.truncate:first-child') &&
+            getComputedStyle(part).overflow === 'hidden' &&
+            part.scrollWidth > part.clientWidth),
+      )
+      .map((part) => part.textContent);
+  });
+  expect(clipped).toEqual([]);
+});
+
 test('the touch shell passes WCAG 2 A/AA checks', async ({ page }) => {
   const scan = async (label: string) => {
     const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();

@@ -54,7 +54,10 @@ export const useRegister = () => {
   const setMe = useSetMe();
   return useMutation({
     mutationFn: (input: RegisterInput) =>
-      api<{ user: CurrentUser }>('/auth/register', { method: 'POST', body: input }),
+      api<{ user: CurrentUser; verificationSent: boolean }>('/auth/register', {
+        method: 'POST',
+        body: input,
+      }),
     onSuccess: setMe,
   });
 };
@@ -89,7 +92,7 @@ export const useChangeEmail = () => {
   const setMe = useSetMe();
   return useMutation({
     mutationFn: (input: { email: string; password: string }) =>
-      api<{ user: CurrentUser }>('/me/email', { method: 'PUT', body: input }),
+      api<{ user: CurrentUser; verificationSent: boolean }>('/me/email', { method: 'PUT', body: input }),
     onSuccess: setMe,
   });
 };

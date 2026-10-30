@@ -76,9 +76,17 @@ export const createComment = (
     return toComment((await queryOne<CommentRow>(`${COMMENT_SELECT} WHERE c.id = $1`, [created!.id], db))!);
   });
 
-export const updateComment = async (id: string, body: string) => {
-  await query(UPDATE_COMMENT, [id, body]);
-  return toComment((await getCommentRow(id))!);
+export const updateComment = async (
+  comment: Pick<CommentRow, 'id' | 'task_id'>,
+  editorId: string,
+  input: { body: string; attachmentIds?: string[] },
+) => {
+  await transaction(async (db) => {
+    await query(UPDATE_COMMENT, [comment.id, input.body], db);
+    if (input.attachmentIds?.length)
+      await linkCommentAttachments(db, comment.task_id, comment.id, input.attachmentIds, editorId);
+  });
+  return toComment((await getCommentRow(comment.id))!);
 };
 
 export const deleteComment = (id: string, taskId: string) => query(DELETE_COMMENT, [id, taskId]);

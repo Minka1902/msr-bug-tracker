@@ -37,7 +37,9 @@ export const createCommentsRouter = () => {
 
   router.patch('/comments/:id', async (req, res) => {
     const comment = await loadComment(req.params.id, req.user!.id);
-    res.json({ comment: await updateComment(comment.id, updateCommentSchema.parse(req.body).body) });
+    res.json({
+      comment: await updateComment(comment, req.user!.id, updateCommentSchema.parse(req.body)),
+    });
   });
 
   router.delete('/comments/:id', async (req, res) => {

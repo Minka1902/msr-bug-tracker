@@ -22,6 +22,10 @@ export const envSchema = z
     TEST_DATABASE_URL: z.string().optional(),
     UPLOAD_DIR: z.string().default('./storage'),
     MAX_UPLOAD_MB: z.coerce.number().positive().default(25),
+    R2_ACCOUNT_ID: optional(z.string()),
+    R2_ACCESS_KEY_ID: optional(z.string()),
+    R2_SECRET_ACCESS_KEY: optional(z.string()),
+    R2_BUCKET: optional(z.string()),
     SMTP_URL: optional(z.string()),
     RESEND_API_KEY: optional(z.string()),
     GOOGLE_CLIENT_ID: optional(z.string()),
@@ -50,6 +54,14 @@ export const envSchema = z
     path: ['ENCRYPTION_KEY'],
     message: 'ENCRYPTION_KEY is required in production. Generate one with: openssl rand -base64 32',
   })
+  .refine(
+    (env) =>
+      [env.R2_ACCOUNT_ID, env.R2_ACCESS_KEY_ID, env.R2_SECRET_ACCESS_KEY, env.R2_BUCKET].filter(Boolean)
+        .length %
+        4 ===
+      0,
+    { path: ['R2_BUCKET'], message: 'Set all four R2_* variables to store files on Cloudflare R2, or none' },
+  )
   .transform(({ RENDER_EXTERNAL_URL, ...env }) => ({
     ...env,
     APP_URL: env.APP_URL ?? RENDER_EXTERNAL_URL ?? DEFAULT_APP_URL,
@@ -74,6 +86,13 @@ export const config = {
   databaseUrl: isTest && env.TEST_DATABASE_URL ? env.TEST_DATABASE_URL : env.DATABASE_URL,
   uploadDir: path.resolve(env.UPLOAD_DIR),
   maxUploadBytes: env.MAX_UPLOAD_MB * 1024 * 1024,
+  r2: env.R2_ACCOUNT_ID
+    ? {
+        endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${env.R2_BUCKET}`,
+        accessKeyId: env.R2_ACCESS_KEY_ID!,
+        secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
+      }
+    : null,
   encryptionKey,
   telegramWebhookSecret: createHmac('sha256', encryptionKey).update('telegram-webhook').digest('hex'),
   devMailbox: !env.SMTP_URL && !env.RESEND_API_KEY && env.NODE_ENV !== 'production',

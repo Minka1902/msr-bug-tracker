@@ -52,18 +52,19 @@ Before the first `pnpm e2e`, install the browser once with `pnpm exec playwright
 
 ## Deploy to Render
 
-`render.yaml` is a Render Blueprint: a Docker web service (Starter), a managed Postgres 16 database and a 1 GB disk for attachments.
+`render.yaml` is a Render Blueprint: a Docker web service (Starter) and a managed Postgres 16 database. Attachments and avatars are stored in a Cloudflare R2 bucket.
 
 1. Push this repository to GitHub.
 2. In Render, choose **New → Blueprint** and pick the repository.
 3. When asked, fill in the variables below. The full checklist is in [docs/setup-requirements.md](docs/setup-requirements.md).
+   - `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET`: the bucket and an Object Read & Write token for it. Without them, files are written to the container's disk and lost on every deploy.
    - `RESEND_API_KEY` and `MAIL_FROM`: `MAIL_FROM` must be an address on the domain you verified in Resend, for example `MSR Tracker <no-reply@example.com>`. Without these, verification and password-reset links go to the service log instead of being emailed.
    - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: optional, only needed for Google Calendar sync.
    - `TELEGRAM_BOT_TOKEN`: optional, from @BotFather. It turns on the Telegram bot; the webhook is registered on boot.
    - `ENCRYPTION_KEY`: the Blueprint generates it. Never change it once it's set.
 4. Apply. The first deploy builds the image, runs migrations and goes live at `https://<service>.onrender.com`. `APP_URL` defaults to that address; set it yourself only if you add a custom domain.
 
-The Starter plan is required for the persistent disk. Render backs up the database (point-in-time recovery on paid plans) and snapshots the disk daily.
+Render backs up the database (point-in-time recovery on paid plans). Files in R2 stay put across deploys and restarts.
 
 To try the production image locally:
 

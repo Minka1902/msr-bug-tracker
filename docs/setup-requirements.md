@@ -8,17 +8,17 @@ Your live app is `https://msr-bug-tracker.onrender.com`. The plans, modules, AI 
 
 ## Checklist
 
-| #   | What                                   | Needed for                                               | Urgency                                  |
-| --- | -------------------------------------- | -------------------------------------------------------- | ---------------------------------------- |
-| 1   | `ENCRYPTION_KEY` on Render             | The server starting at all                               | **Before merging**                       |
-| 2   | Upgrade the Render database            | Keeping your data                                        | **Before 2026-11-24**, when it's deleted |
-| 3   | Upgrade the web service and add a disk | Attachments that survive deploys, calendar sync, imports | Strongly recommended                     |
-| 4   | Resend account, domain and API key     | Verification, password-reset and invite emails           | Required for email                       |
-| 5   | Google Cloud OAuth client              | "Connect Google Calendar"                                | Optional                                 |
-| 6   | Custom domain                          | A nicer URL, and verifying the Google app                | Optional                                 |
-| 7   | App Store and Play Store listings      | Native store apps (the PWA works without them)           | Optional                                 |
-| 8   | Connect Claude and ChatGPT             | Asking Claude or ChatGPT about your tasks, lists, events | Optional, after the merge                |
-| 9   | Telegram bot                           | Commands and updates in Telegram chats and groups        | Optional, after the merge                |
+| #   | What                                 | Needed for                                               | Urgency                                  |
+| --- | ------------------------------------ | -------------------------------------------------------- | ---------------------------------------- |
+| 1   | `ENCRYPTION_KEY` on Render           | The server starting at all                               | **Before merging**                       |
+| 2   | Upgrade the Render database          | Keeping your data                                        | **Before 2026-11-24**, when it's deleted |
+| 3   | Cloudflare R2 bucket for attachments | Images and files that survive deploys and restarts       | **Required for attachments**             |
+| 4   | Resend account, domain and API key   | Verification, password-reset and invite emails           | Required for email                       |
+| 5   | Google Cloud OAuth client            | "Connect Google Calendar"                                | Optional                                 |
+| 6   | Custom domain                        | A nicer URL, and verifying the Google app                | Optional                                 |
+| 7   | App Store and Play Store listings    | Native store apps (the PWA works without them)           | Optional                                 |
+| 8   | Connect Claude and ChatGPT           | Asking Claude or ChatGPT about your tasks, lists, events | Optional, after the merge                |
+| 9   | Telegram bot                         | Commands and updates in Telegram chats and groups        | Optional, after the merge                |
 
 Nothing is needed from you for:
 
@@ -55,19 +55,19 @@ Your `msr` Postgres database is on Render's **free** plan, and Render lists it a
 
 Paid instances also get daily backups, and point-in-time recovery on some plans. `scripts/backup.sh` (see the README) can take extra backups to your own machine.
 
-## 3. Upgrade the web service and add a disk (strongly recommended)
+## 3. Store attachments on Cloudflare R2 (required for attachments)
 
-The web service is also on the **free** plan, which has three problems:
+The web service runs on Render's **free** plan, which has no persistent disk. Every deploy, restart or wake-up starts with an empty disk, so pasted images and attached files disappear, even though the database still lists them. R2 keeps them in a bucket instead; its free tier covers 10 GB.
 
-- **No persistent disk.** Uploaded attachments are lost on every deploy or restart.
-- **It sleeps after 15 minutes without traffic.** The next visit takes up to a minute to wake it. While it sleeps, the 5-minute Google and iCloud background sync and running imports stop.
-- **Outbound SMTP ports are blocked.** Email works anyway through Resend, which uses HTTPS (step 4).
+1. In the Cloudflare dashboard, open **R2 Object Storage** and enable it. It asks for a payment method even on the free tier.
+2. **Create bucket**: name it `msr-attachments`, location Automatic.
+3. **Manage API tokens → Create API token**: permission **Object Read & Write**, applied to `msr-attachments` only. Copy the **Access Key ID** and **Secret Access Key**, and note your **Account ID**.
+4. In Render, open **msr-bug-tracker → Environment** and add `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET=msr-attachments`. Save; Render redeploys.
+5. Check it worked: paste an image into a task, trigger a redeploy, and open the task again. The image should still load.
 
-What to do:
+The server checks that either all four are set or none are. Files are served through the app, so they stay private to project members.
 
-1. **msr-bug-tracker → Settings → Instance type → Starter** (about $7/month; check Render's pricing page).
-2. **Disks → Add disk**: any name, mount path `/var/data/uploads`, size 1 GB.
-3. **Environment**: set `UPLOAD_DIR` to `/var/data/uploads`.
+The free web service also sleeps after 15 minutes without traffic, which pauses the 5-minute Google and iCloud sync and running imports until the next visit. **Settings → Instance type → Starter** (about $7/month) keeps it awake.
 
 ## 4. Email through Resend (required for email)
 
@@ -197,7 +197,8 @@ The bot needs the project owner's plan: **Personal** for households, **Pro** for
 | `ENCRYPTION_KEY`                           | Output of `openssl rand -base64 32`           | Yes, in production                           |
 | `RESEND_API_KEY`                           | `re_…` from Resend                            | For email                                    |
 | `MAIL_FROM`                                | `MSR Tracker <no-reply@your-verified-domain>` | For email                                    |
-| `UPLOAD_DIR`                               | `/var/data/uploads` (with the disk)           | Recommended                                  |
+| `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`        | Cloudflare account ID and R2 token key ID     | For attachments                              |
+| `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`        | R2 token secret and `msr-attachments`         | For attachments                              |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | From the Google Cloud web client              | For Google Calendar                          |
 | `APP_URL`                                  | Your custom domain's origin                   | Only with a custom domain                    |
 | `ENABLE_DEMO_DATA`                         | `true` (default) or `false`                   | Optional: `false` hides Settings → Demo data |

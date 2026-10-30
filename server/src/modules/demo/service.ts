@@ -1,5 +1,6 @@
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { removeStored } from '../../lib/storage';
+import { removeUnreferenced } from '../attachments/service';
 import { generateDemoData, type DemoSize } from './generator';
 
 const DEMO_PROJECTS = `p.is_demo AND (p.owner_id = $1 OR p.owner_id IN (SELECT id FROM users WHERE demo_owner_id = $1))`;
@@ -66,7 +67,7 @@ export const generateDemo = async (ownerId: string, size: DemoSize, seed: number
       await query(UPSERT_DEMO_SET, [ownerId, seed, size], db);
       return previous;
     });
-    await removeStored(removed);
+    await removeUnreferenced(removed);
   } catch (error) {
     await removeStored(created);
     throw error;
@@ -74,7 +75,7 @@ export const generateDemo = async (ownerId: string, size: DemoSize, seed: number
 };
 
 export const removeDemo = async (ownerId: string) =>
-  removeStored(await transaction((db) => removeWithin(db, ownerId)));
+  removeUnreferenced(await transaction((db) => removeWithin(db, ownerId)));
 
 export const isOwnDemoUser = async (userId: string, ownerId: string) =>
   !!(await queryOne(DEMO_USER, [userId, ownerId]).catch(() => undefined));

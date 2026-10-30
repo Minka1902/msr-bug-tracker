@@ -72,7 +72,7 @@ export const storeUploads = async (
       if (!type || !allowed.has(type.mime))
         throw new HttpError(415, `Unsupported file type: ${file.originalname}`);
       const key = `${folder}/${randomUUID()}${type.ext}`;
-      await moveIntoStorage(file.path, key);
+      await moveIntoStorage(file.path, key, type.mime);
       stored.push({
         key,
         mime: type.mime,

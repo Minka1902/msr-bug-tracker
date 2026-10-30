@@ -15,6 +15,7 @@ import type { BoardColumn, EscalationRange, ProjectStatus, TaskRecurrence } from
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { badRequest, forbidden, notFound } from '../../lib/httpError';
 import { assertValidPosition, positionAfter } from '../../lib/position';
+import { copyTextAttachments } from '../attachments/service';
 import type { ProjectContext } from '../projects/access';
 import { listStatuses } from '../statuses/service';
 import { recordActivity, type ActivityInput } from './activity';
@@ -305,6 +306,7 @@ const spawnRecurrences = async (
   const pairs = [created.map((row) => row.id), created.map((row) => sourceOf.get(row.number)!)];
   await query(COPY_SPAWNED_LABELS, pairs, db);
   await query(COPY_SPAWNED_CHECKLIST, pairs, db);
+  await copyTextAttachments(db, pairs[0]!, pairs[1]!);
   await query(CLEAR_RECURRENCE, [pairs[1]], db);
   await escalatePriorities(pairs[0]!, false, db);
   await refreshParents(
@@ -651,6 +653,7 @@ export const duplicateTask = (project: ProjectContext, taskId: string, actorId: 
     );
     await query(COPY_LABELS, [taskId, created!.id], db);
     await query(COPY_CHECKLIST, [taskId, created!.id], db);
+    await copyTextAttachments(db, [created!.id], [taskId]);
     await refreshParents(db, [original.parent_id]);
     await recordActivity(
       [

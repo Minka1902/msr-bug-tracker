@@ -1,5 +1,8 @@
+import fs from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { apiGet, createProject, createTask, signUp } from './helpers';
+
+const SCREENSHOT = fs.readFileSync('server/test/fixtures/red.png').toString('base64');
 
 test('manages description, comments, attachments, subtasks and checklist', async ({ page }) => {
   await signUp(page, 'Detail Editor');
@@ -59,4 +62,43 @@ test('manages description, comments, attachments, subtasks and checklist', async
     }>(page, `/tasks/${task.id}`)
   ).task;
   expect(detail).toMatchObject({ commentCount: 1, attachmentCount: 1, subtaskTotal: 1, checklistDone: 1 });
+});
+
+test('keeps an image pasted into the description, even when the task is closed right away', async ({
+  page,
+}) => {
+  await signUp(page, 'Image Keeper');
+  const { key } = await createProject(page, 'Images');
+  const task = await createTask(page, key, { title: 'Screenshot the bug' });
+  await page.goto(`/p/${key}/list?task=${task.identifier}`);
+  let releaseUpload!: () => void;
+  const uploadHeld = new Promise<void>((resolve) => (releaseUpload = resolve));
+  await page.route(`**/api/tasks/${task.id}/attachments`, async (route) => {
+    await uploadHeld;
+    await route.continue();
+  });
+
+  const description = page.getByRole('textbox', { name: 'Description' });
+  await description.click();
+  await description.evaluate((element, base64) => {
+    const data = new DataTransfer();
+    data.items.add(new File([Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))], 'shot.png'));
+    element.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+  }, SCREENSHOT);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('textbox', { name: 'Description' })).toHaveCount(0);
+  releaseUpload();
+
+  await expect
+    .poll(
+      async () =>
+        (await apiGet<{ task: { description: string } }>(page, `/tasks/${task.id}`)).task.description,
+    )
+    .toMatch(/^!\[shot\.png\]\(\/api\/attachments\/[\w-]+\)/);
+  await page.goto(`/p/${key}/${task.number}`);
+  const image = page.getByRole('region', { name: 'Description' }).locator('img');
+  await expect(image).toBeVisible();
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
 });

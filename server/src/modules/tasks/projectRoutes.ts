@@ -6,7 +6,7 @@ import {
   createTaskSchema,
   taskFilterSchema,
 } from '@msr/shared/schemas/task';
-import { removeStored } from '../../lib/storage';
+import { removeUnreferenced } from '../attachments/service';
 import { assertCanWrite, projectOf } from '../projects/access';
 import { timezoneOf } from '../projects/routes';
 import { assertCanAssignOnCreate } from './access';
@@ -44,7 +44,7 @@ export const createProjectTasksRouter = () => {
     const project = projectOf(req);
     assertCanWrite(project, 'task.delete');
     const { ids } = bulkDeleteSchema.parse(req.body);
-    await removeStored(await deleteTasks(project, ids, req.user!.id));
+    await removeUnreferenced(await deleteTasks(project, ids, req.user!.id));
     res.status(204).end();
   });
 
