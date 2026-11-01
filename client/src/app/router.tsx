@@ -172,6 +172,14 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: 'card-types',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/CardTypeSettings').then(
+                        (m) => m.CardTypeSettings,
+                      ),
+                    ),
+                  },
+                  {
                     path: 'labels',
                     lazy: lazyRoute(() =>
                       import('../features/projects/settings/LabelSettings').then((m) => m.LabelSettings),

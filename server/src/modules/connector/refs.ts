@@ -1,4 +1,11 @@
-import { STATUS_CATEGORIES, workflowOf, type StatusCategory, type TaskType } from '@msr/shared/enums';
+import {
+  STATUS_CATEGORIES,
+  TASK_TYPES,
+  TYPE_META,
+  workflowOf,
+  type StatusCategory,
+  type TaskType,
+} from '@msr/shared/enums';
 import { query, queryOne } from '../../db/pool';
 import { badRequest } from '../../lib/httpError';
 
@@ -9,13 +16,16 @@ const PROJECT_REFS = `
     (SELECT COALESCE(json_agg(json_build_object('id', l.id, 'name', l.name) ORDER BY l.name), '[]')
        FROM labels l WHERE l.project_id = $1) AS labels,
     (SELECT COALESCE(json_agg(json_build_object('id', u.id, 'name', u.name, 'email', u.email) ORDER BY u.name), '[]')
-       FROM project_members m JOIN users u ON u.id = m.user_id WHERE m.project_id = $1) AS members`;
+       FROM project_members m JOIN users u ON u.id = m.user_id WHERE m.project_id = $1) AS members,
+    (SELECT COALESCE(json_agg(json_build_object('id', c.id, 'name', c.name, 'base', c.base) ORDER BY lower(c.name)), '[]')
+       FROM project_card_types c WHERE c.project_id = $1) AS card_types`;
 const STATUS_NAMES = 'SELECT id, name FROM project_statuses WHERE id = ANY($1::uuid[])';
 
 export interface ProjectRefs {
   statuses: { id: string; name: string; category: StatusCategory; workflow: 'task' | 'bug' }[];
   labels: { id: string; name: string }[];
   members: { id: string; name: string; email: string }[];
+  card_types: { id: string; name: string; base: TaskType }[];
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -63,6 +73,16 @@ export const resolveStatusFilter = (refs: ProjectRefs, values: string[]) => {
       );
   }
   return { ids, categories };
+};
+
+export const resolveType = (refs: ProjectRefs, value: string) => {
+  const builtIn = TASK_TYPES.find((type) => same(type, value) || same(TYPE_META[type].label, value));
+  if (builtIn) return { type: builtIn, cardTypeId: null };
+  const custom = refs.card_types.find((cardType) => same(cardType.name, value));
+  if (custom) return { type: custom.base, cardTypeId: custom.id };
+  throw badRequest(
+    `Unknown type "${value}". Use one of: ${options([...TASK_TYPES, ...refs.card_types.map((c) => c.name)])}`,
+  );
 };
 
 export const resolveLabels = (refs: ProjectRefs, names: string[]) =>

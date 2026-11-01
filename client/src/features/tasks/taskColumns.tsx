@@ -34,7 +34,7 @@ export const taskColumns = (project: ProjectDetail, { bugsOnly = false } = {}): 
     sortable: true,
     cell: (task) => (
       <span className="flex min-w-0 items-center gap-2">
-        <TypeIcon type={task.type} />
+        <TypeIcon type={task.type} cardType={task.cardType} />
         <span
           className={`truncate font-medium ${task.statusCategory === 'done' ? 'text-muted line-through' : ''}`}
         >

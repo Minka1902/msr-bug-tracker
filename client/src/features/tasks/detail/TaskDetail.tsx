@@ -71,7 +71,11 @@ export function TaskDetail({ identifier, variant = 'peek', onClose, onNavigate }
       </div>
     );
 
-  const ownership = { reporterId: task.reporterId, assigneeId: task.assignee?.id ?? null };
+  const ownership = {
+    reporterId: task.reporterId,
+    assigneeId: task.assignee?.id ?? null,
+    cardTypeId: task.cardType?.id,
+  };
   const canEdit = permissions.canEditTask(ownership);
   const canUpload = permissions.can('attachment.upload');
   const mask = project.data.isArchived ? 0 : project.data.permissions;

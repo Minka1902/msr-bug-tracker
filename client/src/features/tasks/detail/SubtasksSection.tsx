@@ -73,7 +73,7 @@ export function SubtasksSection({ task, project, canCreate, onOpen }: SubtasksSe
               onClick={() => onOpen(subtask.identifier)}
               className="flex cursor-pointer items-center gap-2 rounded-control px-2 py-1.5 text-left text-sm hover:bg-surface-muted"
             >
-              <TypeIcon type={subtask.type} className="size-3.5" />
+              <TypeIcon type={subtask.type} cardType={subtask.cardType} className="size-3.5" />
               <span className="font-mono text-xs text-subtle">{subtask.identifier}</span>
               <span
                 className={`flex-1 truncate ${subtask.statusCategory === 'done' ? 'text-muted line-through' : ''}`}

@@ -20,7 +20,7 @@ import { useConflictGuard } from '../../calendar/useConflictGuard';
 import { useProject, useProjects } from '../../projects/api';
 import { useCreateTask } from '../api';
 import { uploadFiles } from '../collabApi';
-import { TypeIcon } from '../taskMeta';
+import { TypeIcon, typeLabel } from '../taskMeta';
 import { useTaskPeek } from '../useTaskPeek';
 import { TaskCreateFields, type TaskCreateValues } from './TaskCreateFields';
 
@@ -36,8 +36,15 @@ interface QuickCreateTaskModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const EMPTY_PROJECT = { statuses: [], labels: [], memberList: [], permissions: 0 };
-const BLANK_FIELDS: Omit<TaskCreateValues, 'type'> = {
+const EMPTY_PROJECT = {
+  statuses: [],
+  labels: [],
+  memberList: [],
+  permissions: 0,
+  cardTypes: [],
+  isOwner: false,
+};
+const BLANK_FIELDS: Omit<TaskCreateValues, 'type' | 'cardTypeId'> = {
   statusId: null,
   priority: 'medium',
   assigneeId: null,
@@ -73,6 +80,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
         title: title.trim(),
         description,
         type,
+        cardTypeId: cardType?.id,
         priority: fields.priority,
         statusId: effectiveStatus ?? undefined,
         assigneeId: fields.assigneeId,
@@ -127,13 +135,16 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
   const [fields, setFields] = useState<TaskCreateValues>({
     ...BLANK_FIELDS,
     type: (defaults.type as TaskType) ?? 'task',
+    cardTypeId: null,
     statusId: defaults.statusId ?? null,
   });
   const [createMore, setCreateMore] = useState(false);
   const projectData = project.data ?? EMPTY_PROJECT;
   const types = MODULE_META[project.data?.module ?? 'software'].taskTypes;
   const type = types.includes(fields.type) ? fields.type : types[0]!;
-  const noun = project.data?.kind === 'household' ? TYPE_META[type].label.toLowerCase() : 'task';
+  const cardType = projectData.cardTypes.find((item) => item.id === fields.cardTypeId);
+  const customTypes = projectData.cardTypes.length > 0;
+  const noun = project.data?.kind === 'household' ? typeLabel({ type, cardType }).toLowerCase() : 'task';
   const mask = projectData.permissions;
   const effectiveStatus = projectData.statuses.some(
     (status) => status.id === fields.statusId && status.workflow === workflowOf(type),
@@ -185,7 +196,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
             value={projectKey}
             onChange={(key) => {
               setChosenProject(key);
-              patchFields({ statusId: null, labelIds: [], assigneeId: null });
+              patchFields({ statusId: null, labelIds: [], assigneeId: null, cardTypeId: null });
             }}
             searchable
             options={allowed.map((item) => ({
@@ -196,17 +207,19 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
             }))}
             className="h-9"
           />
-          <SegmentedControl
-            label="Type"
-            size="sm"
-            value={type}
-            onChange={(type) => patchFields({ type })}
-            options={types.map((value) => ({
-              value,
-              label: TYPE_META[value].label,
-              icon: <TypeIcon type={value} />,
-            }))}
-          />
+          {!customTypes && (
+            <SegmentedControl
+              label="Type"
+              size="sm"
+              value={type}
+              onChange={(type) => patchFields({ type, cardTypeId: null })}
+              options={types.map((value) => ({
+                value,
+                label: TYPE_META[value].label,
+                icon: <TypeIcon type={value} />,
+              }))}
+            />
+          )}
         </div>
         <Input
           autoFocus
@@ -215,9 +228,9 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
           placeholder={
             type === 'bug'
               ? 'What is broken?'
-              : type === 'task'
+              : type === 'task' && !cardType
                 ? 'Task title'
-                : `${TYPE_META[type].label} title`
+                : `${typeLabel({ type, cardType })} title`
           }
           maxLength={300}
           size="lg"
@@ -238,9 +251,18 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
         />
         <TaskCreateFields
           project={projectData}
-          values={{ ...fields, type }}
+          values={{ ...fields, type, cardTypeId: cardType?.id ?? null }}
           onChange={patchFields}
-          fields={['status', 'priority', 'assignee', 'dueDate', 'recurrence', 'labels', 'severity']}
+          fields={[
+            ...(customTypes ? (['type'] as const) : []),
+            'status',
+            'priority',
+            'assignee',
+            'dueDate',
+            'recurrence',
+            'labels',
+            'severity',
+          ]}
         />
       </form>
     </Modal>

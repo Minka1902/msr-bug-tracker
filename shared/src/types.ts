@@ -114,6 +114,19 @@ export interface ProjectMember extends UserRef {
   joinedAt: string;
 }
 
+export interface CardTypeRef {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+export interface CardType extends CardTypeRef {
+  base: TaskType;
+  createRoleIds: string[];
+  editRoleIds: string[];
+}
+
 export interface AiInstructions {
   start: string;
   finish: string;
@@ -125,6 +138,8 @@ export interface ProjectDetail extends ProjectSummary {
   roles: ProjectRole[];
   memberList: ProjectMember[];
   aiInstructions: AiInstructions;
+  cardTypes: CardType[];
+  cardTypesAllowed: boolean;
 }
 
 export interface TaskCard {
@@ -136,6 +151,7 @@ export interface TaskCard {
   parentId: string | null;
   parentIdentifier: string | null;
   type: TaskType;
+  cardType: CardTypeRef | null;
   title: string;
   statusId: string;
   statusCategory: StatusCategory;

@@ -10,6 +10,10 @@ export interface CardRow {
   number: number;
   parent_id: string | null;
   type: TaskType;
+  card_type_id: string | null;
+  card_type_name: string | null;
+  card_type_icon: string | null;
+  card_type_color: string | null;
   title: string;
   status_id: string;
   status_category: StatusCategory;
@@ -61,6 +65,7 @@ export interface DetailRow extends CardRow {
 
 const CARD_COLUMNS = `
   t.id, t.project_id, p.key::text AS project_key, t.number, t.parent_id, t.type, t.title, t.status_id, s.category AS status_category,
+  t.card_type_id, ct.name AS card_type_name, ct.icon AS card_type_icon, ct.color AS card_type_color,
   t.priority, t.severity, t.reporter_id, t.start_date, t.due_date, t.recurrence,
   t.escalate_from, t.escalate_to, t.escalate_since, t.is_blocked, t.position,
   t.comment_count, t.attachment_count, t.checklist_total, t.checklist_done, t.subtask_total, t.subtask_done,
@@ -77,7 +82,8 @@ export const TASK_FROM = `
   FROM tasks t
   JOIN projects p ON p.id = t.project_id
   JOIN project_statuses s ON s.id = t.status_id
-  LEFT JOIN users a ON a.id = t.assignee_id`;
+  LEFT JOIN users a ON a.id = t.assignee_id
+  LEFT JOIN project_card_types ct ON ct.id = t.card_type_id`;
 
 export const cardSelect = (extraColumns = '') =>
   `SELECT ${CARD_COLUMNS}${extraColumns ? `, ${extraColumns}` : ''} ${TASK_FROM}`;
@@ -100,6 +106,14 @@ export const toCard = (row: CardRow): TaskCard => ({
   parentId: row.parent_id,
   parentIdentifier: row.parent_number ? formatIdentifier(row.project_key, row.parent_number) : null,
   type: row.type,
+  cardType: row.card_type_id
+    ? {
+        id: row.card_type_id,
+        name: row.card_type_name!,
+        icon: row.card_type_icon!,
+        color: row.card_type_color!,
+      }
+    : null,
   title: row.title,
   statusId: row.status_id,
   statusCategory: row.status_category,

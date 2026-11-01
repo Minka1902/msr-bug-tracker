@@ -189,7 +189,7 @@ export function CommandPalette({
                       onSelect={() => run(() => peek.open(task.identifier))}
                       className={itemClass}
                     >
-                      <TypeIcon type={task.type} />
+                      <TypeIcon type={task.type} cardType={task.cardType} />
                       <span className="font-mono text-xs text-subtle">{task.identifier}</span>
                       <span
                         className={`flex-1 truncate ${task.statusCategory === 'done' ? 'text-muted line-through' : ''}`}

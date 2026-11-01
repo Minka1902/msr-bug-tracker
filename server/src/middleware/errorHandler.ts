@@ -10,6 +10,7 @@ const UNIQUE_MESSAGES: Record<string, string> = {
   projects_key_key: 'That project key is already taken',
   project_statuses_name_idx: 'A status with this name already exists in this workflow',
   labels_name_idx: 'A label with this name already exists',
+  project_card_types_name_idx: 'A card type with this name already exists',
   project_roles_name_idx: 'A role with this name already exists',
   project_members_pkey: 'That person is already a member',
   users_email_key: 'An account with this email already exists',

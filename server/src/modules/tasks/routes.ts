@@ -6,7 +6,7 @@ import { forbidden, notFound } from '../../lib/httpError';
 import { removeUnreferenced } from '../attachments/service';
 import { assertCanWrite, assertWritable, projectOf, toProjectContext } from '../projects/access';
 import { listTaskActivity } from './activity';
-import { assertCanPatchTask, findTaskByIdentifier, loadTask } from './access';
+import { assertCanPatchTask, assertCardTypeEditable, findTaskByIdentifier, loadTask } from './access';
 import {
   deleteTasks,
   duplicateTask,
@@ -47,6 +47,7 @@ export const createTasksRouter = () => {
   scoped.delete('/', async (req, res) => {
     const project = projectOf(req);
     assertCanWrite(project, 'task.delete');
+    assertCardTypeEditable(project, req.task!);
     await removeUnreferenced(await deleteTasks(project, [req.task!.id], req.user!.id));
     res.status(204).end();
   });
@@ -60,6 +61,7 @@ export const createTasksRouter = () => {
   scoped.post('/reopen', async (req, res) => {
     const project = projectOf(req);
     assertWritable(project);
+    assertCardTypeEditable(project, req.task!);
     if (!canTransitionTask(project.permissions, req.task!, req.user!.id))
       throw forbidden(`Your role (${project.roleName}) can't do that`, { missing: ['task.transition'] });
     res.json({ task: await reopenTask(project, req.task!.id, req.user!.id) });
@@ -76,6 +78,7 @@ export const createTasksRouter = () => {
     if (!row) throw notFound('Target project not found');
     const target = toProjectContext(row, req.user!.id);
     assertCanWrite(source, 'task.move');
+    assertCardTypeEditable(source, req.task!);
     assertCanWrite(target, 'task.create');
     if (target.id === source.id) throw notFound('The task is already in this project');
     res.json({ task: await moveTask(source, target, req.task!.id, req.user!.id) });

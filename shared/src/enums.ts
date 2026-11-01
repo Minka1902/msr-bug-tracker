@@ -147,3 +147,6 @@ export const HOUSEHOLD_STATUSES: Record<
 export const HOUSEHOLD_LABELS = ['Kitchen', 'Laundry', 'Outdoor', 'School', 'Pets'];
 
 export const workflowOf = (type: TaskType): Workflow => (type === 'bug' ? 'bug' : 'task');
+
+export const isTaskType = (value: string): value is TaskType =>
+  (TASK_TYPES as readonly string[]).includes(value);

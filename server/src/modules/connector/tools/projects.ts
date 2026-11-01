@@ -92,6 +92,9 @@ const fetchProject = async (key: string, { user, timezone }: ToolContext, projec
       ...compactProject(summary),
       statuses: refs.statuses.map(({ name, category, workflow }) => ({ name, category, workflow })),
       labels: refs.labels.map((label) => label.name),
+      ...(refs.card_types.length && {
+        cardTypes: refs.card_types.map(({ name, base }) => ({ name, worksLike: base })),
+      }),
       members: refs.members.map(({ name, email }) => ({ name, email })),
     },
   };

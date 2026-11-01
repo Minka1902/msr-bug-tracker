@@ -25,7 +25,7 @@ export function TaskDetailHeader({
 
   return (
     <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 md:px-5">
-      <TypeIcon type={task.type} />
+      <TypeIcon type={task.type} cardType={task.cardType} />
       <span className="shrink-0 font-mono text-sm font-semibold whitespace-nowrap">{task.identifier}</span>
       {task.parent && (
         <button

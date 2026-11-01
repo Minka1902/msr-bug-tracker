@@ -1,6 +1,7 @@
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
 import {
   DECISION_REQUIRED,
+  TYPE_META,
   workflowOf,
   type Priority,
   type StatusCategory,
@@ -9,7 +10,7 @@ import {
 } from '@msr/shared/enums';
 import { describeEscalation } from '@msr/shared/escalation';
 import { formatIdentifier } from '@msr/shared/identifiers';
-import { missingTaskPermissions } from '@msr/shared/permissions';
+import { cardTypeAllows, missingTaskPermissions } from '@msr/shared/permissions';
 import { describeRecurrence, nextAssignee, nextOccurrence } from '@msr/shared/recurrence';
 import type { BulkPatch, CreateTaskInput, TaskFilters, UpdateTaskInput } from '@msr/shared/schemas/task';
 import type { BoardColumn, EscalationRange, ProjectStatus, TaskRecurrence } from '@msr/shared/types';
@@ -58,7 +59,18 @@ interface CurrentRow {
   blocked_reason: string | null;
   completed_at: Date | null;
   decision: string;
+  card_type_id: string | null;
+  card_type_name: string | null;
+  card_type_create_roles: string[] | null;
+  card_type_edit_roles: string[] | null;
   [column: string]: unknown;
+}
+
+interface CardTypeRow {
+  id: string;
+  name: string;
+  base: TaskType;
+  create_role_ids: string[];
 }
 
 const CATEGORY_FALLBACK: Record<StatusCategory, StatusCategory[]> = {
@@ -98,11 +110,15 @@ const SILENT_VALUE_FIELDS = new Set([
 ]);
 
 const CURRENT_TASK = `
-  SELECT t.*, s.name AS status_name, s.workflow, s.category, a.name AS assignee_name
+  SELECT t.*, s.name AS status_name, s.workflow, s.category, a.name AS assignee_name, ct.name AS card_type_name,
+         ct.create_role_ids AS card_type_create_roles, ct.edit_role_ids AS card_type_edit_roles
   FROM tasks t JOIN project_statuses s ON s.id = t.status_id LEFT JOIN users a ON a.id = t.assignee_id
+  LEFT JOIN project_card_types ct ON ct.id = t.card_type_id
   WHERE t.id = ANY($1::uuid[]) AND t.project_id = $2
   ORDER BY t.number
   FOR UPDATE OF t`;
+const CARD_TYPE =
+  'SELECT id, name, base, create_role_ids FROM project_card_types WHERE id = $1 AND project_id = $2';
 const NEXT_NUMBER = 'UPDATE projects SET task_seq = task_seq + 1 WHERE id = $1 RETURNING task_seq';
 const LAST_IN_STATUS = 'SELECT max(position) AS position FROM tasks WHERE status_id = $1';
 const NEXT_IN_STATUS = 'SELECT min(position) AS position FROM tasks WHERE status_id = $1 AND position > $2';
@@ -113,9 +129,9 @@ const INSERT_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, recurrence,
-                     escalate_from, escalate_to, escalate_since, decision)
+                     escalate_from, escalate_to, escalate_since, decision, card_type_id)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $14 THEN now() END, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26, $27, $28, $29, $30, $31)
+          $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
   RETURNING id`;
 const INSERT_LABELS =
   'INSERT INTO task_labels (task_id, label_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING';
@@ -142,11 +158,11 @@ const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-                     recurrence, escalate_from, escalate_to, escalate_since, decision)
+                     recurrence, escalate_from, escalate_to, escalate_since, decision, card_type_id)
   SELECT project_id, $2, parent_id, type, left(title || ' (copy)', 300), description, status_id, priority, severity, assignee_id, $3,
          start_date, due_date, CASE WHEN completed_at IS NOT NULL THEN now() END, is_blocked, blocked_reason, $4, steps_to_reproduce,
          expected_behavior, actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-         recurrence, escalate_from, escalate_to, escalate_since, decision
+         recurrence, escalate_from, escalate_to, escalate_since, decision, card_type_id
   FROM tasks WHERE id = $1
   RETURNING id`;
 const COPY_LABELS =
@@ -156,7 +172,10 @@ const COPY_CHECKLIST = `
   SELECT $2, text, false, position FROM task_checklist_items WHERE task_id = $1`;
 const MOVE_ROW = `
   UPDATE tasks SET project_id = $2, number = $3, status_id = $4, position = $5, assignee_id = $6, parent_id = $7,
-         completed_at = CASE WHEN $8 THEN COALESCE(completed_at, now()) END, updated_at = now()
+         completed_at = CASE WHEN $8 THEN COALESCE(completed_at, now()) END, updated_at = now(),
+         card_type_id = (SELECT tt.id FROM project_card_types st
+                         JOIN project_card_types tt ON tt.project_id = $2 AND lower(tt.name) = lower(st.name) AND tt.base = st.base
+                         WHERE st.id = tasks.card_type_id)
   WHERE id = $1`;
 const INSERT_ALIAS = 'INSERT INTO task_aliases (project_id, number, task_id) VALUES ($1, $2, $3)';
 const MOVE_ACTIVITY = 'UPDATE task_activity SET project_id = $2 WHERE task_id = $1';
@@ -176,11 +195,12 @@ const SPAWN_RECURRENCES = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, recurrence, position, steps_to_reproduce, expected_behavior, actual_behavior, env_os,
                      env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total, escalate_from,
-                     escalate_to, escalate_since)
+                     escalate_to, escalate_since, card_type_id)
   SELECT t.project_id, x.number, t.parent_id, t.type, t.title, t.description, x.status_id, t.priority, t.severity, x.assignee_id,
          t.reporter_id, x.start_date, x.due_date, t.recurrence, x.position, t.steps_to_reproduce, t.expected_behavior,
          t.actual_behavior, t.env_os, t.env_browser, t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility,
-         t.checklist_total, t.escalate_from, t.escalate_to, CASE WHEN t.escalate_from IS NOT NULL THEN $8::date END
+         t.checklist_total, t.escalate_from, t.escalate_to, CASE WHEN t.escalate_from IS NOT NULL THEN $8::date END,
+         t.card_type_id
   FROM unnest($1::uuid[], $2::int[], $3::uuid[], $4::uuid[], $5::date[], $6::date[], $7::text[])
     AS x(source_id, number, status_id, assignee_id, start_date, due_date, position)
   JOIN tasks t ON t.id = x.source_id
@@ -212,6 +232,22 @@ const decisionRequired = (identifiers: string[]) =>
     `Add a decision before closing ${identifiers.length ? identifiers.join(', ') : 'this discussion'}`,
     { code: DECISION_REQUIRED, tasks: identifiers },
   );
+
+const roleCan = (project: ProjectContext, roleIds: string[] | null) =>
+  cardTypeAllows(roleIds ?? [], project.roleId, project.isOwner);
+
+const resolveCardType = async (db: Db, project: ProjectContext, cardTypeId: string, type?: TaskType) => {
+  const cardType = await queryOne<CardTypeRow>(CARD_TYPE, [cardTypeId, project.id], db);
+  if (!cardType) throw badRequest('Pick a card type from this project');
+  if (!roleCan(project, cardType.create_role_ids))
+    throw forbidden(`Your role (${project.roleName}) can't create ${cardType.name} cards`);
+  if (type && type !== cardType.base)
+    throw badRequest(`${cardType.name} cards work like ${TYPE_META[cardType.base].label} cards`);
+  return cardType;
+};
+
+const lockedCards = (project: ProjectContext, rows: CurrentRow[]) =>
+  rows.filter((row) => row.card_type_id && !roleCan(project, row.card_type_edit_roles));
 
 const firstStatus = (statuses: ProjectStatus[], workflow: Workflow) =>
   statuses.find((status) => status.workflow === workflow)!;
@@ -402,7 +438,10 @@ export const resolveIdentifier = (key: string, number: number) =>
 
 export const createTask = (project: ProjectContext, input: CreateTaskInput, actorId: string) =>
   transaction(async (db) => {
-    const type = input.type ?? 'task';
+    const cardType = input.cardTypeId
+      ? await resolveCardType(db, project, input.cardTypeId, input.type)
+      : null;
+    const type = cardType?.base ?? input.type ?? 'task';
     const workflow = workflowOf(type);
     const statuses = await listStatuses(project.id, db);
     const status = input.statusId
@@ -461,6 +500,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
         input.escalation?.to ?? null,
         input.escalation ? await actorToday(db, actorId) : null,
         input.decision ?? '',
+        cardType?.id ?? null,
       ],
       db,
     );
@@ -488,12 +528,24 @@ export const updateTask = (
     const log = (field: string, oldValue: unknown, newValue: unknown) =>
       activity.push({ projectId: project.id, taskId, actorId, action: 'updated', field, oldValue, newValue });
 
-    const type = patch.type ?? current.type;
+    const cardTypeId =
+      patch.cardTypeId !== undefined
+        ? patch.cardTypeId
+        : patch.type !== undefined
+          ? null
+          : current.card_type_id;
+    const cardType =
+      cardTypeId && cardTypeId !== current.card_type_id
+        ? await resolveCardType(db, project, cardTypeId, patch.type)
+        : null;
+    const type = cardType?.base ?? patch.type ?? current.type;
+    if (cardTypeId && cardTypeId === current.card_type_id && type !== current.type)
+      throw badRequest(`${current.card_type_name} cards work like ${TYPE_META[current.type].label} cards`);
     const workflow = workflowOf(type);
-    if (patch.type && patch.type !== current.type) {
-      sets.type = patch.type;
-      log('type', current.type, patch.type);
-    }
+    if (type !== current.type) sets.type = type;
+    if (cardTypeId !== current.card_type_id) sets.card_type_id = cardTypeId;
+    if ('type' in sets || 'card_type_id' in sets)
+      log('type', current.card_type_name ?? current.type, cardType?.name ?? type);
 
     const statuses =
       patch.statusId || workflow !== current.workflow ? await listStatuses(project.id, db) : [];
@@ -637,6 +689,11 @@ export const deleteTasks = (project: ProjectContext, ids: string[], actorId: str
   transaction(async (db) => {
     const rows = await lockTasks(db, project.id, ids);
     if (rows.length !== new Set(ids).size) throw notFound('Some tasks were not found');
+    const locked = lockedCards(project, rows);
+    if (locked.length)
+      throw forbidden(`Your role (${project.roleName}) can't delete some of these cards`, {
+        tasks: locked.map((row) => formatIdentifier(project.key, row.number)),
+      });
     const files = await query<{ storage_key: string }>(FILE_KEYS, [ids], db);
     await query(DELETE_TASKS, [ids], db);
     await refreshParents(
@@ -660,6 +717,8 @@ export const duplicateTask = (project: ProjectContext, taskId: string, actorId: 
   transaction(async (db) => {
     const [original] = await lockTasks(db, project.id, [taskId]);
     if (!original) throw notFound('Task not found');
+    if (original.card_type_id && !roleCan(project, original.card_type_create_roles))
+      throw forbidden(`Your role (${project.roleName}) can't create ${original.card_type_name} cards`);
     const number = await allocateNumber(db, project.id);
     const next = await queryOne<{ position: string | null }>(
       NEXT_IN_STATUS,
@@ -767,7 +826,9 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
     const rows = await lockTasks(db, project.id, uniqueIds);
     if (rows.length !== uniqueIds.length) throw notFound('Some tasks were not found in this project');
 
+    const locked = new Set(lockedCards(project, rows));
     const denied = rows.filter((row) => {
+      if (locked.has(row)) return true;
       const shape = {
         ...bulkPermissionPatch(patch),
         ...(patch.assigneeId !== undefined && { assigneeId: patch.assigneeId }),

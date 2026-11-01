@@ -67,7 +67,7 @@ export function TaskCardView({
           </Badge>
           {task.isBlocked && <Badge tone="danger" size="xs" icon={<Ban />} label="Blocked" />}
           <span className="ml-auto flex items-center gap-1 text-[11px] font-medium text-subtle">
-            <TypeIcon type={task.type} className="size-3.5" />
+            <TypeIcon type={task.type} cardType={task.cardType} className="size-3.5" />
             {showProject ? task.identifier : `#${task.number}`}
           </span>
         </div>

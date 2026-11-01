@@ -25,7 +25,7 @@ export function TaskRowCard({ task, status, onOpen, showProject, className }: Ta
       )}
     >
       <span className="flex items-center gap-2 text-xs text-subtle">
-        <TypeIcon type={task.type} className="size-3.5" />
+        <TypeIcon type={task.type} cardType={task.cardType} className="size-3.5" />
         <span className="font-mono">{showProject ? task.identifier : `#${task.number}`}</span>
         {status && (
           <Badge size="xs" variant="dot" color={status.color} label={status.name} className="ml-auto" />

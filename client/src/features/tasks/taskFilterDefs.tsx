@@ -45,7 +45,15 @@ export const taskFilterDefs = (
       },
   ...(bugsOnly
     ? []
-    : [{ key: 'type', label: 'Type', icon: <Shapes />, type: 'multi' as const, options: options.type }]),
+    : [
+        {
+          key: 'type',
+          label: 'Type',
+          icon: <Shapes />,
+          type: 'multi' as const,
+          options: options.type.map(({ value, label, icon }) => ({ value, label, icon })),
+        },
+      ]),
   { key: 'priority', label: 'Priority', icon: <Flag />, type: 'multi', options: options.priority },
   { key: 'severity', label: 'Severity', icon: <Bug />, type: 'multi', options: options.severity },
   {

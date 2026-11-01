@@ -57,6 +57,8 @@ erDiagram
   users ||--o| oauth_grants : "agent_id"
   projects ||--o{ telegram_chats : notifies
   projects ||--o{ telegram_outbox : queues
+  projects ||--o{ project_card_types : defines
+  tasks }o--o| project_card_types : "card_type_id"
 ```
 
 ## Tables
@@ -109,6 +111,7 @@ erDiagram
 | `live_url`, `repo_url`                 | text, null — migration 005                   | Links shown in the project header. CHECK: `^https?://`, at most 2048 chars.                                                                                                             |
 | `kind`                                 | `project_kind` — migration 010               | `software` (default) or `household`. It decides the seeded roles, statuses and labels, the task types offered, and the tabs shown.                                                      |
 | `emblem`                               | jsonb, null — migration 012                  | The flag builder: `{shape, pattern, colors[], divider: {color, width 0–3}, iconColor, showIcon}`. `colors` has one entry per part of the pattern. `NULL` keeps the plain gradient icon. |
+| `ai_start`, `ai_finish`                | text, at most 4000 chars — migration 021     | The project's AI instructions. Every MCP tool answer about the project starts with `ai_start` and ends with `ai_finish`. Empty means none.                                              |
 
 ### `project_roles` — migration 002
 
@@ -277,6 +280,21 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 
 `tasks.overdue_alerted_for` remembers the due date an overdue alert was sent for, so changing the due date re-arms it.
 
+### Discussions — migration 020
+
+`task_type` gains `discussion`, and `tasks` gains `decision` (text, at most 20,000 chars). `CHECK tasks_discussion_decision` keeps a discussion with a blank decision out of every `done` status. It compares `type::text`, so the migration can add the enum value and the check in one transaction.
+
+### AI instructions — migration 021
+
+`projects.ai_start` and `projects.ai_finish` (see `projects`).
+
+### Custom card types — migration 022
+
+| Table                | Key columns                                                                                                                                          | Notes                                                                                                                                                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project_card_types` | `project_id`, `base` (`task_type`), `name` (unique per project, case-insensitive), `icon`, `color`, `create_role_ids` uuid[], `edit_role_ids` uuid[] | A project's own kind of card. It works like its `base` type (workflow, statuses, bug fields). The role lists say who can create and who can edit or move its cards; the owner always can                     |
+| `tasks`              | `card_type_id` uuid, null                                                                                                                            | `FOREIGN KEY (project_id, card_type_id) → project_card_types (project_id, id) ON DELETE SET NULL (card_type_id)`, so a card only uses its own project's types and reverts to `type` when its type is deleted |
+
 ## Invariants
 
 - **Project keys** are globally unique (case-insensitive), match `^[A-Z][A-Z0-9]{1,5}$`, and never change after creation.
@@ -285,6 +303,8 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 - **Ownership:** each project has exactly one member holding the `owner` system role, and that member equals `projects.owner_id`.
 - **Workflows:** every project has two workflows, `task` and `bug`. Each must keep at least one status in the `backlog`/`todo` categories and at least one in `done`. Deleting a status requires a target status for its tasks.
 - **Completion:** `tasks.completed_at` is set when a task enters a `done`-category status and cleared when it leaves one.
+- **Discussions** in a `done` status always have a decision (`CHECK tasks_discussion_decision`).
+- **Card types:** `tasks.type` always equals the `base` of its card type. A move keeps the card type only when the target project has one with the same name and base.
 - **Counters:** `comment_count`, `attachment_count`, `checklist_total/done` and `subtask_total/done` on `tasks` are updated in the same transaction as the change they count. Tests compare them against fresh recounts.
 - **Demo tagging:** demo rows carry `projects.is_demo = true`, and demo users have `users.demo_owner_id` set. Demo users have no password.
 - **Secrets at rest:** 2FA secrets, AI keys, calendar credentials and feed tokens are sealed with AES-256-GCM under `ENCRYPTION_KEY`, in the format `v1.iv.tag.ciphertext`. Changing or losing the key makes them unreadable.

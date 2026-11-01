@@ -6,6 +6,7 @@ export const PLAN_TIERS = ['free', 'personal', 'pro'] as const;
 export const PAID_TIERS = ['personal', 'pro'] as const;
 export const PACK_PRESETS = [10, 25] as const;
 export const PACK_MAX = 100;
+export const CARD_TYPES_MAX = 30;
 
 export type ProjectModule = (typeof PROJECT_MODULES)[number];
 export type ComingSoonModule = (typeof COMING_SOON_MODULES)[number];
@@ -100,6 +101,7 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
     features: [
       'AI plans validation, product and launch',
       'Product work with bug tracking',
+      'Your own card types with permissions',
       'Work the AI can take on',
     ],
     available: true,
@@ -200,6 +202,9 @@ export const planAllows = (tier: PlanTier, module: CatalogModule) => PLAN_META[t
 
 export const botAllowed = (tier: PlanTier, module: ProjectModule) =>
   PLAN_META[tier].bot === 'all' || (PLAN_META[tier].bot === 'household' && module === 'household');
+
+export const cardTypesAllowed = (tier: PlanTier, module: ProjectModule) =>
+  module === 'startup' || tier === 'pro';
 
 export const minimumPlan = (module: CatalogModule) => PLAN_TIERS.find((tier) => planAllows(tier, module))!;
 

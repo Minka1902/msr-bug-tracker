@@ -18,7 +18,8 @@ export const failure = (message: string): CallToolResult => ({
 export const compactTask = (task: TaskCard, statusNames: Map<string, string>) => ({
   identifier: task.identifier,
   title: task.title,
-  type: task.type,
+  type: task.cardType?.name ?? task.type,
+  ...(task.cardType && { worksLike: task.type }),
   status: statusNames.get(task.statusId) ?? task.statusCategory,
   statusCategory: task.statusCategory,
   priority: task.priority,

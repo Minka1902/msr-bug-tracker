@@ -70,7 +70,8 @@ export const isoDay = (offset = 0) => new Date(Date.now() + offset * 86_400_000)
 
 export interface TaskSeed {
   title: string;
-  type?: 'task' | 'bug' | 'feature' | 'improvement' | 'chore' | 'errand';
+  type?: 'task' | 'bug' | 'feature' | 'improvement' | 'chore' | 'errand' | 'discussion';
+  cardTypeId?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
   dueDate?: string;
   statusId?: string;

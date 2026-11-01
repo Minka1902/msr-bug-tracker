@@ -250,7 +250,8 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
       );
     });
 
-  const canDrag = (task: TaskCard) => permissions.canTransition({ assigneeId: task.assignee?.id ?? null });
+  const canDrag = (task: TaskCard) =>
+    permissions.canTransition({ assigneeId: task.assignee?.id ?? null, cardTypeId: task.cardType?.id });
 
   const client = useQueryClient();
   const phone = useMediaQuery(PHONE);

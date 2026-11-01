@@ -9,7 +9,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import { PRIORITY_META, TYPE_META, type Priority, type TaskType } from '@msr/shared/enums';
+import { isTaskType, PRIORITY_META, TYPE_META, type Priority, type TaskType } from '@msr/shared/enums';
+import type { CardType, CardTypeRef } from '@msr/shared/types';
+import { ProjectIcon } from '../../components/ui/ProjectIcon';
 import { cn } from '../../lib/cn';
 
 export const TYPE_ICONS: Record<TaskType, LucideIcon> = {
@@ -23,6 +25,25 @@ export const TYPE_ICONS: Record<TaskType, LucideIcon> = {
 };
 
 const PRIORITY_BARS: Record<Priority, number> = { urgent: 4, high: 3, medium: 2, low: 1 };
+
+interface Typed {
+  type: TaskType;
+  cardType?: CardTypeRef | null;
+}
+
+export const typeValue = (task: Typed) => task.cardType?.id ?? task.type;
+
+export const typeLabel = (task: Typed) => task.cardType?.name ?? TYPE_META[task.type].label;
+
+export const typeChange = (value: string, cardTypes: readonly CardType[]) => {
+  if (isTaskType(value))
+    return { input: { type: value, cardTypeId: null }, optimistic: { type: value, cardType: null } };
+  const { id, name, icon, color, base } = cardTypes.find((item) => item.id === value)!;
+  return {
+    input: { type: base, cardTypeId: id },
+    optimistic: { type: base, cardType: { id, name, icon, color } },
+  };
+};
 
 interface PriorityIconProps {
   priority: Priority;
@@ -55,9 +76,19 @@ export function PriorityIcon({ priority, className, decorative }: PriorityIconPr
   );
 }
 
-export function TypeIcon({ type, className }: { type: TaskType; className?: string }) {
+export function TypeIcon({ type, cardType, className }: Typed & { className?: string }) {
   const Icon = TYPE_ICONS[type];
   const style = { '--c': `var(--tone-${TYPE_META[type].tone})` } as CSSProperties;
+  if (cardType)
+    return (
+      <ProjectIcon
+        name={cardType.icon}
+        role="img"
+        aria-label={cardType.name}
+        style={{ color: cardType.color }}
+        className={cn('size-4 shrink-0', className)}
+      />
+    );
   return (
     <Icon
       aria-label={TYPE_META[type].label}

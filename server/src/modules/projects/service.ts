@@ -6,7 +6,7 @@ import {
   WORKFLOWS,
   type ProjectKind,
 } from '@msr/shared/enums';
-import { MODULE_META, type ProjectModule } from '@msr/shared/modules';
+import { cardTypesAllowed, MODULE_META, type PaidTier, type ProjectModule } from '@msr/shared/modules';
 import {
   DEFAULT_ROLE_PERMISSIONS,
   HOUSEHOLD_ROLE_LABELS,
@@ -16,16 +16,23 @@ import {
 } from '@msr/shared/permissions';
 import type { Emblem } from '@msr/shared/emblem';
 import type { CreateProjectInput, UpdateProjectInput } from '@msr/shared/schemas/project';
-import type { ProjectDetail, ProjectSummary } from '@msr/shared/types';
+import type { CardType, ProjectDetail, ProjectSummary } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { avatarUrl } from '../users/service';
 import { listLabels } from '../labels/service';
 import { listMembers } from '../members/service';
 import { listRoles } from '../roles/service';
-import { claimProjectSlot, recordCreation } from '../shop/service';
+import { activeSubscription, claimProjectSlot, recordCreation } from '../shop/service';
 import { listStatuses } from '../statuses/service';
 
 export type ArchivedFilter = 'active' | 'archived' | 'all';
+
+interface ExtrasRow {
+  ai_start: string;
+  ai_finish: string;
+  owner_tier: PaidTier | null;
+  card_types: CardType[];
+}
 
 interface SummaryRow {
   id: string;
@@ -114,7 +121,14 @@ const UPDATE_PROJECT = `
          repo_url = CASE WHEN $8 THEN $9 ELSE repo_url END, emblem = CASE WHEN $10 THEN $11 ELSE emblem END,
          ai_start = COALESCE($12, ai_start), ai_finish = COALESCE($13, ai_finish), updated_at = now()
   WHERE id = $1`;
-const PROJECT_EXTRAS = 'SELECT ai_start, ai_finish FROM projects WHERE id = $1';
+const PROJECT_EXTRAS = `
+  SELECT p.ai_start, p.ai_finish,
+         (SELECT s.tier FROM (${activeSubscription('p.owner_id')}) s) AS owner_tier,
+         COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'base', c.base, 'icon', c.icon,
+                                                     'color', c.color, 'createRoleIds', c.create_role_ids,
+                                                     'editRoleIds', c.edit_role_ids) ORDER BY lower(c.name))
+                   FROM project_card_types c WHERE c.project_id = p.id), '[]') AS card_types
+  FROM projects p WHERE p.id = $1`;
 const SET_ARCHIVED =
   'UPDATE projects SET archived_at = CASE WHEN $2 THEN now() ELSE NULL END, updated_at = now() WHERE id = $1';
 const PROJECT_FILE_KEYS =
@@ -198,7 +212,7 @@ export const getProjectDetail = async (
     listLabels(projectId),
     listRoles(projectId),
     listMembers(projectId),
-    queryOne<{ ai_start: string; ai_finish: string }>(PROJECT_EXTRAS, [projectId]),
+    queryOne<ExtrasRow>(PROJECT_EXTRAS, [projectId]),
     query(TOUCH_OPENED, [projectId, userId]),
   ]);
   return {
@@ -208,6 +222,8 @@ export const getProjectDetail = async (
     roles,
     memberList,
     aiInstructions: { start: extras!.ai_start, finish: extras!.ai_finish },
+    cardTypes: extras!.card_types,
+    cardTypesAllowed: cardTypesAllowed(extras!.owner_tier ?? 'free', summary.module),
   };
 };
 

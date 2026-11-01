@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { PRIORITIES, SEVERITIES, TASK_TYPES } from '@msr/shared/enums';
+import { PRIORITIES, SEVERITIES, TASK_TYPES, type TaskType } from '@msr/shared/enums';
 import { createCommentSchema, createChecklistItemSchema } from '@msr/shared/schemas/collab';
 import { createTaskSchema, TASK_SORTS, taskFilterSchema, updateTaskSchema } from '@msr/shared/schemas/task';
 import { z } from 'zod';
@@ -22,6 +22,7 @@ import {
   resolvePerson,
   resolveStatus,
   resolveStatusFilter,
+  resolveType,
   statusNamesFor,
   statusNamesOf,
 } from '../refs';
@@ -35,6 +36,14 @@ const projectKey = z.string().trim().min(2).max(6).describe('Project key, like W
 const taskId = z.string().trim().min(3).max(20).describe('Task ID, like WEB-12');
 const person = z.string().trim().max(254).describe('"me", a member\'s email, or their exact name');
 const limit = z.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT);
+const typeName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .describe(
+    `A built-in type (${TASK_TYPES.join(', ')}) or one of the project's own card types, which fetch lists`,
+  );
 const decision = z
   .string()
   .max(20000)
@@ -68,7 +77,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
           .max(20)
           .optional()
           .describe('Status names, or categories: backlog, todo, in_progress, done'),
-        type: z.array(z.enum(TASK_TYPES)).optional(),
+        type: z.array(typeName).max(20).optional(),
         priority: z.array(z.enum(PRIORITIES)).optional(),
         assignee: person.optional().describe('"me", "none", a member\'s email or exact name'),
         labels: z.array(z.string()).max(20).optional(),
@@ -92,7 +101,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         q: input.query,
         status: csv(status?.ids),
         category: csv(status?.categories),
-        type: csv(input.type),
+        type: csv(input.type?.map((value) => resolveType(refs, value)).map((t) => t.cardTypeId ?? t.type)),
         priority: csv(input.priority),
         assignee: assignee === user.id ? 'me' : assignee,
         label: csv(input.labels && resolveLabels(refs, input.labels)),
@@ -143,7 +152,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: {
         projectKey,
         title: z.string().trim().min(1).max(300),
-        type: z.enum(TASK_TYPES).optional().describe('Defaults to task'),
+        type: typeName
+          .optional()
+          .describe("Defaults to task. A built-in type or one of the project's card types"),
         description: z.string().max(20000).optional().describe('Markdown'),
         status: z.string().optional().describe('Status name or category; defaults to the first to-do status'),
         priority: z.enum(PRIORITIES).optional(),
@@ -166,13 +177,16 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       projects.add(project.key);
       assertCanWrite(project, 'task.create');
       const refs = await loadRefs(project.id);
-      const type = input.type ?? 'task';
+      const { type, cardTypeId } = input.type
+        ? resolveType(refs, input.type)
+        : { type: 'task' as TaskType, cardTypeId: null };
       const parent = input.parent ? (await findTaskByIdentifier(input.parent, user.id)).task : null;
       if (parent && parent.projectId !== project.id)
         throw badRequest('The parent task must be in the same project');
       const task = createTaskSchema.parse({
         title: input.title,
         type,
+        cardTypeId: cardTypeId ?? undefined,
         description: input.description,
         statusId: input.status && resolveStatus(refs, input.status, type),
         priority: input.priority,
@@ -203,7 +217,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         id: taskId,
         title: z.string().trim().min(1).max(300).optional(),
         description: z.string().max(20000).optional().describe('Markdown; replaces the whole description'),
-        type: z.enum(TASK_TYPES).optional(),
+        type: typeName.optional(),
         status: z.string().optional().describe('Status name or category (done, in_progress, todo, backlog)'),
         priority: z.enum(PRIORITIES).optional(),
         severity: z.enum(SEVERITIES).nullable().optional(),
@@ -224,7 +238,8 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       const { project, task } = await findTaskByIdentifier(input.id, user.id);
       projects.add(project.key);
       const [refs, current] = await Promise.all([loadRefs(project.id), getTaskDetail(task.id)]);
-      const type = input.type ?? current.type;
+      const retyped = input.type === undefined ? null : resolveType(refs, input.type);
+      const type = retyped?.type ?? current.type;
       const removed = new Set(resolveLabels(refs, input.removeLabels ?? []));
       const labels = input.labels
         ? resolveLabels(refs, input.labels)
@@ -239,7 +254,8 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       const patch = updateTaskSchema.parse({
         title: input.title,
         description: input.description,
-        type: input.type,
+        type: retyped?.type,
+        cardTypeId: retyped?.cardTypeId,
         statusId: input.status === undefined ? undefined : resolveStatus(refs, input.status, type),
         priority: input.priority,
         severity: input.severity,

@@ -97,6 +97,23 @@ Each project has roles in `project_roles`, and each role stores an **integer bit
 
 Subtasks move with their parent, and so does the task's activity history. Duplicating copies the fields and labels, adds "(copy)" to the title, and copies the checklist with every item unchecked. It does not copy comments or attachments.
 
+**Discussions.** Startup and Household projects offer a `discussion` type with a `decision` field. A discussion can't enter a `done` status while its decision is blank:
+
+- `createTask`, `updateTask` and `bulkUpdateTasks` check first and answer `400 Add a decision before closing KEY-3` with `details: { code: 'decision_required', tasks }`.
+- The client's `useUpdateTask` catches that code, asks "What was decided?", and resends the same patch with the decision. Swiping one card does the same through the bulk route.
+- `CHECK tasks_discussion_decision` covers every other path, such as a status category change or a status delete, and the error handler turns it into the same 400.
+- Telegram closes one with `done KEY-12: decision`, and the AI connector takes a `decision` argument.
+
+**Custom card types.** Every Startup project, and any project whose owner is on Pro (`cardTypesAllowed`), can add up to 30 card types in `project_card_types`.
+
+- Each type works like a built-in `base` type, so workflows, statuses and bug fields don't change; `tasks.type` stays the base and `tasks.card_type_id` points at the custom type.
+- A type lists who can create its cards (`create_role_ids`) and who can edit or move them (`edit_role_ids`). The owner always can. Every member still sees the cards, comments and uploads files.
+- `LOAD_TASK` returns the card's type and edit roles in the same query, so every edit guard (`assertCanPatchTask`, `assertCanEditTask`, delete, reopen, move) adds one array check. Bulk edits and bulk deletes check the locked rows they already hold.
+- Creating a card, switching a card to a type, and duplicating one check the type's create roles.
+- Moving a card keeps its type when the target project has one with the same name and base. Recurring copies keep it. Deleting a type turns its cards back into the base type.
+- Changing types needs `project.manage_workflow` and the plan (402 otherwise). Deleting them needs only the permission.
+- A type filter value is either a built-in type, which matches cards without a custom type, or a card type id.
+
 **Recurring tasks.** `tasks.recurrence` is `{freq, interval, rotate}`. When a recurring task enters a `done` status, `spawnRecurrences()` runs inside the same transaction. This covers single edits, board drags and bulk edits. For every finished task it:
 
 - reserves the task numbers in one `UPDATE … task_seq + n`
@@ -163,6 +180,8 @@ The OAuth endpoints come from `@modelcontextprotocol/sdk` (`mcpAuthRouter`, `req
 - Tools take names, not ids: status names or categories, label names, and assignees as `me`, an email or a member's name. `refs.ts` resolves them with one query per project, and an unknown name errors with the valid options.
 - Tools run the same guards and services as the HTTP routes (`findTaskByIdentifier`, `assertCanPatchTask`, `assertCanAssignOnCreate`, `createEvent`), so roles, 404s for non-members and archived projects behave exactly as in the app. A failed guard comes back as a tool error, not an HTTP error.
 - Every item carries an app `url`, so the assistant can link to it.
+- **Project instructions.** Each handler adds the keys of the projects it touched to a per-call set. `run()` then loads those projects' `ai_start` and `ai_finish` in one query, and only when the set isn't empty. It answers `[start blocks…, JSON, finish blocks…]`, each block headed `KEY instructions, before you start:` or `…, when you finish:`. Discovery tools (`list_projects`, `search`) add nothing, and errors come back without instructions.
+- `type` arguments accept a built-in type or a project's card type name, and results show a custom type by name with `worksLike`.
 
 ## Insights & search
 
@@ -398,8 +417,8 @@ All routes are under `/api`, take and return JSON, and validate input with the s
 | Telegram            | `GET /projects/:key/telegram`, `POST …/telegram/link`, `PATCH`/`DELETE …/telegram/chats/:chatId`, `DELETE /me/telegram`. Outside `/api`: `POST /telegram/webhook`                                                                                                                                                                                                          |
 | Shopping lists      | `GET`/`POST /projects/:key/lists`, `PATCH`/`DELETE …/lists/:listId`, `POST …/lists/:listId/items`, `PATCH`/`DELETE …/items/:itemId`, `POST …/lists/:listId/clear-checked`                                                                                                                                                                                                  |
 | Me                  | `PATCH /me` (name, preferences), `PUT /me/password`, `PUT /me/email`, `DELETE /me/avatar` (uploads are off for now), `GET /users/:id/avatar`, `GET /me/tasks`                                                                                                                                                                                                              |
-| Projects            | `GET`/`POST /projects`, `GET /projects/key-available`, `GET`/`PATCH`/`DELETE /projects/:key`, `POST /projects/:key/archive`, `/restore`, `PUT /projects/:key/favorite`                                                                                                                                                                                                     |
-| Workflow & labels   | `POST /projects/:key/statuses`, `PATCH`/`DELETE …/statuses/:id` (delete takes a target status); same shape for `…/labels`                                                                                                                                                                                                                                                  |
+| Projects            | `GET`/`POST /projects`, `GET /projects/key-available`, `GET`/`PATCH`/`DELETE /projects/:key` (`PATCH` also sets `aiInstructions`), `POST /projects/:key/archive`, `/restore`, `PUT /projects/:key/favorite`                                                                                                                                                                |
+| Workflow & labels   | `POST /projects/:key/statuses`, `PATCH`/`DELETE …/statuses/:id` (delete takes a target status); same shape for `…/labels` and `…/card-types`                                                                                                                                                                                                                               |
 | Roles & members     | `GET`/`POST /projects/:key/roles`, `PATCH`/`DELETE …/roles/:id` (delete takes a replacement role); `GET`/`POST /projects/:key/members`, `PATCH`/`DELETE …/members/:userId`                                                                                                                                                                                                 |
 | Project tasks       | `GET`/`POST /projects/:key/tasks`, `PATCH …/tasks/bulk`, `POST …/tasks/bulk-delete`, `GET …/board`, `GET …/overview`, `GET …/activity`                                                                                                                                                                                                                                     |
 | Tasks               | `GET /tasks/by-identifier/:identifier`; `GET`/`PATCH`/`DELETE /tasks/:id`; `POST /tasks/:id/duplicate`, `/reopen`, `/move`; `GET /tasks/:id/activity`, `/subtasks`                                                                                                                                                                                                         |
