@@ -82,8 +82,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       },
       annotations: READ,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       const refs = await loadRefs(project.id);
       const status = input.status && resolveStatusFilter(refs, input.status);
       const assignee = input.assignee && (resolvePerson(refs, input.assignee, user.id) ?? 'none');
@@ -117,7 +118,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: { includeDone: z.boolean().default(false), limit },
       annotations: READ,
     },
-    run(async ({ includeDone, limit: size }) => {
+    run(async ({ includeDone, limit: size }, projects) => {
       const filters = taskFilterSchema.parse({
         hideDone: includeDone ? undefined : 'true',
         sort: 'due',
@@ -125,6 +126,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         limit: size,
       });
       const page = await listTasks(MY_TASKS_SCOPE, [user.id], filters, filterContext);
+      page.items.forEach((task) => projects.add(task.projectKey));
       const names = await statusNamesFor(page.items.map((task) => task.statusId));
       return { tasks: page.items.map((task) => compactTask(task, names)), hasMore: page.hasMore };
     }),
@@ -159,8 +161,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       },
       annotations: WRITE,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       assertCanWrite(project, 'task.create');
       const refs = await loadRefs(project.id);
       const type = input.type ?? 'task';
@@ -217,8 +220,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       },
       annotations: { ...WRITE, idempotentHint: true },
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const { project, task } = await findTaskByIdentifier(input.id, user.id);
+      projects.add(project.key);
       const [refs, current] = await Promise.all([loadRefs(project.id), getTaskDetail(task.id)]);
       const type = input.type ?? current.type;
       const removed = new Set(resolveLabels(refs, input.removeLabels ?? []));
@@ -261,8 +265,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: { id: taskId, body: z.string().trim().min(1).max(20000).describe('Markdown') },
       annotations: WRITE,
     },
-    run(async ({ id, body }) => {
+    run(async ({ id, body }, projects) => {
       const { project, task } = await findTaskByIdentifier(id, user.id);
+      projects.add(project.key);
       assertCanWrite(project, 'comment.create');
       const comment = await createComment(task.id, user.id, createCommentSchema.parse({ body }));
       return { comment: { id: comment.id, task: id, at: comment.createdAt } };
@@ -277,8 +282,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: { id: taskId, items: z.array(z.string().trim().min(1).max(500)).min(1).max(20) },
       annotations: WRITE,
     },
-    run(async ({ id, items }) => {
+    run(async ({ id, items }, projects) => {
       const { project, task } = await findTaskByIdentifier(id, user.id);
+      projects.add(project.key);
       assertCanEditTask(project, task, user.id);
       const added = [];
       for (const text of items)

@@ -105,6 +105,7 @@ export const call = async (token: string, name: string, args: Record<string, unk
   const { result } = (await rpc(token, 'tools/call', { name, arguments: args }).expect(200)).body as {
     result: { isError?: boolean; content: { text: string }[] };
   };
-  const text = result.content[0]!.text;
-  return { isError: !!result.isError, text, data: result.isError ? null : JSON.parse(text) };
+  const blocks = result.content.map((block) => block.text);
+  const text = blocks.find((block) => block.startsWith('{')) ?? blocks[0]!;
+  return { isError: !!result.isError, text, blocks, data: result.isError ? null : JSON.parse(text) };
 };

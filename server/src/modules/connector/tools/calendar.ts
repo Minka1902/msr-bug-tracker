@@ -48,9 +48,10 @@ export const registerCalendarTools = (server: McpServer, context: ToolContext) =
       },
       annotations: READ,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const query = calendarQuerySchema.parse({ ...input, projectKey: input.projectKey?.toUpperCase() });
       const project = query.projectKey ? await findProjectContext(query.projectKey, user.id) : null;
+      if (project) projects.add(project.key);
       return {
         items: (await listCalendarItems(user.id, query.from, query.to, project?.id ?? null)).map(compactItem),
       };
@@ -80,7 +81,9 @@ export const registerCalendarTools = (server: McpServer, context: ToolContext) =
         appointment: z
           .boolean()
           .default(false)
-          .describe('A household appointment, like a doctor visit; needs a household project key and a start time'),
+          .describe(
+            'A household appointment, like a doctor visit; needs a household project key and a start time',
+          ),
         reminders: z
           .array(z.number().int().min(0).max(10_080))
           .max(5)
@@ -89,7 +92,7 @@ export const registerCalendarTools = (server: McpServer, context: ToolContext) =
       },
       annotations: WRITE,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const id = await createEvent(
         user.id,
         createEventSchema.parse({
@@ -99,7 +102,9 @@ export const registerCalendarTools = (server: McpServer, context: ToolContext) =
           projectKey: input.projectKey?.toUpperCase() ?? null,
         }),
       );
-      return { event: compactItem((await getCalendarItem(user.id, id))!) };
+      const event = (await getCalendarItem(user.id, id))!;
+      if (event.project) projects.add(event.project.key);
+      return { event: compactItem(event) };
     }),
   );
 };

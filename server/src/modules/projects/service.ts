@@ -112,8 +112,9 @@ const UPDATE_PROJECT = `
   UPDATE projects SET name = COALESCE($2, name), description = COALESCE($3, description), color = COALESCE($4, color),
          icon = COALESCE($5, icon), live_url = CASE WHEN $6 THEN $7 ELSE live_url END,
          repo_url = CASE WHEN $8 THEN $9 ELSE repo_url END, emblem = CASE WHEN $10 THEN $11 ELSE emblem END,
-         updated_at = now()
+         ai_start = COALESCE($12, ai_start), ai_finish = COALESCE($13, ai_finish), updated_at = now()
   WHERE id = $1`;
+const PROJECT_EXTRAS = 'SELECT ai_start, ai_finish FROM projects WHERE id = $1';
 const SET_ARCHIVED =
   'UPDATE projects SET archived_at = CASE WHEN $2 THEN now() ELSE NULL END, updated_at = now() WHERE id = $1';
 const PROJECT_FILE_KEYS =
@@ -191,15 +192,23 @@ export const getProjectDetail = async (
   userId: string,
   timezone: string,
 ): Promise<ProjectDetail> => {
-  const [summary, statuses, labels, roles, memberList] = await Promise.all([
+  const [summary, statuses, labels, roles, memberList, extras] = await Promise.all([
     getProjectSummary(projectId, userId, timezone),
     listStatuses(projectId),
     listLabels(projectId),
     listRoles(projectId),
     listMembers(projectId),
+    queryOne<{ ai_start: string; ai_finish: string }>(PROJECT_EXTRAS, [projectId]),
     query(TOUCH_OPENED, [projectId, userId]),
   ]);
-  return { ...summary, statuses, labels, roles, memberList };
+  return {
+    ...summary,
+    statuses,
+    labels,
+    roles,
+    memberList,
+    aiInstructions: { start: extras!.ai_start, finish: extras!.ai_finish },
+  };
 };
 
 export const createProject = (input: CreateProjectInput, ownerId: string) =>
@@ -284,6 +293,8 @@ export const updateProject = (projectId: string, input: UpdateProjectInput) =>
     input.repoUrl ?? null,
     input.emblem !== undefined,
     input.emblem ?? null,
+    input.aiInstructions?.start ?? null,
+    input.aiInstructions?.finish ?? null,
   ]);
 
 export const setArchived = (projectId: string, archived: boolean) =>

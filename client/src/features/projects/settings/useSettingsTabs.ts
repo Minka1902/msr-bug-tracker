@@ -19,6 +19,7 @@ export const settingsTabs = (project: TabProject, telegram: boolean): SettingsTa
     can(mask, 'project.manage_labels') && { path: 'labels', label: 'Labels' },
     can(mask, 'project.manage_members') && { path: 'members', label: 'Members', count: project.memberCount },
     can(mask, 'project.manage_roles') && { path: 'roles', label: 'Roles' },
+    can(mask, 'project.edit') && { path: 'ai', label: 'AI instructions' },
     telegram && { path: 'telegram', label: 'Telegram' },
     { path: 'danger', label: 'Danger zone' },
   ].filter((tab): tab is SettingsTab => !!tab);

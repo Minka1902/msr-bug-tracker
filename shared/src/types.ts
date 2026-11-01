@@ -114,11 +114,17 @@ export interface ProjectMember extends UserRef {
   joinedAt: string;
 }
 
+export interface AiInstructions {
+  start: string;
+  finish: string;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   statuses: ProjectStatus[];
   labels: Label[];
   roles: ProjectRole[];
   memberList: ProjectMember[];
+  aiInstructions: AiInstructions;
 }
 
 export interface TaskCard {

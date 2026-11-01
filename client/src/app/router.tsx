@@ -190,6 +190,14 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
+                    path: 'ai',
+                    lazy: lazyRoute(() =>
+                      import('../features/projects/settings/AiInstructionSettings').then(
+                        (m) => m.AiInstructionSettings,
+                      ),
+                    ),
+                  },
+                  {
                     path: 'telegram',
                     lazy: lazyRoute(() =>
                       import('../features/telegram/pages/TelegramSettings').then((m) => m.TelegramSettings),

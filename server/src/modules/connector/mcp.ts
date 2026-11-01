@@ -12,7 +12,8 @@ const INSTRUCTIONS =
   'MSR Tracker holds projects (software teams and households), their tasks, bugs, chores and errands, shopping lists and calendars. ' +
   'Projects have short keys like WEB; tasks have IDs like WEB-12. Start with list_projects or search, call fetch on a project to see its statuses, labels and members, ' +
   'and use those names when creating or updating tasks. Link to items with the url each tool returns. ' +
-  'If you are connected as an AI worker, my_tasks lists the work assigned to you.';
+  'If you are connected as an AI worker, my_tasks lists the work assigned to you. ' +
+  "A project can have instructions for AI: they come before and after a tool's answer, marked with the project key. Follow them for all your work in that project.";
 
 export const buildMcpServer = ({ user, scopes }: ConnectorAuth) => {
   const server = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS });

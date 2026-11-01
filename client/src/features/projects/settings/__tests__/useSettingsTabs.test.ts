@@ -14,7 +14,7 @@ const paths = (...args: Parameters<typeof settingsTabs>) => settingsTabs(...args
 
 describe('settingsTabs', () => {
   it('gives the owner and admins every tab', () => {
-    const all = ['general', 'workflows', 'labels', 'members', 'roles', 'telegram', 'danger'];
+    const all = ['general', 'workflows', 'labels', 'members', 'roles', 'ai', 'telegram', 'danger'];
     expect(paths(project(DEFAULT_ROLE_PERMISSIONS.owner, { isOwner: true }), true)).toEqual(all);
     expect(paths(project(DEFAULT_ROLE_PERMISSIONS.admin), true)).toEqual(all);
   });
