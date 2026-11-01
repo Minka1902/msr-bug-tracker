@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CardTypeInput, UpdateCardTypeInput } from '@msr/shared/schemas/cardTypes';
 import type { CreateProjectInput, UpdateProjectInput } from '@msr/shared/schemas/project';
 import type {
+  CardType,
   Label,
   ProjectDetail,
   ProjectMember,
@@ -131,6 +133,23 @@ export const useUpdateLabel = (key: string) =>
 
 export const useDeleteLabel = (key: string) =>
   useProjectMutation((id: string) => api(`/projects/${key}/labels/${id}`, { method: 'DELETE' }));
+
+export const useCreateCardType = (key: string) =>
+  useProjectMutation((input: CardTypeInput) =>
+    api<{ cardType: CardType }>(`/projects/${key}/card-types`, { method: 'POST', body: input }).then(
+      (data) => data.cardType,
+    ),
+  );
+
+export const useUpdateCardType = (key: string) =>
+  useProjectMutation(({ id, ...input }: UpdateCardTypeInput & { id: string }) =>
+    api<{ cardType: CardType }>(`/projects/${key}/card-types/${id}`, { method: 'PATCH', body: input }).then(
+      (data) => data.cardType,
+    ),
+  );
+
+export const useDeleteCardType = (key: string) =>
+  useProjectMutation((id: string) => api(`/projects/${key}/card-types/${id}`, { method: 'DELETE' }));
 
 export const useCreateRole = (key: string) =>
   useProjectMutation((input: { name: string; permissions: number }) =>

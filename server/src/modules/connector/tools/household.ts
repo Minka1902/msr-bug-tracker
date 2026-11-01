@@ -44,8 +44,9 @@ export const registerHouseholdTools = (server: McpServer, context: ToolContext) 
       inputSchema: { projectKey },
       annotations: READ,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       return {
         lists: (await listLists(project.id)).map(compactList),
         url: projectUrl(`${project.key}/shopping`),
@@ -75,8 +76,9 @@ export const registerHouseholdTools = (server: McpServer, context: ToolContext) 
       },
       annotations: WRITE,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       assertCanWrite(project, 'lists.edit');
       const list = pickList(await listLists(project.id), input.list);
       await addItems(
@@ -101,8 +103,9 @@ export const registerHouseholdTools = (server: McpServer, context: ToolContext) 
       },
       annotations: { ...WRITE, idempotentHint: true },
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       assertCanWrite(project, 'lists.edit');
       const list = pickList(await listLists(project.id), input.list);
       const missing = input.items.filter((name) => !list.items.some((item) => same(item.name, name)));

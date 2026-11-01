@@ -21,7 +21,7 @@ export function TaskLine({ task, onOpen, showAssignee = true, trailing }: TaskLi
       className="flex w-full min-w-0 tap-size cursor-pointer items-center gap-2.5 rounded-control px-2 py-2 text-left text-sm transition-colors hover:bg-surface-muted"
     >
       <PriorityIcon priority={task.priority} className="shrink-0" />
-      <TypeIcon type={task.type} className="size-3.5" />
+      <TypeIcon type={task.type} cardType={task.cardType} className="size-3.5" />
       <span className="shrink-0 font-mono text-xs text-subtle">{task.identifier}</span>
       <span
         className={cn('min-w-0 flex-1 truncate', task.statusCategory === 'done' && 'text-muted line-through')}

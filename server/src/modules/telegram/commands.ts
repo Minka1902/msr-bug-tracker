@@ -18,7 +18,7 @@ export type Command =
   | { kind: 'mine' }
   | { kind: 'appointments' }
   | { kind: 'task'; identifier: string }
-  | { kind: 'done'; identifier: string }
+  | { kind: 'done'; identifier: string; decision: string | null }
   | { kind: 'assign'; person: string; title: string; when: When | null };
 
 const ITEMS_MAX = 30;
@@ -27,7 +27,7 @@ const TITLE_MAX = 300;
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 const IDENTIFIER = /^([a-z][a-z0-9]{1,5}-\d+)\??$/i;
-const DONE = /^(?:done|finished|close)\s+([a-z][a-z0-9]{1,5}-\d+)$/i;
+const DONE = /^(?:done|finished|close)\s+([a-z][a-z0-9]{1,5}-\d+)(?:\s*[:—–-]\s*(.+))?$/i;
 const USE = /^use\s+([a-z][a-z0-9]{1,5})$/i;
 const START = /^start(?:\s+(\S+))?$/i;
 const ADD_TO_LIST = /^add\s+(.+?)\s+to\s+(?:the\s+|my\s+)?(.+?)(?:\s+shopping)?\s+list$/i;
@@ -94,7 +94,8 @@ export const parseCommand = (raw: string): Command => {
   if ((match = text.match(START))) return match[1] ? { kind: 'start', code: match[1] } : { kind: 'help' };
   if ((match = text.match(USE))) return { kind: 'use', key: match[1]!.toUpperCase() };
   if ((match = text.match(IDENTIFIER))) return { kind: 'task', identifier: match[1]!.toUpperCase() };
-  if ((match = text.match(DONE))) return { kind: 'done', identifier: match[1]!.toUpperCase() };
+  if ((match = text.match(DONE)))
+    return { kind: 'done', identifier: match[1]!.toUpperCase(), decision: match[2]?.trim() || null };
   if (OPEN_PROJECT.test(text)) return { kind: 'open_project' };
   if (OPEN_LISTS.test(text)) return { kind: 'open_list', name: null };
   if ((match = text.match(OPEN_LIST))) return { kind: 'open_list', name: match[1]!.trim() };

@@ -49,6 +49,8 @@ const taskFields = {
   reproducibility: z.enum(REPRODUCIBILITY).nullable(),
   recurrence: recurrenceSchema.nullable(),
   escalation: escalationSchema.nullable(),
+  decision: longText,
+  cardTypeId: uuidSchema.nullable(),
 };
 
 const datesInOrder = (value: { startDate?: string | null; dueDate?: string | null }) =>
@@ -127,7 +129,7 @@ export const taskFilterSchema = z.object({
   q: z.string().trim().max(200).optional(),
   status: csv(uuidSchema),
   category: csv(z.enum(STATUS_CATEGORIES)),
-  type: csv(z.enum(TASK_TYPES)),
+  type: csv(z.union([z.enum(TASK_TYPES), uuidSchema])),
   priority: csv(z.enum(PRIORITIES)),
   severity: csv(z.enum(SEVERITIES)),
   assignee: csv(z.union([uuidSchema, z.literal('me'), z.literal('none')])),

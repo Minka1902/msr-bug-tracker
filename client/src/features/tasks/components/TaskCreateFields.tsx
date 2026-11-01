@@ -7,6 +7,7 @@ import { Field } from '../../../components/ui/Field';
 import { OptionPicker } from '../../../components/ui/OptionPicker';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { cn } from '../../../lib/cn';
+import { typeChange } from '../taskMeta';
 import { UNASSIGNED, useTaskOptions } from '../useTaskOptions';
 import { RecurrencePicker } from './RecurrencePicker';
 
@@ -15,6 +16,7 @@ export type TaskCreateField =
 
 export interface TaskCreateValues {
   type: TaskType;
+  cardTypeId: string | null;
   statusId: string | null;
   priority: Priority;
   assigneeId: string | null;
@@ -25,7 +27,10 @@ export interface TaskCreateValues {
 }
 
 interface TaskCreateFieldsProps {
-  project: Pick<ProjectDetail, 'statuses' | 'labels' | 'memberList' | 'permissions'>;
+  project: Pick<
+    ProjectDetail,
+    'statuses' | 'labels' | 'memberList' | 'permissions' | 'cardTypes' | 'isOwner'
+  >;
   values: TaskCreateValues;
   onChange: (patch: Partial<TaskCreateValues>) => void;
   fields?: TaskCreateField[];
@@ -79,7 +84,9 @@ export function TaskCreateFields({
   const user = useCurrentUser();
   const options = useTaskOptions(project);
   const controlClass = layout === 'grid' ? 'w-full' : COMPACT_CONTROL;
-  const typeOptions = options.type.filter((option) => !types || types.includes(option.value));
+  const typeOptions = options.type.filter(
+    (option) => !option.disabled && (!types || types.includes(options.typeBase(option.value))),
+  );
   const statusOptions = options.status(workflowOf(values.type));
   const statusId = statusOptions.some((option) => option.value === values.statusId)
     ? values.statusId
@@ -98,8 +105,8 @@ export function TaskCreateFields({
     type: () => (
       <OptionPicker
         aria-label={LABELS.type}
-        value={values.type}
-        onChange={(type) => type && onChange({ type: type as TaskType })}
+        value={values.cardTypeId ?? values.type}
+        onChange={(value) => value && onChange(typeChange(value, project.cardTypes).input)}
         options={typeOptions}
         className={controlClass}
       />

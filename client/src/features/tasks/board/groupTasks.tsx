@@ -1,12 +1,12 @@
 import { UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { PRIORITIES, PRIORITY_META, TYPE_META } from '@msr/shared/enums';
+import { PRIORITIES, PRIORITY_META } from '@msr/shared/enums';
 import { MODULE_META } from '@msr/shared/modules';
 import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Avatar } from '../../../components/ui/Avatar';
 import { OptionDot } from '../../../components/ui/OptionPicker';
-import { PriorityIcon, TypeIcon } from '../taskMeta';
+import { PriorityIcon, typeChange, TypeIcon, typeLabel, typeValue } from '../taskMeta';
 
 export type GroupBy = 'none' | 'type' | 'priority' | 'assignee' | 'label';
 
@@ -29,7 +29,7 @@ export const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
 const NONE = 'none';
 
 export const laneKeyOf = (task: TaskCard, groupBy: GroupBy) => {
-  if (groupBy === 'type') return task.type;
+  if (groupBy === 'type') return typeValue(task);
   if (groupBy === 'priority') return task.priority;
   if (groupBy === 'assignee') return task.assignee?.id ?? NONE;
   if (groupBy === 'label') return task.labels[0]?.id ?? NONE;
@@ -40,14 +40,17 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
   const byKey = (key: string) => tasks.filter((task) => laneKeyOf(task, groupBy) === key);
 
   if (groupBy === 'type')
-    return MODULE_META[project.module].taskTypes
-      .map((type) => ({
-        key: type,
-        label: TYPE_META[type].label,
-        icon: <TypeIcon type={type} />,
-        tasks: byKey(type),
-        patch: { input: { type }, optimistic: { type } },
-      }))
+    return [...MODULE_META[project.module].taskTypes, ...project.cardTypes.map((cardType) => cardType.id)]
+      .map((value) => {
+        const change = typeChange(value, project.cardTypes);
+        return {
+          key: value,
+          label: typeLabel(change.optimistic),
+          icon: <TypeIcon {...change.optimistic} />,
+          tasks: byKey(value),
+          patch: change,
+        };
+      })
       .filter((lane) => lane.tasks.length);
 
   if (groupBy === 'priority')

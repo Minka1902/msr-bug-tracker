@@ -92,7 +92,7 @@ const resolve = async (
   const canAssignSelf = canAssignOthers || can(project.permissions, 'task.assign_self');
   const canCreateLabels = can(project.permissions, 'project.manage_labels');
 
-  const statusFor = (task: NormalizedTask) => {
+  const matchStatus = (task: NormalizedTask) => {
     const workflow = workflowOf(task.type);
     const name = task.status?.trim();
     const mappedId = name ? options.statusMap?.[name.toLowerCase()] : undefined;
@@ -110,6 +110,13 @@ const resolve = async (
     const guessed = pickStatus(statuses, workflow, task.statusCategory ?? categoryFromName(name) ?? 'todo');
     if (!mappedId) warn(`Status "${name}" doesn't exist here, used "${guessed.name}"`);
     return guessed;
+  };
+
+  const statusFor = (task: NormalizedTask) => {
+    const status = matchStatus(task);
+    if (status.category !== 'done' || task.type !== 'discussion' || task.decision.trim()) return status;
+    warn('Discussions without a decision were left open');
+    return pickStatus(statuses, 'task', 'todo');
   };
 
   const assigneeFor = (task: NormalizedTask) => {
@@ -296,6 +303,7 @@ export const commitImport = (
         steps_to_reproduce: item.task.stepsToReproduce.slice(0, 20000),
         expected_behavior: item.task.expectedBehavior.slice(0, 20000),
         actual_behavior: item.task.actualBehavior.slice(0, 20000),
+        decision: item.task.type === 'discussion' ? item.task.decision.slice(0, 20000) : '',
         created_at: createdAt,
         updated_at: now,
       };
@@ -323,6 +331,7 @@ export const commitImport = (
         { name: 'steps_to_reproduce', type: 'text' },
         { name: 'expected_behavior', type: 'text' },
         { name: 'actual_behavior', type: 'text' },
+        { name: 'decision', type: 'text' },
         { name: 'created_at', type: 'timestamptz' },
         { name: 'updated_at', type: 'timestamptz' },
       ],

@@ -25,6 +25,7 @@ export const activeSubscription = (userId: string) => `
   WHERE user_id = ${userId} AND expires_at > now()
   ORDER BY tier DESC, expires_at DESC LIMIT 1`;
 
+const CURRENT_TIER = `SELECT s.tier FROM (${activeSubscription('$1')}) s`;
 const CURRENT_PLAN = `
   SELECT s.tier, coalesce(s.starts_at, now() - interval '1 year') AS starts_at, s.expires_at,
          (SELECT count(*)::int FROM project_creations c
@@ -46,6 +47,9 @@ const SUBSCRIBE = `
   INSERT INTO subscriptions (user_id, tier, price_cents, expires_at) VALUES ($1, $2, $3, now() + interval '1 year')`;
 const INSERT_PACK =
   'INSERT INTO module_packs (user_id, module, projects, price_cents) VALUES ($1, $2, $3, $4)';
+
+export const currentTier = (userId: string) =>
+  queryOne<{ tier: PaidTier }>(CURRENT_TIER, [userId]).then((row): PlanTier => row?.tier ?? 'free');
 
 export const currentPlan = async (userId: string, db?: Db) => {
   const row = (await queryOne<PlanRow>(CURRENT_PLAN, [userId], db))!;

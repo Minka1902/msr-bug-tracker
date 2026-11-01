@@ -30,6 +30,7 @@ export function TaskProperties({ task, project }: TaskPropertiesProps) {
   const canEdit = permissions.canEditTask({
     reporterId: task.reporterId,
     assigneeId: task.assignee?.id ?? null,
+    cardTypeId: task.cardType?.id,
   });
   const isBug = task.type === 'bug';
 

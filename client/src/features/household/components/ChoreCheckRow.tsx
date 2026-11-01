@@ -52,7 +52,9 @@ export function ChoreCheckRow({ task, project, onOpen, className }: ChoreCheckRo
       <Checkbox
         checked={done}
         onCheckedChange={toggle}
-        disabled={!permissions.canTransition({ assigneeId: task.assignee?.id ?? null })}
+        disabled={
+          !permissions.canTransition({ assigneeId: task.assignee?.id ?? null, cardTypeId: task.cardType?.id })
+        }
         aria-label={done ? `Mark ${task.title} as not done` : `Mark ${task.title} as done`}
       />
       <button
@@ -60,7 +62,7 @@ export function ChoreCheckRow({ task, project, onOpen, className }: ChoreCheckRo
         onClick={() => onOpen(task)}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left text-sm"
       >
-        <TypeIcon type={task.type} className="size-3.5" />
+        <TypeIcon type={task.type} cardType={task.cardType} className="size-3.5" />
         <span className={cn('min-w-0 flex-1 truncate', done && 'text-muted line-through')}>{task.title}</span>
         {task.recurrence && <Repeat className="size-3.5 shrink-0 text-subtle" aria-label="Repeats" />}
         {task.dueDate && <DueDate date={task.dueDate} done={done} className="shrink-0" />}

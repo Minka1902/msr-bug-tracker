@@ -114,11 +114,32 @@ export interface ProjectMember extends UserRef {
   joinedAt: string;
 }
 
+export interface CardTypeRef {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}
+
+export interface CardType extends CardTypeRef {
+  base: TaskType;
+  createRoleIds: string[];
+  editRoleIds: string[];
+}
+
+export interface AiInstructions {
+  start: string;
+  finish: string;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   statuses: ProjectStatus[];
   labels: Label[];
   roles: ProjectRole[];
   memberList: ProjectMember[];
+  aiInstructions: AiInstructions;
+  cardTypes: CardType[];
+  cardTypesAllowed: boolean;
 }
 
 export interface TaskCard {
@@ -130,6 +151,7 @@ export interface TaskCard {
   parentId: string | null;
   parentIdentifier: string | null;
   type: TaskType;
+  cardType: CardTypeRef | null;
   title: string;
   statusId: string;
   statusCategory: StatusCategory;
@@ -170,6 +192,7 @@ export interface TaskDetail extends TaskCard {
   foundInVersion: string;
   fixVersion: string;
   reproducibility: Reproducibility | null;
+  decision: string;
 }
 
 export interface ChecklistItem {
@@ -203,7 +226,14 @@ export interface TaskRelation {
   id: string;
   type: RelationType;
   direction: 'outgoing' | 'incoming';
-  task: { id: string; identifier: string; title: string; statusCategory: StatusCategory; type: TaskType };
+  task: {
+    id: string;
+    identifier: string;
+    title: string;
+    statusCategory: StatusCategory;
+    type: TaskType;
+    cardType: CardTypeRef | null;
+  };
 }
 
 export interface ActivityEntry {

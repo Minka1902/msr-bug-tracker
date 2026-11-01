@@ -1,3 +1,4 @@
+import { isTaskType } from '@msr/shared/enums';
 import type { TaskFilters, TaskSort } from '@msr/shared/schemas/task';
 import { parseIdentifier } from '@msr/shared/identifiers';
 
@@ -54,7 +55,15 @@ export const buildTaskFilter = (filters: TaskFilters, context: FilterContext, va
   if (filters.status.length) conditions.push(`t.status_id = ANY(${param(filters.status)}::uuid[])`);
   if (filters.category.length)
     conditions.push(`s.category = ANY(${param(filters.category)}::status_category[])`);
-  if (filters.type.length) conditions.push(`t.type = ANY(${param(filters.type)}::task_type[])`);
+  if (filters.type.length) {
+    const builtIn = filters.type.filter(isTaskType);
+    const custom = filters.type.filter((value) => !isTaskType(value));
+    const parts = [
+      builtIn.length && `(t.type = ANY(${param(builtIn)}::task_type[]) AND t.card_type_id IS NULL)`,
+      custom.length && `t.card_type_id = ANY(${param(custom)}::uuid[])`,
+    ].filter(Boolean);
+    conditions.push(`(${parts.join(' OR ')})`);
+  }
   if (filters.priority.length)
     conditions.push(`t.priority = ANY(${param(filters.priority)}::task_priority[])`);
   if (filters.severity.length)

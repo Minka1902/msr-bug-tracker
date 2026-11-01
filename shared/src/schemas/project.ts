@@ -55,8 +55,18 @@ export const createProjectSchema = z.object({
   module: z.enum(PROJECT_MODULES).default('software'),
   description: projectFields.description.default(''),
 });
+export const AI_INSTRUCTIONS_MAX = 4000;
+const instructionText = z
+  .string()
+  .trim()
+  .max(AI_INSTRUCTIONS_MAX, `Keep it under ${AI_INSTRUCTIONS_MAX} characters`);
+export const aiInstructionsSchema = z.object({ start: instructionText, finish: instructionText });
+
 export const projectDetailsSchema = z.object(projectFields);
-export const updateProjectSchema = projectDetailsSchema.partial().strict();
+export const updateProjectSchema = projectDetailsSchema
+  .extend({ aiInstructions: aiInstructionsSchema.partial() })
+  .partial()
+  .strict();
 export const favoriteSchema = z.object({ favorite: z.boolean() });
 
 const statusName = z.string().trim().min(1, 'Name is required').max(40);

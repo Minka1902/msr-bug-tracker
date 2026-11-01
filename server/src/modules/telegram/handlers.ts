@@ -102,6 +102,7 @@ const helpText = (household: boolean) =>
     `• <code>${household ? 'chores?' : 'tasks?'}</code> / <code>mine?</code>: open work by person / yours`,
     '• <code>michael needs to wash the car today</code>: add a task for someone',
     '• <code>KEY-12?</code> / <code>done KEY-12</code>: look up or finish a task',
+    '• <code>done KEY-12: we chose X</code>: close a discussion with its decision',
     '• <code>open project page</code> · <code>use KEY</code>: switch project',
   ].join('\n');
 
@@ -202,10 +203,15 @@ const showTask = async (context: Context, identifier: string) => {
   ].join('\n');
 };
 
-const finishTask = async (context: Context, identifier: string) => {
+const finishTask = async (context: Context, identifier: string, decision: string | null) => {
   const { project, task } = await findTaskByIdentifier(identifier, context.sender.id);
   const detail = await getTaskDetail(task.id);
-  const patch = { statusId: resolveStatus(await loadRefs(project.id), 'done', detail.type) };
+  if (detail.type === 'discussion' && !decision && !detail.decision.trim())
+    return `${escape(detail.identifier)} is a discussion. Close it with its decision: <code>done ${escape(detail.identifier)}: what you decided</code>`;
+  const patch = {
+    statusId: resolveStatus(await loadRefs(project.id), 'done', detail.type),
+    ...(detail.type === 'discussion' && decision && { decision }),
+  };
   assertCanPatchTask(project, task, patch, context.sender.id);
   await updateTask(project, task.id, patch, context.sender.id);
   return `Done: ${link(`/t/${detail.identifier}`, detail.title)} ✅`;
@@ -300,7 +306,7 @@ const run = (context: Context, command: Command): Promise<string> | string => {
     case 'task':
       return showTask(context, command.identifier);
     case 'done':
-      return finishTask(context, command.identifier);
+      return finishTask(context, command.identifier, command.decision);
     case 'assign':
       return assignTask(context, command);
     case 'appointments':

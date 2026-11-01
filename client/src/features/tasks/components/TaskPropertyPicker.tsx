@@ -5,12 +5,10 @@ import {
   PRIORITY_META,
   REPRODUCIBILITY_META,
   SEVERITY_META,
-  TYPE_META,
   workflowOf,
   type Priority,
   type Reproducibility,
   type Severity,
-  type TaskType,
 } from '@msr/shared/enums';
 import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail, TaskCard, TaskDetail } from '@msr/shared/types';
@@ -25,7 +23,7 @@ import { cn } from '../../../lib/cn';
 import { useConflictGuard } from '../../calendar/useConflictGuard';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { useUpdateTask } from '../api';
-import { PriorityIcon, TypeIcon } from '../taskMeta';
+import { PriorityIcon, typeChange, TypeIcon, typeLabel, typeValue } from '../taskMeta';
 import { UNASSIGNED, useTaskOptions } from '../useTaskOptions';
 import { DueDate } from './DueDate';
 import { EscalationMark } from './EscalationMark';
@@ -82,6 +80,11 @@ export function TaskPropertyPicker({
       { onError: (error) => toast.error(errorMessage(error)) },
     );
 
+  const changeOf = (value: string) => {
+    const change = typeChange(value, project.cardTypes);
+    return [change.input, change.optimistic] as const;
+  };
+
   const trigger = (content: ReactNode) => (
     <button
       type="button"
@@ -118,7 +121,11 @@ export function TaskPropertyPicker({
   const permissions = useProjectPermissions(project);
   const update = useUpdateTask();
 
-  const ownership = { reporterId: task.reporterId, assigneeId: task.assignee?.id ?? null };
+  const ownership = {
+    reporterId: task.reporterId,
+    assigneeId: task.assignee?.id ?? null,
+    cardTypeId: task.cardType?.id,
+  };
   const deadlineOwner = task.assignee?.id ?? task.reporterId;
   const canEdit = permissions.canEditTask(ownership);
   const canAssignOthers = permissions.canAssign(task.assignee?.id ?? null, '__other__');
@@ -281,15 +288,15 @@ export function TaskPropertyPicker({
       }),
     },
     type: {
-      value: task.type as string,
+      value: typeValue(task),
       options: options.type,
       display: (
         <span className="flex items-center gap-2">
-          <TypeIcon type={task.type} />
-          {TYPE_META[task.type].label}
+          <TypeIcon type={task.type} cardType={task.cardType} />
+          {typeLabel(task)}
         </span>
       ),
-      patch: (value: string) => ({ type: value as TaskType }),
+      patch: (value: string) => typeChange(value, project.cardTypes).input,
     },
     severity: {
       value: task.severity as string | null,
@@ -316,7 +323,9 @@ export function TaskPropertyPicker({
       disabled={disabled}
       disabledReason={reason}
       options={config.options}
-      onChange={(value) => save(config.patch(value as string))}
+      onChange={(value) =>
+        field === 'type' ? save(...changeOf(value!)) : save(config.patch(value as string))
+      }
       renderTrigger={() => trigger(config.display)}
     />
   );

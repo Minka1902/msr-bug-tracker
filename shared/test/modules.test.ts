@@ -55,7 +55,7 @@ describe('module catalog', () => {
   it('offers task types per module and workflow', () => {
     expect(typesFor('software', 'bug')).toEqual(['bug']);
     expect(typesFor('personal', 'bug')).toEqual([]);
-    expect(typesFor('household')).toEqual(['chore', 'errand', 'task']);
+    expect(typesFor('household')).toEqual(['chore', 'errand', 'task', 'discussion']);
   });
 
   it('creates software projects unless a module is given', () => {

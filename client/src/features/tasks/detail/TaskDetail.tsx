@@ -1,3 +1,4 @@
+import { AlignLeft, Gavel } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { can } from '@msr/shared/permissions';
@@ -18,12 +19,12 @@ import { AttachmentsSection } from './AttachmentsSection';
 import { BugDetails } from './BugDetails';
 import { ChecklistSection } from './ChecklistSection';
 import { CommentsSection } from './CommentsSection';
-import { DescriptionSection } from './DescriptionSection';
 import { RelationsSection } from './RelationsSection';
 import { SubtasksSection } from './SubtasksSection';
 import { TaskActionBar } from './TaskActionBar';
 import { TaskDetailHeader } from './TaskDetailHeader';
 import { TaskProperties } from './TaskProperties';
+import { TaskTextSection } from './TaskTextSection';
 
 interface TaskDetailProps {
   identifier: string;
@@ -70,7 +71,11 @@ export function TaskDetail({ identifier, variant = 'peek', onClose, onNavigate }
       </div>
     );
 
-  const ownership = { reporterId: task.reporterId, assigneeId: task.assignee?.id ?? null };
+  const ownership = {
+    reporterId: task.reporterId,
+    assigneeId: task.assignee?.id ?? null,
+    cardTypeId: task.cardType?.id,
+  };
   const canEdit = permissions.canEditTask(ownership);
   const canUpload = permissions.can('attachment.upload');
   const mask = project.data.isArchived ? 0 : project.data.permissions;
@@ -110,7 +115,32 @@ export function TaskDetail({ identifier, variant = 'peek', onClose, onNavigate }
             <div className="@2xl:hidden">
               <TaskProperties task={task} project={project.data} />
             </div>
-            <DescriptionSection key={`d-${task.id}`} task={task} editable={canEdit} canUpload={canUpload} />
+            <TaskTextSection
+              key={`d-${task.id}`}
+              task={task}
+              field="description"
+              title="Description"
+              icon={<AlignLeft />}
+              placeholder="Add details, acceptance criteria, or paste a screenshot…"
+              emptyText="No description."
+              editable={canEdit}
+              canUpload={canUpload}
+            />
+            {task.type === 'discussion' && (
+              <TaskTextSection
+                key={`c-${task.id}`}
+                task={task}
+                field="decision"
+                title="Decision"
+                icon={<Gavel />}
+                placeholder="What was decided? A discussion can only be closed once this is filled in."
+                emptyText="Not decided yet."
+                editable={canEdit}
+                canUpload={canUpload}
+                minHeight={72}
+                highlight={task.statusCategory === 'done'}
+              />
+            )}
             {task.type === 'bug' && (
               <BugDetails key={`b-${task.id}`} task={task} editable={canEdit} canUpload={canUpload} />
             )}

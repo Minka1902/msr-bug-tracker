@@ -1,4 +1,4 @@
-export const TASK_TYPES = ['task', 'bug', 'feature', 'improvement', 'chore', 'errand'] as const;
+export const TASK_TYPES = ['task', 'bug', 'feature', 'improvement', 'chore', 'errand', 'discussion'] as const;
 export const PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 export const SEVERITIES = ['critical', 'major', 'minor', 'trivial'] as const;
 export const REPRODUCIBILITY = ['always', 'sometimes', 'rarely'] as const;
@@ -46,7 +46,10 @@ export const TYPE_META: Record<TaskType, EnumMeta> = {
   improvement: { label: 'Improvement', tone: 'success' },
   chore: { label: 'Chore', tone: 'accent' },
   errand: { label: 'Errand', tone: 'warning' },
+  discussion: { label: 'Discussion', tone: 'neutral' },
 };
+
+export const DECISION_REQUIRED = 'decision_required';
 
 export const RECURRENCE_META: Record<RecurrenceFrequency, { label: string; unit: string }> = {
   daily: { label: 'Daily', unit: 'day' },
@@ -144,3 +147,6 @@ export const HOUSEHOLD_STATUSES: Record<
 export const HOUSEHOLD_LABELS = ['Kitchen', 'Laundry', 'Outdoor', 'School', 'Pets'];
 
 export const workflowOf = (type: TaskType): Workflow => (type === 'bug' ? 'bug' : 'task');
+
+export const isTaskType = (value: string): value is TaskType =>
+  (TASK_TYPES as readonly string[]).includes(value);

@@ -1,18 +1,25 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Button } from './Button';
 import { Field } from './Field';
 import { Input } from './Input';
 import { Modal } from './Modal';
+import { Textarea } from './Textarea';
 
-interface TextPromptDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface TextPromptOptions {
   title: string;
   label: string;
+  description?: ReactNode;
   initialValue?: string;
   placeholder?: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   maxLength?: number;
+  multiline?: boolean;
+}
+
+interface TextPromptDialogProps extends TextPromptOptions {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   loading?: boolean;
   onSubmit: (value: string) => void;
 }
@@ -22,10 +29,13 @@ export function TextPromptDialog({
   onOpenChange,
   title,
   label,
+  description,
   initialValue = '',
   placeholder,
   confirmLabel = 'Save',
+  cancelLabel = 'Cancel',
   maxLength = 120,
+  multiline,
   loading,
   onSubmit,
 }: TextPromptDialogProps) {
@@ -42,16 +52,19 @@ export function TextPromptDialog({
     if (open) setValue(initialValue);
   }
 
+  const fieldProps = { id: 'text-prompt-value', autoFocus: true, value, maxLength, placeholder };
+
   return (
     <Modal
       open={open}
       onOpenChange={onOpenChange}
       title={title}
+      description={description}
       size="sm"
       footer={
         <>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button type="submit" form="text-prompt" loading={loading} disabled={!value.trim()}>
             {confirmLabel}
@@ -61,14 +74,11 @@ export function TextPromptDialog({
     >
       <form id="text-prompt" onSubmit={submit} noValidate>
         <Field label={label} htmlFor="text-prompt-value">
-          <Input
-            id="text-prompt-value"
-            autoFocus
-            value={value}
-            maxLength={maxLength}
-            placeholder={placeholder}
-            onChange={(event) => setValue(event.target.value)}
-          />
+          {multiline ? (
+            <Textarea {...fieldProps} rows={4} onChange={(event) => setValue(event.target.value)} />
+          ) : (
+            <Input {...fieldProps} onChange={(event) => setValue(event.target.value)} />
+          )}
         </Field>
       </form>
     </Modal>

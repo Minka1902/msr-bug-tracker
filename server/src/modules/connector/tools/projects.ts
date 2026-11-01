@@ -33,8 +33,9 @@ const compactProject = (project: ProjectSummary) => ({
   url: projectUrl(project.key),
 });
 
-const fetchTask = async (identifier: string, { user }: ToolContext) => {
-  const { task } = await findTaskByIdentifier(identifier, user.id);
+const fetchTask = async (identifier: string, { user }: ToolContext, projects: Set<string>) => {
+  const { project, task } = await findTaskByIdentifier(identifier, user.id);
+  projects.add(project.key);
   const [detail, checklist, comments, subtasks] = await Promise.all([
     getTaskDetail(task.id),
     listItems(task.id),
@@ -56,6 +57,7 @@ const fetchTask = async (identifier: string, { user }: ToolContext) => {
         expectedResult: detail.expectedBehavior,
         actualResult: detail.actualBehavior,
       }),
+      ...(detail.type === 'discussion' && { decision: detail.decision }),
       ...(checklist.length && {
         checklist: checklist.map((item) => ({ text: item.text, done: item.isDone })),
       }),
@@ -74,8 +76,9 @@ const fetchTask = async (identifier: string, { user }: ToolContext) => {
   };
 };
 
-const fetchProject = async (key: string, { user, timezone }: ToolContext) => {
+const fetchProject = async (key: string, { user, timezone }: ToolContext, projects: Set<string>) => {
   const context = await findProjectContext(key.toUpperCase(), user.id);
+  projects.add(context.key);
   const [summary, refs] = await Promise.all([
     getProjectSummary(context.id, user.id, timezone),
     loadRefs(context.id),
@@ -89,6 +92,9 @@ const fetchProject = async (key: string, { user, timezone }: ToolContext) => {
       ...compactProject(summary),
       statuses: refs.statuses.map(({ name, category, workflow }) => ({ name, category, workflow })),
       labels: refs.labels.map((label) => label.name),
+      ...(refs.card_types.length && {
+        cardTypes: refs.card_types.map(({ name, base }) => ({ name, worksLike: base })),
+      }),
       members: refs.members.map(({ name, email }) => ({ name, email })),
     },
   };
@@ -154,6 +160,8 @@ export const registerProjectTools = (server: McpServer, context: ToolContext) =>
       },
       annotations: READ,
     },
-    run(({ id }) => (IDENTIFIER_REGEX.test(id) ? fetchTask(id, context) : fetchProject(id, context))),
+    run(({ id }, projects) =>
+      IDENTIFIER_REGEX.test(id) ? fetchTask(id, context, projects) : fetchProject(id, context, projects),
+    ),
   );
 };

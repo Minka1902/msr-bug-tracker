@@ -100,7 +100,16 @@ test('project settings show only what the role can change', async ({ page, brows
   await viewer.context().close();
 
   await page.goto(`/p/${project.key}/settings/members`);
-  await expect(tabs(page)).toHaveText(['General', 'Workflows', 'Labels', /^Members/, 'Roles', 'Danger zone']);
+  await expect(tabs(page)).toHaveText([
+    'General',
+    'Workflows',
+    'Card types',
+    'Labels',
+    /^Members/,
+    'Roles',
+    'AI instructions',
+    'Danger zone',
+  ]);
   await expect(page.getByRole('button', { name: 'Role of Member' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Leave project' })).toHaveCount(0);
   await page.goto(`/p/${project.key}/settings/roles`);

@@ -88,7 +88,7 @@ export function TaskActionsMenu({
       icon: <RotateCcw />,
       hidden:
         task.statusCategory !== 'done' ||
-        !permissions.canTransition({ assigneeId: task.assignee?.id ?? null }),
+        !permissions.canTransition({ assigneeId: task.assignee?.id ?? null, cardTypeId: task.cardType?.id }),
       onSelect: () => reopen.mutate(task.id, { onError }),
     },
     { label: 'Duplicate', icon: <CopyPlus />, hidden: !permissions.can('task.create'), onSelect: duplicate },

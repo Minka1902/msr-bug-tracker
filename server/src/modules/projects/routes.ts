@@ -8,6 +8,7 @@ import {
 } from '@msr/shared/schemas/project';
 import { conflict } from '../../lib/httpError';
 import { removeUnreferenced } from '../attachments/service';
+import { createCardTypesRouter } from '../cardTypes/routes';
 import { createLabelsRouter } from '../labels/routes';
 import { createProjectImportRouter } from '../importer/routes';
 import { createProjectInvitesRouter } from '../invites/routes';
@@ -101,6 +102,7 @@ export const createProjectsRouter = () => {
 
   scoped.use('/statuses', createStatusesRouter());
   scoped.use('/labels', createLabelsRouter());
+  scoped.use('/card-types', createCardTypesRouter());
   scoped.use('/roles', createRolesRouter());
   scoped.use('/members', createMembersRouter());
   scoped.use('/invites', createProjectInvitesRouter());

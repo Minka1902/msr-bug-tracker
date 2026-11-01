@@ -33,6 +33,7 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
         projectKey: project.key,
         title: text,
         type: fields.type,
+        cardTypeId: fields.cardTypeId,
         priority: fields.priority,
         assigneeId: fields.assigneeId,
         dueDate: fields.dueDate,
@@ -62,6 +63,7 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
   const [title, setTitle] = useState('');
   const [fields, setFields] = useState<TaskCreateValues>({
     type: defaults.type ?? types[0]!,
+    cardTypeId: defaults.cardTypeId ?? null,
     statusId: defaults.statusId ?? null,
     priority: defaults.priority ?? 'medium',
     assigneeId: defaults.assigneeId ?? null,

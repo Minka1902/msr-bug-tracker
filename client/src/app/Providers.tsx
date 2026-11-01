@@ -3,6 +3,7 @@ import { Tooltip } from 'radix-ui';
 import type { ReactNode } from 'react';
 import { Toaster } from 'sonner';
 import { ConfirmProvider } from '../context/ConfirmProvider';
+import { PromptProvider } from '../context/PromptProvider';
 import { ThemeProvider } from '../context/ThemeProvider';
 import { UpdatePrompt } from '../features/pwa/UpdatePrompt';
 import { queryClient } from './queryClient';
@@ -13,9 +14,11 @@ export function Providers({ children }: { children: ReactNode }) {
       <ThemeProvider>
         <Tooltip.Provider delayDuration={300}>
           <ConfirmProvider>
-            {children}
-            <Toaster position="bottom-right" closeButton toastOptions={{ className: 'font-sans' }} />
-            <UpdatePrompt />
+            <PromptProvider>
+              {children}
+              <Toaster position="bottom-right" closeButton toastOptions={{ className: 'font-sans' }} />
+              <UpdatePrompt />
+            </PromptProvider>
           </ConfirmProvider>
         </Tooltip.Provider>
       </ThemeProvider>

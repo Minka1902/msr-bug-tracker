@@ -151,6 +151,9 @@ export interface TaskOwnership {
   assigneeId: string | null;
 }
 
+export const cardTypeAllows = (roleIds: readonly string[], roleId: string, isOwner: boolean) =>
+  isOwner || roleIds.includes(roleId);
+
 export const isOwnTask = (task: TaskOwnership, userId: string) =>
   task.reporterId === userId || task.assigneeId === userId;
 

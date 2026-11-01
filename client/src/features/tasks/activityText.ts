@@ -24,6 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
   foundInVersion: 'found-in version',
   fixVersion: 'fix version',
   reproducibility: 'reproducibility',
+  decision: 'decision',
 };
 
 const show = (value: unknown) => {

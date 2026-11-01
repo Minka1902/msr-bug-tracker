@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { PRIORITIES, SEVERITIES, TASK_TYPES } from '@msr/shared/enums';
+import { PRIORITIES, SEVERITIES, TASK_TYPES, type TaskType } from '@msr/shared/enums';
 import { createCommentSchema, createChecklistItemSchema } from '@msr/shared/schemas/collab';
 import { createTaskSchema, TASK_SORTS, taskFilterSchema, updateTaskSchema } from '@msr/shared/schemas/task';
 import { z } from 'zod';
@@ -22,6 +22,7 @@ import {
   resolvePerson,
   resolveStatus,
   resolveStatusFilter,
+  resolveType,
   statusNamesFor,
   statusNamesOf,
 } from '../refs';
@@ -35,6 +36,18 @@ const projectKey = z.string().trim().min(2).max(6).describe('Project key, like W
 const taskId = z.string().trim().min(3).max(20).describe('Task ID, like WEB-12');
 const person = z.string().trim().max(254).describe('"me", a member\'s email, or their exact name');
 const limit = z.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT);
+const typeName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .describe(
+    `A built-in type (${TASK_TYPES.join(', ')}) or one of the project's own card types, which fetch lists`,
+  );
+const decision = z
+  .string()
+  .max(20000)
+  .describe('Discussions only: what was decided. A discussion can only be closed once it has one');
 const escalation = z
   .object({ from: z.enum(PRIORITIES), to: z.enum(PRIORITIES) })
   .describe('Move the priority step by step from `from` to `to` by the due date; needs a due date');
@@ -64,7 +77,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
           .max(20)
           .optional()
           .describe('Status names, or categories: backlog, todo, in_progress, done'),
-        type: z.array(z.enum(TASK_TYPES)).optional(),
+        type: z.array(typeName).max(20).optional(),
         priority: z.array(z.enum(PRIORITIES)).optional(),
         assignee: person.optional().describe('"me", "none", a member\'s email or exact name'),
         labels: z.array(z.string()).max(20).optional(),
@@ -78,8 +91,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       },
       annotations: READ,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       const refs = await loadRefs(project.id);
       const status = input.status && resolveStatusFilter(refs, input.status);
       const assignee = input.assignee && (resolvePerson(refs, input.assignee, user.id) ?? 'none');
@@ -87,7 +101,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         q: input.query,
         status: csv(status?.ids),
         category: csv(status?.categories),
-        type: csv(input.type),
+        type: csv(input.type?.map((value) => resolveType(refs, value)).map((t) => t.cardTypeId ?? t.type)),
         priority: csv(input.priority),
         assignee: assignee === user.id ? 'me' : assignee,
         label: csv(input.labels && resolveLabels(refs, input.labels)),
@@ -113,7 +127,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: { includeDone: z.boolean().default(false), limit },
       annotations: READ,
     },
-    run(async ({ includeDone, limit: size }) => {
+    run(async ({ includeDone, limit: size }, projects) => {
       const filters = taskFilterSchema.parse({
         hideDone: includeDone ? undefined : 'true',
         sort: 'due',
@@ -121,6 +135,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         limit: size,
       });
       const page = await listTasks(MY_TASKS_SCOPE, [user.id], filters, filterContext);
+      page.items.forEach((task) => projects.add(task.projectKey));
       const names = await statusNamesFor(page.items.map((task) => task.statusId));
       return { tasks: page.items.map((task) => compactTask(task, names)), hasMore: page.hasMore };
     }),
@@ -133,11 +148,13 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
     {
       title: 'Create a task',
       description:
-        'Creates a task, bug, feature, chore or errand in a project. Status, labels and assignee are names; call fetch with the project key to see the valid ones.',
+        'Creates a task, bug, feature, chore, errand or discussion in a project. Status, labels and assignee are names; call fetch with the project key to see the valid ones.',
       inputSchema: {
         projectKey,
         title: z.string().trim().min(1).max(300),
-        type: z.enum(TASK_TYPES).optional().describe('Defaults to task'),
+        type: typeName
+          .optional()
+          .describe("Defaults to task. A built-in type or one of the project's card types"),
         description: z.string().max(20000).optional().describe('Markdown'),
         status: z.string().optional().describe('Status name or category; defaults to the first to-do status'),
         priority: z.enum(PRIORITIES).optional(),
@@ -151,20 +168,25 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         stepsToReproduce: z.string().max(20000).optional(),
         expectedResult: z.string().max(20000).optional(),
         actualResult: z.string().max(20000).optional(),
+        decision: decision.optional(),
       },
       annotations: WRITE,
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const project = await findProjectContext(input.projectKey.toUpperCase(), user.id);
+      projects.add(project.key);
       assertCanWrite(project, 'task.create');
       const refs = await loadRefs(project.id);
-      const type = input.type ?? 'task';
+      const { type, cardTypeId } = input.type
+        ? resolveType(refs, input.type)
+        : { type: 'task' as TaskType, cardTypeId: null };
       const parent = input.parent ? (await findTaskByIdentifier(input.parent, user.id)).task : null;
       if (parent && parent.projectId !== project.id)
         throw badRequest('The parent task must be in the same project');
       const task = createTaskSchema.parse({
         title: input.title,
         type,
+        cardTypeId: cardTypeId ?? undefined,
         description: input.description,
         statusId: input.status && resolveStatus(refs, input.status, type),
         priority: input.priority,
@@ -178,6 +200,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         stepsToReproduce: input.stepsToReproduce,
         expectedBehavior: input.expectedResult,
         actualBehavior: input.actualResult,
+        decision: type === 'discussion' ? input.decision : undefined,
       });
       assertCanAssignOnCreate(project, task.assigneeId, user.id);
       return { task: compactTask(await createTask(project, task, user.id), statusNamesOf(refs)) };
@@ -189,12 +212,12 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
     {
       title: 'Update a task',
       description:
-        'Changes a task: title, description, type, status, priority, priority schedule, severity, assignee, labels, dates or blocked state. Only the fields you pass change. Pass null to clear assignee, severity, a date or the priority schedule. Setting the priority turns its schedule off.',
+        "Changes a task: title, description, type, status, priority, priority schedule, severity, assignee, labels, dates, blocked state or a discussion's decision. Only the fields you pass change. Pass null to clear assignee, severity, a date or the priority schedule. Setting the priority turns its schedule off. To close a discussion, pass its decision with the done status.",
       inputSchema: {
         id: taskId,
         title: z.string().trim().min(1).max(300).optional(),
         description: z.string().max(20000).optional().describe('Markdown; replaces the whole description'),
-        type: z.enum(TASK_TYPES).optional(),
+        type: typeName.optional(),
         status: z.string().optional().describe('Status name or category (done, in_progress, todo, backlog)'),
         priority: z.enum(PRIORITIES).optional(),
         severity: z.enum(SEVERITIES).nullable().optional(),
@@ -207,13 +230,16 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         escalation: escalation.nullable().optional(),
         blocked: z.boolean().optional(),
         blockedReason: z.string().trim().max(500).nullable().optional(),
+        decision: decision.optional(),
       },
       annotations: { ...WRITE, idempotentHint: true },
     },
-    run(async (input) => {
+    run(async (input, projects) => {
       const { project, task } = await findTaskByIdentifier(input.id, user.id);
+      projects.add(project.key);
       const [refs, current] = await Promise.all([loadRefs(project.id), getTaskDetail(task.id)]);
-      const type = input.type ?? current.type;
+      const retyped = input.type === undefined ? null : resolveType(refs, input.type);
+      const type = retyped?.type ?? current.type;
       const removed = new Set(resolveLabels(refs, input.removeLabels ?? []));
       const labels = input.labels
         ? resolveLabels(refs, input.labels)
@@ -228,7 +254,8 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       const patch = updateTaskSchema.parse({
         title: input.title,
         description: input.description,
-        type: input.type,
+        type: retyped?.type,
+        cardTypeId: retyped?.cardTypeId,
         statusId: input.status === undefined ? undefined : resolveStatus(refs, input.status, type),
         priority: input.priority,
         severity: input.severity,
@@ -239,6 +266,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         escalation: input.escalation,
         isBlocked: input.blocked,
         blockedReason: input.blockedReason,
+        decision: input.decision,
       });
       assertCanPatchTask(project, task, patch, user.id);
       return { task: compactTask(await updateTask(project, task.id, patch, user.id), statusNamesOf(refs)) };
@@ -253,8 +281,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: { id: taskId, body: z.string().trim().min(1).max(20000).describe('Markdown') },
       annotations: WRITE,
     },
-    run(async ({ id, body }) => {
+    run(async ({ id, body }, projects) => {
       const { project, task } = await findTaskByIdentifier(id, user.id);
+      projects.add(project.key);
       assertCanWrite(project, 'comment.create');
       const comment = await createComment(task.id, user.id, createCommentSchema.parse({ body }));
       return { comment: { id: comment.id, task: id, at: comment.createdAt } };
@@ -269,8 +298,9 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
       inputSchema: { id: taskId, items: z.array(z.string().trim().min(1).max(500)).min(1).max(20) },
       annotations: WRITE,
     },
-    run(async ({ id, items }) => {
+    run(async ({ id, items }, projects) => {
       const { project, task } = await findTaskByIdentifier(id, user.id);
+      projects.add(project.key);
       assertCanEditTask(project, task, user.id);
       const added = [];
       for (const text of items)

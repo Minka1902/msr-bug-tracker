@@ -102,6 +102,7 @@ const task = (
   parentId: null,
   parentIdentifier: null,
   type: 'task',
+  cardType: null,
   title,
   statusId: `s${statusIndex}`,
   statusCategory: DEFAULT_STATUSES.task[statusIndex]!.category,
