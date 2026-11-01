@@ -1,6 +1,6 @@
 import type { RelationType, StatusCategory, TaskType } from '@msr/shared/enums';
 import { formatIdentifier } from '@msr/shared/identifiers';
-import type { TaskRelation } from '@msr/shared/types';
+import type { CardTypeRef, TaskRelation } from '@msr/shared/types';
 import { query, queryOne, transaction } from '../../db/pool';
 import { recordActivity } from '../tasks/activity';
 
@@ -14,16 +14,20 @@ interface RelationRow {
   title: string;
   task_type: TaskType;
   category: StatusCategory;
+  card_type: CardTypeRef | null;
 }
 
 const LIST_RELATIONS = `
   SELECT r.id, r.type,
          CASE WHEN r.type = 'relates' OR r.source_id = $1 THEN 'outgoing' ELSE 'incoming' END AS direction,
-         o.id AS task_id, p.key::text, o.number, o.title, o.type AS task_type, s.category
+         o.id AS task_id, p.key::text, o.number, o.title, o.type AS task_type, s.category,
+         CASE WHEN ct.id IS NOT NULL
+           THEN json_build_object('id', ct.id, 'name', ct.name, 'icon', ct.icon, 'color', ct.color) END AS card_type
   FROM task_relations r
   JOIN tasks o ON o.id = CASE WHEN r.source_id = $1 THEN r.target_id ELSE r.source_id END
   JOIN projects p ON p.id = o.project_id
   JOIN project_statuses s ON s.id = o.status_id
+  LEFT JOIN project_card_types ct ON ct.id = o.card_type_id
   WHERE (r.source_id = $1 OR r.target_id = $1)
     AND EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.project_id AND m.user_id = $2)
   ORDER BY r.created_at`;
@@ -42,6 +46,7 @@ const toRelation = (row: RelationRow): TaskRelation => ({
     title: row.title,
     statusCategory: row.category,
     type: row.task_type,
+    cardType: row.card_type,
   },
 });
 

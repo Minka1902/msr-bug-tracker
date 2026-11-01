@@ -195,8 +195,14 @@ describe('custom card types', () => {
   it('filter apart from their built-in type and work through the AI connector', async () => {
     const { owner } = await team();
     const type = await addType(owner, 'IDEA', EXPERIMENT);
-    await createTask(owner, 'IDEA', { title: 'Plain task' });
-    await createTask(owner, 'IDEA', { title: 'Pricing test', cardTypeId: type.id });
+    const plain = await createTask(owner, 'IDEA', { title: 'Plain task' });
+    const pricing = await createTask(owner, 'IDEA', { title: 'Pricing test', cardTypeId: type.id });
+    await owner
+      .post(`/api/tasks/${plain.id}/relations`)
+      .send({ target: pricing.identifier, type: 'relates' })
+      .expect(201);
+    const { body } = await owner.get(`/api/tasks/${plain.id}/relations`).expect(200);
+    expect(body.relations[0].task.cardType).toMatchObject({ name: 'Experiment', icon: 'rocket' });
     const titles = async (filter: string) =>
       (
         (await owner.get(`/api/projects/IDEA/tasks?type=${filter}`).expect(200)).body.items as {

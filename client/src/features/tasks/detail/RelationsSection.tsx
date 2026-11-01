@@ -67,7 +67,7 @@ export function RelationsSection({ task, editable, onOpen }: RelationsSectionPro
               onClick={() => onOpen(relation.task.identifier)}
               className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left"
             >
-              <TypeIcon type={relation.task.type} className="size-3.5" />
+              <TypeIcon type={relation.task.type} cardType={relation.task.cardType} className="size-3.5" />
               <span className="font-mono text-xs text-subtle">{relation.task.identifier}</span>
               <span
                 className={`truncate ${relation.task.statusCategory === 'done' ? 'text-muted line-through' : ''}`}

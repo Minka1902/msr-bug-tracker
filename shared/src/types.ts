@@ -226,7 +226,14 @@ export interface TaskRelation {
   id: string;
   type: RelationType;
   direction: 'outgoing' | 'incoming';
-  task: { id: string; identifier: string; title: string; statusCategory: StatusCategory; type: TaskType };
+  task: {
+    id: string;
+    identifier: string;
+    title: string;
+    statusCategory: StatusCategory;
+    type: TaskType;
+    cardType: CardTypeRef | null;
+  };
 }
 
 export interface ActivityEntry {
