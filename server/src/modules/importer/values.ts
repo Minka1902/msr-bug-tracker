@@ -17,6 +17,7 @@ const TYPE_WORDS: [RegExp, TaskType][] = [
   [/bug|defect|incident|error/, 'bug'],
   [/feature|story|epic/, 'feature'],
   [/improvement|enhancement|refactor/, 'improvement'],
+  [/discussion|decision/, 'discussion'],
 ];
 const CATEGORY_WORDS: [RegExp, StatusCategory][] = [
   [/done|closed|complete|resolved|shipped|released|fixed|cancel|won.?t|archived/, 'done'],

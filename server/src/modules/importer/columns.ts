@@ -24,6 +24,7 @@ export const IMPORT_FIELDS = [
   'stepsToReproduce',
   'expectedBehavior',
   'actualBehavior',
+  'decision',
   'externalId',
   'parentExternalId',
   'createdAt',
@@ -46,6 +47,7 @@ const ALIASES: Record<ImportField, string[]> = {
   stepsToReproduce: ['steps to reproduce', 'steps'],
   expectedBehavior: ['expected result', 'expected behavior', 'expected'],
   actualBehavior: ['actual result', 'actual behavior', 'actual'],
+  decision: ['decision', 'conclusion', 'outcome'],
   externalId: ['id', 'identifier', 'task id', 'issue key', 'key', 'issue id', 'card id', 'task custom id'],
   parentExternalId: ['parent id', 'parent', 'parent task', 'parent key', 'parent task id', 'parent issue'],
   createdAt: ['created', 'created at', 'date created', 'created date', 'creation date'],
@@ -85,6 +87,7 @@ export const TEMPLATE_COLUMNS: { header: string; field: ImportField; width: numb
     example: ['The payment form opens', ''],
   },
   { header: 'Actual result', field: 'actualBehavior', width: 24, example: ['Nothing happens', ''] },
+  { header: 'Decision', field: 'decision', width: 28, example: ['', ''] },
   { header: 'ID', field: 'externalId', width: 10, example: ['1', '2'] },
   { header: 'Parent ID', field: 'parentExternalId', width: 10, example: ['', ''] },
 ];
@@ -139,5 +142,6 @@ export const rowToTask = (row: Record<string, unknown>, mapping: ColumnMapping):
     stepsToReproduce: text('stepsToReproduce'),
     expectedBehavior: text('expectedBehavior'),
     actualBehavior: text('actualBehavior'),
+    decision: type === 'discussion' ? text('decision') : '',
   };
 };

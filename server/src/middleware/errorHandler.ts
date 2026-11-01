@@ -1,9 +1,11 @@
 import type { ErrorRequestHandler } from 'express';
+import { DECISION_REQUIRED } from '@msr/shared/enums';
 import { ZodError } from 'zod';
 import { HttpError } from '../lib/httpError';
 import { logger } from '../lib/logger';
 
 const PG_UNIQUE_VIOLATION = '23505';
+const PG_CHECK_VIOLATION = '23514';
 const UNIQUE_MESSAGES: Record<string, string> = {
   projects_key_key: 'That project key is already taken',
   project_statuses_name_idx: 'A status with this name already exists in this workflow',
@@ -28,6 +30,13 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   }
   if (error?.code === PG_UNIQUE_VIOLATION) {
     res.status(409).json({ error: UNIQUE_MESSAGES[error.constraint] ?? 'Already exists' });
+    return;
+  }
+  if (error?.code === PG_CHECK_VIOLATION && error.constraint === 'tasks_discussion_decision') {
+    res.status(400).json({
+      error: 'Add a decision to every discussion before closing it',
+      details: { code: DECISION_REQUIRED, tasks: [] },
+    });
     return;
   }
   if (error?.type === 'entity.too.large' || error?.code === 'LIMIT_FILE_SIZE') {

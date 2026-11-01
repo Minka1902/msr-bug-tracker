@@ -26,6 +26,7 @@ interface ExportRow {
   steps_to_reproduce: string;
   expected_behavior: string;
   actual_behavior: string;
+  decision: string;
 }
 
 const BATCH = 1000;
@@ -50,6 +51,7 @@ export const EXPORT_COLUMNS: ExportColumn[] = [
   { header: 'Steps to reproduce', width: 32 },
   { header: 'Expected result', width: 26 },
   { header: 'Actual result', width: 26 },
+  { header: 'Decision', width: 32 },
 ];
 
 const EXPORT_SELECT = `
@@ -58,7 +60,7 @@ const EXPORT_SELECT = `
          (SELECT string_agg(l.name, ', ' ORDER BY lower(l.name))
           FROM task_labels tl JOIN labels l ON l.id = tl.label_id WHERE tl.task_id = t.id) AS labels,
          t.start_date::text, t.due_date::text, t.created_at, t.completed_at, pt.number AS parent_number,
-         t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior
+         t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior, t.decision
   ${TASK_FROM}
   LEFT JOIN users r ON r.id = t.reporter_id
   LEFT JOIN tasks pt ON pt.id = t.parent_id`;
@@ -83,6 +85,7 @@ const toValues = (row: ExportRow) => [
   row.steps_to_reproduce,
   row.expected_behavior,
   row.actual_behavior,
+  row.decision,
 ];
 
 export async function* exportBatches(projectId: string, filters: TaskFilters, context: FilterContext) {

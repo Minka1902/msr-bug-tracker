@@ -6,11 +6,12 @@ import {
   useQueryClient,
   type QueryClient,
 } from '@tanstack/react-query';
-import type { Workflow } from '@msr/shared/enums';
+import { DECISION_REQUIRED, type Workflow } from '@msr/shared/enums';
 import type { BulkPatch, CreateTaskInput, UpdateTaskInput } from '@msr/shared/schemas/task';
+import { usePrompt } from '../../hooks/usePrompt';
 import type { FilterValues } from '../../hooks/useUrlFilters';
 import type { ActivityEntry, BoardColumn, Page, TaskCard, TaskDetail } from '@msr/shared/types';
-import { api } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 import { calendarKeys } from '../calendar/api';
 import { projectKeys } from '../projects/api';
 
@@ -116,6 +117,29 @@ const patchCards = (client: QueryClient, patch: (task: TaskCard) => TaskCard) =>
   );
 };
 
+const sendPatch = (id: string, patch: UpdateTaskInput) =>
+  api<{ task: TaskDetail }>(`/tasks/${id}`, { method: 'PATCH', body: patch }).then((data) => data.task);
+
+const sendBulk = (projectKey: string, input: { ids: string[]; patch: BulkPatch }) =>
+  api<{ tasks: TaskCard[] }>(`/projects/${projectKey}/tasks/bulk`, { method: 'PATCH', body: input }).then(
+    (data) => data.tasks,
+  );
+
+const decisionPrompt = (identifier: string) => ({
+  title: `Close ${identifier}`,
+  label: 'What was decided?',
+  description: 'A discussion closes with its decision, so everyone can see what was agreed.',
+  placeholder: 'We decided to…',
+  confirmLabel: 'Close discussion',
+  maxLength: 20000,
+  multiline: true,
+});
+
+export const undecidedTasks = (error: unknown) => {
+  const details = error instanceof ApiError ? (error.details as { code?: string; tasks?: string[] }) : null;
+  return details?.code === DECISION_REQUIRED ? (details.tasks ?? []) : null;
+};
+
 export const invalidateTaskData = (client: QueryClient) =>
   Promise.all([
     client.invalidateQueries({ queryKey: taskKeys.all }),
@@ -139,9 +163,15 @@ export const useCreateTask = () => {
 
 export const useUpdateTask = () => {
   const client = useQueryClient();
+  const prompt = usePrompt();
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: UpdateTaskInput; optimistic?: Partial<TaskCard> }) =>
-      api<{ task: TaskDetail }>(`/tasks/${id}`, { method: 'PATCH', body: patch }).then((data) => data.task),
+      sendPatch(id, patch).catch(async (error: unknown) => {
+        const identifier = undecidedTasks(error)?.[0];
+        const decision = identifier && (await prompt(decisionPrompt(identifier)));
+        if (!decision) throw error;
+        return sendPatch(id, { ...patch, decision });
+      }),
     onMutate: async ({ id, optimistic }) => {
       if (!optimistic) return;
       await client.cancelQueries({ queryKey: taskKeys.all });
@@ -188,11 +218,16 @@ export const useMoveTask = () =>
 
 export const useBulkUpdate = (projectKey: string) => {
   const client = useQueryClient();
+  const prompt = usePrompt();
   return useMutation({
     mutationFn: (input: { ids: string[]; patch: BulkPatch }) =>
-      api<{ tasks: TaskCard[] }>(`/projects/${projectKey}/tasks/bulk`, { method: 'PATCH', body: input }).then(
-        (data) => data.tasks,
-      ),
+      sendBulk(projectKey, input).catch(async (error: unknown) => {
+        const identifier = input.ids.length === 1 && undecidedTasks(error)?.[0];
+        const decision = identifier && (await prompt(decisionPrompt(identifier)));
+        if (!decision) throw error;
+        await sendPatch(input.ids[0]!, { decision });
+        return sendBulk(projectKey, input);
+      }),
     onSettled: () => invalidateTaskData(client),
   });
 };

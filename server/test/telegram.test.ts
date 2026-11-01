@@ -149,6 +149,22 @@ describe('Telegram webhook', () => {
     expect(await reply(GROUP, PARENT_TG, 'home-99?')).toBe('Task not found');
   });
 
+  it('closes a discussion only with its decision', async () => {
+    const { parent } = await setupFamily();
+    const { body } = await parent
+      .post('/api/projects/HOME/tasks')
+      .send({ title: 'Summer trip', type: 'discussion' })
+      .expect(201);
+    expect(await reply(GROUP, PARENT_TG, 'done home-1')).toBe(
+      'HOME-1 is a discussion. Close it with its decision: <code>done HOME-1: what you decided</code>',
+    );
+    expect(await reply(GROUP, PARENT_TG, 'done home-1: Crete in August')).toMatch(
+      /^Done: .+Summer trip.+ ✅$/,
+    );
+    const closed = (await parent.get(`/api/tasks/${body.task.id}`).expect(200)).body.task;
+    expect(closed).toMatchObject({ statusCategory: 'done', decision: 'Crete in August' });
+  });
+
   it('shows the next appointments', async () => {
     const { parent } = await setupFamily();
     const startsAt = new Date(Date.now() + 2 * 86_400_000);

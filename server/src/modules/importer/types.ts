@@ -29,6 +29,7 @@ export interface NormalizedTask {
   stepsToReproduce: string;
   expectedBehavior: string;
   actualBehavior: string;
+  decision: string;
   checklist: { text: string; done: boolean }[];
   comments: NormalizedComment[];
 }
@@ -56,6 +57,7 @@ export const emptyTask = (title: string): NormalizedTask => ({
   stepsToReproduce: '',
   expectedBehavior: '',
   actualBehavior: '',
+  decision: '',
   checklist: [],
   comments: [],
 });

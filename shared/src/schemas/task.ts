@@ -49,6 +49,7 @@ const taskFields = {
   reproducibility: z.enum(REPRODUCIBILITY).nullable(),
   recurrence: recurrenceSchema.nullable(),
   escalation: escalationSchema.nullable(),
+  decision: longText,
 };
 
 const datesInOrder = (value: { startDate?: string | null; dueDate?: string | null }) =>

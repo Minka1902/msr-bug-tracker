@@ -18,7 +18,12 @@ describe('Telegram command parser', () => {
     ['hardware store?', { kind: 'list', name: 'hardware store' }],
     ['home-12?', { kind: 'task', identifier: 'HOME-12' }],
     ['WEB-3', { kind: 'task', identifier: 'WEB-3' }],
-    ['done home-12', { kind: 'done', identifier: 'HOME-12' }],
+    ['done home-12', { kind: 'done', identifier: 'HOME-12', decision: null }],
+    [
+      'done HOME-12: we go with the blue sofa',
+      { kind: 'done', identifier: 'HOME-12', decision: 'we go with the blue sofa' },
+    ],
+    ['close home-3 - Rent the van', { kind: 'done', identifier: 'HOME-3', decision: 'Rent the van' }],
     ['open project page', { kind: 'open_project' }],
     ['open the board', { kind: 'open_project' }],
     ['open list page', { kind: 'open_list', name: null }],

@@ -56,6 +56,7 @@ export interface DetailRow extends CardRow {
   reporter_name: string | null;
   reporter_avatar_key: string | null;
   parent_title: string | null;
+  decision: string;
 }
 
 const CARD_COLUMNS = `
@@ -84,7 +85,7 @@ export const cardSelect = (extraColumns = '') =>
 export const DETAIL_SELECT = `
   SELECT ${CARD_COLUMNS},
          t.description, t.blocked_reason, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior, t.env_os, t.env_browser,
-         t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility,
+         t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility, t.decision,
          r.name AS reporter_name, r.avatar_key AS reporter_avatar_key, pt.title AS parent_title
   ${TASK_FROM}
   LEFT JOIN users r ON r.id = t.reporter_id
@@ -160,4 +161,5 @@ export const toDetail = (row: DetailRow): TaskDetail => ({
   foundInVersion: row.found_in_version,
   fixVersion: row.fix_version,
   reproducibility: row.reproducibility,
+  decision: row.decision,
 });

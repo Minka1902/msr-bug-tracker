@@ -1,5 +1,6 @@
 import { generateKeyBetween, generateNKeysBetween } from 'fractional-indexing';
 import {
+  DECISION_REQUIRED,
   workflowOf,
   type Priority,
   type StatusCategory,
@@ -56,6 +57,7 @@ interface CurrentRow {
   is_blocked: boolean;
   blocked_reason: string | null;
   completed_at: Date | null;
+  decision: string;
   [column: string]: unknown;
 }
 
@@ -84,6 +86,7 @@ const SIMPLE_FIELDS = {
   foundInVersion: 'found_in_version',
   fixVersion: 'fix_version',
   reproducibility: 'reproducibility',
+  decision: 'decision',
 } as const;
 
 const SILENT_VALUE_FIELDS = new Set([
@@ -91,6 +94,7 @@ const SILENT_VALUE_FIELDS = new Set([
   'stepsToReproduce',
   'expectedBehavior',
   'actualBehavior',
+  'decision',
 ]);
 
 const CURRENT_TASK = `
@@ -109,9 +113,9 @@ const INSERT_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, recurrence,
-                     escalate_from, escalate_to, escalate_since)
+                     escalate_from, escalate_to, escalate_since, decision)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $14 THEN now() END, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26, $27, $28, $29, $30)
+          $23, $24, $25, $26, $27, $28, $29, $30, $31)
   RETURNING id`;
 const INSERT_LABELS =
   'INSERT INTO task_labels (task_id, label_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING';
@@ -138,11 +142,11 @@ const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-                     recurrence, escalate_from, escalate_to, escalate_since)
+                     recurrence, escalate_from, escalate_to, escalate_since, decision)
   SELECT project_id, $2, parent_id, type, left(title || ' (copy)', 300), description, status_id, priority, severity, assignee_id, $3,
          start_date, due_date, CASE WHEN completed_at IS NOT NULL THEN now() END, is_blocked, blocked_reason, $4, steps_to_reproduce,
          expected_behavior, actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-         recurrence, escalate_from, escalate_to, escalate_since
+         recurrence, escalate_from, escalate_to, escalate_since, decision
   FROM tasks WHERE id = $1
   RETURNING id`;
 const COPY_LABELS =
@@ -200,6 +204,14 @@ export const pickStatus = (statuses: ProjectStatus[], workflow: Workflow, catego
   }
   throw badRequest(`The ${workflow} workflow has no usable status`);
 };
+
+const isUndecided = (type: TaskType, decision: string) => type === 'discussion' && !decision.trim();
+
+const decisionRequired = (identifiers: string[]) =>
+  badRequest(
+    `Add a decision before closing ${identifiers.length ? identifiers.join(', ') : 'this discussion'}`,
+    { code: DECISION_REQUIRED, tasks: identifiers },
+  );
 
 const firstStatus = (statuses: ProjectStatus[], workflow: Workflow) =>
   statuses.find((status) => status.workflow === workflow)!;
@@ -398,6 +410,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
       : firstStatus(statuses, workflow);
     if (!status || status.workflow !== workflow)
       throw badRequest(`Choose a status from the ${workflow} workflow of this project`);
+    if (status.category === 'done' && isUndecided(type, input.decision ?? '')) throw decisionRequired([]);
     if (input.parentId) {
       const parent = await queryOne<{ id: string; parent_id: string | null }>(
         PARENT,
@@ -447,6 +460,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
         input.escalation?.from ?? null,
         input.escalation?.to ?? null,
         input.escalation ? await actorToday(db, actorId) : null,
+        input.decision ?? '',
       ],
       db,
     );
@@ -575,6 +589,12 @@ export const updateTask = (
         sets.updated_at = new Date();
       }
     }
+
+    if (
+      (targetStatus?.category ?? current.category) === 'done' &&
+      isUndecided(type, (sets.decision as string | undefined) ?? current.decision)
+    )
+      throw decisionRequired([formatIdentifier(project.key, current.number)]);
 
     const columns = Object.keys(sets);
     if (columns.length) {
@@ -783,6 +803,11 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
           status: explicit ?? pickStatus(statuses, row.workflow, patch.statusCategory!),
         }))
         .filter(({ row, status }) => status.id !== row.status_id);
+      const undecided = moves.filter(
+        ({ row, status }) => status.category === 'done' && isUndecided(row.type, row.decision),
+      );
+      if (undecided.length)
+        throw decisionRequired(undecided.map(({ row }) => formatIdentifier(project.key, row.number)));
       const byStatus = new Map<string, typeof moves>();
       moves.forEach((move) => byStatus.set(move.status.id, [...(byStatus.get(move.status.id) ?? []), move]));
       const positions: string[] = [];

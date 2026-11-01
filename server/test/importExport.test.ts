@@ -40,7 +40,7 @@ describe('task import', () => {
     await workbook.xlsx.load(xlsx.body);
     expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual(['Tasks', 'Instructions']);
     expect(workbook.getWorksheet('Tasks')!.getCell('B2').dataValidation.formulae).toEqual([
-      '"task,bug,feature,improvement,chore,errand"',
+      '"task,bug,feature,improvement,chore,errand,discussion"',
     ]);
   });
 
@@ -119,6 +119,31 @@ describe('task import', () => {
       `SELECT c.title FROM tasks c JOIN tasks p ON p.id = c.parent_id JOIN projects pr ON pr.id = c.project_id WHERE pr.key = 'COPY'`,
     );
     expect(copied.rows).toEqual([{ title: 'Write tests for checkout' }]);
+  });
+
+  it('imports and exports discussions with their decision', async () => {
+    const { owner, project } = await setupTeam();
+    const file = csv([
+      ['Title', 'Type', 'Status', 'Decision'],
+      ['Pick a host', 'discussion', 'Done', 'Render'],
+      ['Pick a logo', 'Discussion', 'Done', ''],
+      ['Fix login', 'task', 'Done', 'ignored'],
+    ]);
+    const { body } = await upload(owner, project.key, file, 'tasks.csv', { mode: 'commit' }).expect(201);
+    expect(body.created).toBe(3);
+    expect(body.warnings).toContain('Discussions without a decision were left open');
+    const { rows } = await pool.query(
+      `SELECT t.title, t.type, s.category, t.decision FROM tasks t JOIN project_statuses s ON s.id = t.status_id ORDER BY t.number`,
+    );
+    expect(rows).toEqual([
+      { title: 'Pick a host', type: 'discussion', category: 'done', decision: 'Render' },
+      { title: 'Pick a logo', type: 'discussion', category: 'todo', decision: '' },
+      { title: 'Fix login', type: 'task', category: 'done', decision: '' },
+    ]);
+    const exported = await owner.get(`/api/projects/${project.key}/tasks/export?format=csv`).expect(200);
+    const [header, first] = exported.text.trim().split('\r\n');
+    expect(header!.endsWith(',Decision')).toBe(true);
+    expect(first!.endsWith(',Render')).toBe(true);
   });
 
   it('reads Excel files, including real date cells, and exports Excel', async () => {

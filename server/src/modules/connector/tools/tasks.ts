@@ -35,6 +35,10 @@ const projectKey = z.string().trim().min(2).max(6).describe('Project key, like W
 const taskId = z.string().trim().min(3).max(20).describe('Task ID, like WEB-12');
 const person = z.string().trim().max(254).describe('"me", a member\'s email, or their exact name');
 const limit = z.number().int().min(1).max(MAX_LIMIT).default(DEFAULT_LIMIT);
+const decision = z
+  .string()
+  .max(20000)
+  .describe('Discussions only: what was decided. A discussion can only be closed once it has one');
 const escalation = z
   .object({ from: z.enum(PRIORITIES), to: z.enum(PRIORITIES) })
   .describe('Move the priority step by step from `from` to `to` by the due date; needs a due date');
@@ -133,7 +137,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
     {
       title: 'Create a task',
       description:
-        'Creates a task, bug, feature, chore or errand in a project. Status, labels and assignee are names; call fetch with the project key to see the valid ones.',
+        'Creates a task, bug, feature, chore, errand or discussion in a project. Status, labels and assignee are names; call fetch with the project key to see the valid ones.',
       inputSchema: {
         projectKey,
         title: z.string().trim().min(1).max(300),
@@ -151,6 +155,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         stepsToReproduce: z.string().max(20000).optional(),
         expectedResult: z.string().max(20000).optional(),
         actualResult: z.string().max(20000).optional(),
+        decision: decision.optional(),
       },
       annotations: WRITE,
     },
@@ -178,6 +183,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         stepsToReproduce: input.stepsToReproduce,
         expectedBehavior: input.expectedResult,
         actualBehavior: input.actualResult,
+        decision: type === 'discussion' ? input.decision : undefined,
       });
       assertCanAssignOnCreate(project, task.assigneeId, user.id);
       return { task: compactTask(await createTask(project, task, user.id), statusNamesOf(refs)) };
@@ -189,7 +195,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
     {
       title: 'Update a task',
       description:
-        'Changes a task: title, description, type, status, priority, priority schedule, severity, assignee, labels, dates or blocked state. Only the fields you pass change. Pass null to clear assignee, severity, a date or the priority schedule. Setting the priority turns its schedule off.',
+        "Changes a task: title, description, type, status, priority, priority schedule, severity, assignee, labels, dates, blocked state or a discussion's decision. Only the fields you pass change. Pass null to clear assignee, severity, a date or the priority schedule. Setting the priority turns its schedule off. To close a discussion, pass its decision with the done status.",
       inputSchema: {
         id: taskId,
         title: z.string().trim().min(1).max(300).optional(),
@@ -207,6 +213,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         escalation: escalation.nullable().optional(),
         blocked: z.boolean().optional(),
         blockedReason: z.string().trim().max(500).nullable().optional(),
+        decision: decision.optional(),
       },
       annotations: { ...WRITE, idempotentHint: true },
     },
@@ -239,6 +246,7 @@ export const registerTaskTools = (server: McpServer, context: ToolContext) => {
         escalation: input.escalation,
         isBlocked: input.blocked,
         blockedReason: input.blockedReason,
+        decision: input.decision,
       });
       assertCanPatchTask(project, task, patch, user.id);
       return { task: compactTask(await updateTask(project, task.id, patch, user.id), statusNamesOf(refs)) };

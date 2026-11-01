@@ -170,6 +170,7 @@ export interface TaskDetail extends TaskCard {
   foundInVersion: string;
   fixVersion: string;
   reproducibility: Reproducibility | null;
+  decision: string;
 }
 
 export interface ChecklistItem {

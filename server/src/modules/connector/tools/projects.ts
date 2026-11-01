@@ -56,6 +56,7 @@ const fetchTask = async (identifier: string, { user }: ToolContext) => {
         expectedResult: detail.expectedBehavior,
         actualResult: detail.actualBehavior,
       }),
+      ...(detail.type === 'discussion' && { decision: detail.decision }),
       ...(checklist.length && {
         checklist: checklist.map((item) => ({ text: item.text, done: item.isDone })),
       }),

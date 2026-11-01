@@ -1,4 +1,13 @@
-import { Bug, CircleCheck, ShoppingBag, Sparkles, SprayCan, TrendingUp, type LucideIcon } from 'lucide-react';
+import {
+  Bug,
+  CircleCheck,
+  MessagesSquare,
+  ShoppingBag,
+  Sparkles,
+  SprayCan,
+  TrendingUp,
+  type LucideIcon,
+} from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { PRIORITY_META, TYPE_META, type Priority, type TaskType } from '@msr/shared/enums';
 import { cn } from '../../lib/cn';
@@ -10,6 +19,7 @@ export const TYPE_ICONS: Record<TaskType, LucideIcon> = {
   improvement: TrendingUp,
   chore: SprayCan,
   errand: ShoppingBag,
+  discussion: MessagesSquare,
 };
 
 const PRIORITY_BARS: Record<Priority, number> = { urgent: 4, high: 3, medium: 2, low: 1 };

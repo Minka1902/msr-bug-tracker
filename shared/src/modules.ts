@@ -71,7 +71,7 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
     description: 'Chores, errands, shopping and a family calendar',
     icon: 'house',
     kind: 'household',
-    taskTypes: ['chore', 'errand', 'task'],
+    taskTypes: ['chore', 'errand', 'task', 'discussion'],
     labels: HOUSEHOLD_LABELS,
     features: ['Chores with turn-taking', 'Shared shopping lists', 'Family calendar and appointments'],
     available: true,
@@ -95,7 +95,7 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
     description: 'Take an idea from first step to first customers',
     icon: 'rocket',
     kind: 'software',
-    taskTypes: SOFTWARE_TYPES,
+    taskTypes: [...SOFTWARE_TYPES, 'discussion'],
     labels: ['Validation', 'Product', 'Marketing', 'Sales', 'Legal'],
     features: [
       'AI plans validation, product and launch',
