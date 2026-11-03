@@ -1,11 +1,11 @@
-import { Lock, MessageCircle, Unplug, Users } from 'lucide-react';
+import { Lock, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
+import { BOT_PLATFORM_META, kindsFor, type BotPlatform } from '@msr/shared/bots';
 import { BOT_META, PLAN_META } from '@msr/shared/modules';
-import type { UpdateTelegramChatInput } from '@msr/shared/schemas/telegram';
-import { kindsFor } from '@msr/shared/telegram';
-import type { TelegramChat } from '@msr/shared/types';
+import type { UpdateBotChatInput } from '@msr/shared/schemas/bots';
+import type { BotChat, BotLink } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
@@ -17,15 +17,10 @@ import { useShoppingLists } from '../../household/shoppingApi';
 import { useProjectContext } from '../../projects/useProjectContext';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { SettingsSection } from '../../settings/components/SettingsSection';
-import {
-  useDisconnectTelegram,
-  useTelegramLink,
-  useTelegramSettings,
-  useUnlinkTelegramChat,
-  useUpdateTelegramChat,
-} from '../api';
+import { useBotLink, useBotSettings, useDisconnectBot, useUnlinkBotChat, useUpdateBotChat } from '../api';
+import { BotConnectSection } from '../components/BotConnectSection';
+import { BotLinkDialog } from '../components/BotLinkDialog';
 import { ChatNotificationSettings } from '../components/ChatNotificationSettings';
-import { TelegramLinkDialog } from '../components/TelegramLinkDialog';
 
 const onError = (error: unknown) => toast.error(errorMessage(error));
 
@@ -48,14 +43,17 @@ const commandsFor = (household: boolean, key: string) => [
   { text: 'use KEY', description: 'Switch the chat to another connected project' },
 ];
 
-export function TelegramSettings() {
-  const connect = (target: 'private' | 'group') =>
-    link.mutate(target, { onSuccess: (answer) => setUrl(answer.url), onError });
+export function BotSettings() {
+  const connect = (platform: BotPlatform, target: 'private' | 'group') =>
+    link.mutate(
+      { platform, target },
+      { onSuccess: (answer) => setOpened({ ...answer, isGroup: target === 'group' }), onError },
+    );
 
-  const update = (chatId: number, patch: UpdateTelegramChatInput) =>
-    updateChat.mutate({ chatId, patch }, { onError });
+  const update = (chat: BotChat, patch: UpdateBotChatInput) =>
+    updateChat.mutate({ platform: chat.platform, chatId: chat.chatId, patch }, { onError });
 
-  const unlink = async (chat: TelegramChat) => {
+  const unlink = async (chat: BotChat) => {
     if (
       await confirm({
         title: `Unlink ${chat.title || 'this chat'}?`,
@@ -63,18 +61,19 @@ export function TelegramSettings() {
         confirmLabel: 'Unlink',
       })
     )
-      unlinkChat.mutate(chat.chatId, { onError });
+      unlinkChat.mutate({ platform: chat.platform, chatId: chat.chatId }, { onError });
   };
 
-  const disconnect = async () => {
+  const disconnect = async (platform: BotPlatform) => {
+    const { label } = BOT_PLATFORM_META[platform];
     if (
       await confirm({
-        title: 'Disconnect your Telegram account?',
+        title: `Disconnect your ${label} account?`,
         description: 'The bot stops acting as you, and your private chats are unlinked from every project.',
         confirmLabel: 'Disconnect',
       })
     )
-      disconnectMe.mutate(undefined, { onError });
+      disconnectMe.mutate(platform, { onError });
   };
 
   const project = useProjectContext();
@@ -82,15 +81,17 @@ export function TelegramSettings() {
   const confirm = useConfirm();
   const config = useAppConfig();
   const household = project.module === 'household';
-  const enabled = !!config.data?.features.telegram;
-  const settings = useTelegramSettings(project.key, enabled);
+  const enabled = !!(config.data?.features.telegram || config.data?.features.discord);
+  const settings = useBotSettings(project.key, enabled);
   const lists = useShoppingLists(project.key, false, enabled && household);
-  const link = useTelegramLink(project.key);
-  const updateChat = useUpdateTelegramChat(project.key);
-  const unlinkChat = useUnlinkTelegramChat(project.key);
-  const disconnectMe = useDisconnectTelegram();
-  const [url, setUrl] = useState<string | null>(null);
+  const link = useBotLink(project.key);
+  const updateChat = useUpdateBotChat(project.key);
+  const unlinkChat = useUnlinkBotChat(project.key);
+  const disconnectMe = useDisconnectBot();
+  const [opened, setOpened] = useState<(BotLink & { isGroup: boolean }) | null>(null);
 
+  if (config.data && !enabled)
+    return <EmptyState icon={<MessageCircle />} title="No chat bot is set up on this server" />;
   if (settings.error) return <ErrorState error={settings.error} onRetry={settings.refetch} />;
   if (!settings.data) return <Skeleton className="h-64 rounded-card" />;
 
@@ -101,7 +102,7 @@ export function TelegramSettings() {
         <EmptyState
           icon={<Lock />}
           title={`Needs the ${plan} plan`}
-          description={`The ${plan} plan adds the Telegram bot to ${household ? 'households' : 'every project'}.`}
+          description={`The ${plan} plan adds the chat bots to ${household ? 'households' : 'every project'}.`}
           action={
             <Button size="sm" asChild>
               <Link to="/shop">See plans</Link>
@@ -114,65 +115,37 @@ export function TelegramSettings() {
 
   return (
     <div className="flex flex-col gap-4">
-      <SettingsSection
-        title={BOT_META.label}
-        description="Chat with the bot privately or add it to a family or team group. It acts with your own permissions in this project."
-        footer={
-          settings.data.connected && (
-            <Button
-              size="sm"
-              variant="ghost"
-              leftIcon={<Unplug />}
-              loading={disconnectMe.isPending}
-              onClick={disconnect}
-            >
-              Disconnect my Telegram
-            </Button>
-          )
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              leftIcon={<MessageCircle />}
-              loading={link.isPending && link.variables === 'private'}
-              onClick={() => connect('private')}
-            >
-              Connect me
-            </Button>
-            {can('project.edit') && (
-              <Button
-                variant="secondary"
-                leftIcon={<Users />}
-                loading={link.isPending && link.variables === 'group'}
-                onClick={() => connect('group')}
-              >
-                Add to a group
-              </Button>
-            )}
-          </div>
-          <p className="text-xs text-muted">
-            {settings.data.connected
-              ? 'Your Telegram account is connected.'
-              : 'Connecting links your Telegram account to you, so the bot knows who is writing.'}{' '}
-            In a group, if plain messages like “apples” get no answer, make the bot an admin of the group.
-          </p>
-        </div>
-      </SettingsSection>
+      {settings.data.platforms.map((state) => (
+        <BotConnectSection
+          key={state.platform}
+          state={state}
+          canAddGroup={can('project.edit')}
+          connecting={
+            link.isPending && link.variables.platform === state.platform ? link.variables.target : null
+          }
+          disconnecting={disconnectMe.isPending && disconnectMe.variables === state.platform}
+          onConnect={(target) => connect(state.platform, target)}
+          onDisconnect={() => disconnect(state.platform)}
+        />
+      ))}
       <SettingsSection
         title="Chats"
-        description="Pick what each chat is told. Groups can be changed by anyone who can edit the project, private chats only by their owner."
+        description="Pick what each chat is told. Groups and channels can be changed by anyone who can edit the project, private chats only by their owner."
       >
         {settings.data.chats.length ? (
           <div className="flex flex-col gap-3">
             {settings.data.chats.map((chat) => (
               <ChatNotificationSettings
-                key={chat.chatId}
+                key={`${chat.platform}:${chat.chatId}`}
                 chat={chat}
                 kinds={kindsFor(household)}
                 lists={household ? (lists.data ?? []) : undefined}
-                unlinking={unlinkChat.isPending && unlinkChat.variables === chat.chatId}
-                onChange={(patch) => update(chat.chatId, patch)}
+                unlinking={
+                  unlinkChat.isPending &&
+                  unlinkChat.variables.platform === chat.platform &&
+                  unlinkChat.variables.chatId === chat.chatId
+                }
+                onChange={(patch) => update(chat, patch)}
                 onUnlink={() => unlink(chat)}
               />
             ))}
@@ -182,7 +155,7 @@ export function TelegramSettings() {
             compact
             icon={<MessageCircle />}
             title="No chats yet"
-            description="Connect yourself or add the bot to a group."
+            description="Connect yourself or add the bot to a group or channel."
           />
         )}
       </SettingsSection>
@@ -200,7 +173,13 @@ export function TelegramSettings() {
           ))}
         </dl>
       </SettingsSection>
-      <TelegramLinkDialog url={url} onOpenChange={(open) => !open && setUrl(null)} />
+      <BotLinkDialog
+        link={opened}
+        botName={
+          settings.data.platforms.find((state) => state.platform === opened?.platform)?.botName ?? null
+        }
+        onOpenChange={(open) => !open && setOpened(null)}
+      />
     </div>
   );
 }

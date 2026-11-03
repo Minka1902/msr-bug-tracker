@@ -39,7 +39,7 @@ const OPEN_PROJECT = /^open\s+(?:the\s+)?(?:project|board)(?:\s+page)?$/i;
 const ASSIGN = /^(.+?)\s+(?:needs?|has|have)\s+to\s+(.+)$/i;
 const WHEN =
   /\s+(today|tonight|tomorrow|(?:on\s+)?(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|nesday|rsday|urday)?|on\s+(\d{1,2})[/.](\d{1,2}))$/i;
-const MENTION = /@[a-z0-9_]*bot\b/gi;
+const MENTION = /@[a-z0-9_]*bot\b|<@!?\d+>/gi;
 const SPLIT = /\s*(?:,|&|\band\b)\s*/i;
 
 const KEYWORDS: Record<string, Command> = {

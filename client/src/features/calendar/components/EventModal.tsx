@@ -343,7 +343,7 @@ export function EventModal({
                   />
                 </Field>
               </div>
-              <Field label="Remind" hint="The household's Telegram chats get the reminder.">
+              <Field label="Remind" hint="The household's Telegram and Discord chats get the reminder.">
                 <ReminderPicker value={form.reminders} onChange={(minutes) => set('reminders', minutes)} />
               </Field>
             </>

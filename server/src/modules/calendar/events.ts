@@ -1,7 +1,7 @@
 import type { CreateEventInput } from '@msr/shared/schemas/calendar';
 import { badRequest } from '../../lib/httpError';
 import { assertCanWrite, findProjectContext, type ProjectContext } from '../projects/access';
-import { queueNotification } from '../telegram/service';
+import { queueNotification } from '../bots/service';
 import { assertProjectAttendees, getConnection, insertEvent, normalizeRange } from './service';
 import { connectionClient } from './sync';
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCommand } from '../src/modules/telegram/commands';
+import { parseCommand } from '../src/modules/bots/commands';
 
 describe('Telegram command parser', () => {
   it.each([

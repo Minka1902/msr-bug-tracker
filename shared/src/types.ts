@@ -19,7 +19,7 @@ import type {
 } from './enums';
 import type { PlanTier, ProjectModule } from './modules';
 import type { Motivation } from './schemas/planner';
-import type { NotifyKind } from './telegram';
+import type { BotPlatform, NotifyKind } from './bots';
 
 export interface UserRef {
   id: string;
@@ -425,8 +425,9 @@ export interface ShopState {
   packs: PackBalance[];
 }
 
-export interface TelegramChat {
-  chatId: number;
+export interface BotChat {
+  platform: BotPlatform;
+  chatId: string;
   title: string;
   isGroup: boolean;
   notify: NotifyKind[];
@@ -435,11 +436,21 @@ export interface TelegramChat {
   mine: boolean;
 }
 
-export interface TelegramSettings {
-  enabled: boolean;
+export interface BotPlatformState {
+  platform: BotPlatform;
+  botName: string | null;
+  connected: boolean;
+}
+
+export interface BotSettings {
   allowed: boolean;
   requiredPlan: PlanTier;
-  botUsername: string | null;
-  connected: boolean;
-  chats: TelegramChat[];
+  platforms: BotPlatformState[];
+  chats: BotChat[];
+}
+
+export interface BotLink {
+  platform: BotPlatform;
+  code: string;
+  url: string | null;
 }

@@ -280,6 +280,8 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 
 `tasks.overdue_alerted_for` remembers the due date an overdue alert was sent for, so changing the due date re-arms it.
 
+Migration 025 turns these into the shared bot tables below.
+
 ### Discussions — migration 020
 
 `task_type` gains `discussion`, and `tasks` gains `decision` (text, at most 20,000 chars). `CHECK tasks_discussion_decision` keeps a discussion with a blank decision out of every `done` status. It compares `type::text`, so the migration can add the enum value and the check in one transaction.
@@ -302,6 +304,18 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 ### Card type visibility — migration 024
 
 `project_card_types.view_role_ids` (uuid[], default `{}` = everyone). `CHECK project_card_types_view_roles`: when it isn't empty, `create_role_ids` and `edit_role_ids` must be inside it.
+
+### Chat bots — migration 025
+
+`bot_platform` enum (`telegram`, `discord`). The Telegram tables are renamed and get a `platform`; ids become `text`, because Discord snowflakes don't fit in a JS number.
+
+| Table            | Key columns                                                                                                                                     | Notes                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `bot_accounts`   | PK `(platform, external_id)`, unique `(platform, user_id)`                                                                                      | Who a Telegram or Discord sender is in MSR. Replaces `users.telegram_user_id` (rows copied)     |
+| `bot_chats`      | PK `(platform, chat_id, project_id)`, `is_group`, `linked_by`, `notify` text[], `only_mine`, `default_list_id`, `digest_sent_on`, `selected_at` | Was `telegram_chats`. A Discord server channel is a group                                       |
+| `bot_link_codes` | `code_hash` PK, `platform`, `user_id`, `project_id`, `is_group`, `expires_at`                                                                   | Was `telegram_link_codes`. A code only works on the platform it was made for                    |
+| `bot_state`      | one row, `activity_cursor`                                                                                                                      | Was `telegram_state`. One cursor for both platforms                                             |
+| `bot_outbox`     | `project_id`, `kind`, `payload` jsonb, `actor_id`, `source_platform`, `source_chat_id` text                                                     | Was `telegram_outbox`. The source chat stops a bot change echoing back to the chat it came from |
 
 ## Invariants
 

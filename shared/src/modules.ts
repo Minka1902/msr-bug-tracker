@@ -160,8 +160,8 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
 };
 
 export const BOT_META = {
-  label: 'Telegram bot',
-  description: 'Run a project from Telegram and get the updates you pick',
+  label: 'Chat bots',
+  description: 'Run a project from Telegram or Discord and get the updates you pick',
   icon: 'bot',
   features: [
     'Add to lists, create tasks and check what is due by chat',
@@ -189,7 +189,7 @@ export const PLAN_META: Record<PlanTier, PlanMeta> = {
   },
   pro: {
     label: 'Pro',
-    description: 'Every module, and the Telegram bot on any project',
+    description: 'Every module, and the chat bots on any project',
     modules: [...PROJECT_MODULES, ...COMING_SOON_MODULES],
     bot: 'all',
     projectsPerYear: 350,

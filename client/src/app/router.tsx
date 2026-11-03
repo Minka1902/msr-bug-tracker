@@ -212,9 +212,9 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'telegram',
+                    path: 'bots',
                     lazy: lazyRoute(() =>
-                      import('../features/telegram/pages/TelegramSettings').then((m) => m.TelegramSettings),
+                      import('../features/bots/pages/BotSettings').then((m) => m.BotSettings),
                     ),
                   },
                   {

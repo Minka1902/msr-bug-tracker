@@ -1,23 +1,23 @@
 import { formatMinutes } from '@msr/shared/calendar';
 import { PRIORITIES, type Priority } from '@msr/shared/enums';
 import { formatIdentifier } from '@msr/shared/identifiers';
+import type { BotPlatform, NotifyKind } from '@msr/shared/bots';
 import { botAllowed, type PaidTier, type ProjectModule } from '@msr/shared/modules';
-import type { NotifyKind } from '@msr/shared/telegram';
 import { query } from '../../db/pool';
 import { logger } from '../../lib/logger';
 import { activeSubscription } from '../shop/service';
-import { sendMessage } from './api';
-import { escape, formatDay, formatTime, link } from './format';
-import { dropChat, migrateChat } from './service';
+import { formatDay, formatTime, type Formatter } from './format';
+import { PLATFORMS } from './platforms';
+import { dropChat, migrateChat, type ChatRef } from './service';
 
 interface Note {
   projectId: string;
   kind: NotifyKind;
-  line: (timezone: string) => string;
+  line: (f: Formatter, timezone: string) => string;
   users: (string | null)[] | null;
   viewRoles: string[] | null;
   actorId: string | null;
-  sourceChatId: number | null;
+  source: ChatRef | null;
 }
 
 interface ActivityRow {
@@ -52,7 +52,8 @@ interface OutboxRow {
   };
   actor_id: string | null;
   actor: string | null;
-  source_chat_id: number | null;
+  source_platform: BotPlatform | null;
+  source_chat_id: string | null;
 }
 
 interface OverdueRow {
@@ -68,7 +69,8 @@ interface OverdueRow {
 }
 
 interface DigestRow {
-  chat_id: number;
+  platform: BotPlatform;
+  chat_id: string;
   project_id: string;
   day: string;
 }
@@ -82,7 +84,8 @@ interface ReminderRow {
 }
 
 interface ChatRow {
-  chat_id: number;
+  platform: BotPlatform;
+  chat_id: string;
   project_id: string;
   is_group: boolean;
   linked_by: string | null;
@@ -102,14 +105,16 @@ const OUTBOX_BATCH = 500;
 const LINES_MAX = 30;
 const TITLE_MAX = 80;
 const SEND_BATCH = 20;
+const RETRY_MAX_SECONDS = 5;
+const MORE_RESERVE = 40;
 const DIGEST_TIME = '08:00';
 
 const VIEW_ROLES = `(SELECT NULLIF(ct.view_role_ids, '{}') FROM project_card_types ct WHERE ct.id = t.card_type_id) AS view_roles`;
 
 const CLAIM_CURSOR = `
-  WITH prev AS (SELECT activity_cursor FROM telegram_state WHERE id FOR UPDATE),
+  WITH prev AS (SELECT activity_cursor FROM bot_state WHERE id FOR UPDATE),
        next AS (SELECT max(id) AS id FROM task_activity WHERE created_at < now() - interval '${ACTIVITY_DELAY}')
-  UPDATE telegram_state s SET activity_cursor = next.id
+  UPDATE bot_state s SET activity_cursor = next.id
   FROM prev, next
   WHERE s.id AND next.id > prev.activity_cursor
   RETURNING prev.activity_cursor AS from_id, s.activity_cursor AS to_id`;
@@ -125,15 +130,15 @@ const ACTIVITY = `
   WHERE e.id > $1 AND e.id <= $2
     AND (e.action IN ('created', 'commented', 'escalated')
          OR (e.action = 'updated' AND e.field IN ('assignee', 'status', 'priority')))
-    AND EXISTS (SELECT 1 FROM telegram_chats c WHERE c.project_id = e.project_id)
+    AND EXISTS (SELECT 1 FROM bot_chats c WHERE c.project_id = e.project_id)
   ORDER BY e.id`;
 const CLAIM_OUTBOX = `
   WITH claimed AS (
-    DELETE FROM telegram_outbox WHERE id IN (
-      SELECT id FROM telegram_outbox ORDER BY id LIMIT ${OUTBOX_BATCH} FOR UPDATE SKIP LOCKED
+    DELETE FROM bot_outbox WHERE id IN (
+      SELECT id FROM bot_outbox ORDER BY id LIMIT ${OUTBOX_BATCH} FOR UPDATE SKIP LOCKED
     ) RETURNING *
   )
-  SELECT c.project_id, c.kind, c.payload, c.actor_id, u.name AS actor, c.source_chat_id
+  SELECT c.project_id, c.kind, c.payload, c.actor_id, u.name AS actor, c.source_platform, c.source_chat_id
   FROM claimed c LEFT JOIN users u ON u.id = c.actor_id ORDER BY c.id`;
 const CLAIM_OVERDUE = `
   UPDATE tasks t SET overdue_alerted_for = t.due_date
@@ -143,16 +148,16 @@ const CLAIM_OVERDUE = `
     AND t.overdue_alerted_for IS DISTINCT FROM t.due_date
     AND t.due_date < (now() AT TIME ZONE coalesce(
           (SELECT preferences->>'timezone' FROM users WHERE id = coalesce(t.assignee_id, t.reporter_id)), 'UTC'))::date
-    AND EXISTS (SELECT 1 FROM telegram_chats c WHERE c.project_id = t.project_id AND 'overdue' = ANY(c.notify))
+    AND EXISTS (SELECT 1 FROM bot_chats c WHERE c.project_id = t.project_id AND 'overdue' = ANY(c.notify))
   RETURNING t.project_id, p.key::text AS key, t.number, t.title, t.due_date::text AS due_date,
             t.assignee_id, (SELECT name FROM users WHERE id = t.assignee_id) AS assignee, t.reporter_id, ${VIEW_ROLES}`;
 const CLAIM_DIGESTS = `
-  UPDATE telegram_chats c SET digest_sent_on = (now() AT TIME ZONE z.timezone)::date
+  UPDATE bot_chats c SET digest_sent_on = (now() AT TIME ZONE z.timezone)::date
   FROM (SELECT id, coalesce(preferences->>'timezone', 'UTC') AS timezone FROM users) z
   WHERE z.id = c.linked_by AND 'daily_digest' = ANY(c.notify)
     AND (now() AT TIME ZONE z.timezone)::time >= '${DIGEST_TIME}'
     AND c.digest_sent_on IS DISTINCT FROM (now() AT TIME ZONE z.timezone)::date
-  RETURNING c.chat_id, c.project_id, c.digest_sent_on::text AS day`;
+  RETURNING c.platform, c.chat_id, c.project_id, c.digest_sent_on::text AS day`;
 const DIGEST_TASKS = `
   SELECT t.project_id, p.key::text AS key, t.number, t.title, t.due_date::text AS due_date,
          t.assignee_id, u.name AS assignee, t.reporter_id, ${VIEW_ROLES}
@@ -174,27 +179,31 @@ const CLAIM_REMINDERS = `
   RETURNING e.project_id, e.title, e.location, e.starts_at,
             ARRAY(SELECT user_id FROM calendar_event_attendees a WHERE a.event_id = e.id) AS attendee_ids`;
 const TARGET_CHATS = `
-  SELECT c.chat_id, c.project_id, c.is_group, c.linked_by, c.notify, c.only_mine, p.key::text AS key, p.name, p.module,
+  SELECT c.platform, c.chat_id, c.project_id, c.is_group, c.linked_by, c.notify, c.only_mine, p.key::text AS key, p.name, p.module,
          p.owner_id, (SELECT m.role_id FROM project_members m WHERE m.project_id = c.project_id AND m.user_id = c.linked_by) AS role_id,
          coalesce(u.preferences->>'timezone', 'UTC') AS timezone,
          (SELECT s.tier FROM (${activeSubscription('p.owner_id')}) s) AS tier
-  FROM telegram_chats c
+  FROM bot_chats c
   JOIN projects p ON p.id = c.project_id
   LEFT JOIN users u ON u.id = c.linked_by
   WHERE c.project_id = ANY($1::uuid[])
     AND (c.is_group OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = c.project_id AND m.user_id = c.linked_by))
-  ORDER BY c.chat_id, p.key`;
+  ORDER BY c.platform, c.chat_id, p.key`;
 
 let running = false;
 
 const short = (text: string) => (text.length > TITLE_MAX ? `${text.slice(0, TITLE_MAX - 1)}…` : text);
 
-const taskLink = (key: string, number: number, title: string) => {
+const taskLink = (f: Formatter, key: string, number: number, title: string) => {
   const identifier = formatIdentifier(key, number);
-  return link(`/t/${identifier}`, `${identifier} ${short(title)}`);
+  return f.link(`/t/${identifier}`, `${identifier} ${short(title)}`);
 };
 
-const by = (actor: string | null) => (actor ? ` (${escape(actor)})` : '');
+const by = (f: Formatter, actor: string | null) => (actor ? ` (${f.text(actor)})` : '');
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const chatKey = (chat: ChatRef) => `${chat.platform}:${chat.chatId}`;
 
 const raised = (from: string | null, to: string | null) =>
   PRIORITIES.indexOf(to as Priority) < PRIORITIES.indexOf(from as Priority);
@@ -207,31 +216,31 @@ const activityKind = (row: ActivityRow): NotifyKind | null => {
   return 'status_changed';
 };
 
-const activityLine = (kind: NotifyKind, row: ActivityRow) => {
-  const task = taskLink(row.key, row.number, row.title);
+const activityLine = (kind: NotifyKind, row: ActivityRow) => (f: Formatter) => {
+  const task = taskLink(f, row.key, row.number, row.title);
   if (kind === 'task_created')
-    return `🆕 ${task}${row.assignee ? ` for ${escape(row.assignee)}` : ''}${by(row.actor)}`;
-  if (kind === 'comments') return `💬 ${escape(row.actor ?? 'Someone')} commented on ${task}`;
-  if (kind === 'task_assigned') return `👤 ${task} → ${escape(row.new_value!)}${by(row.actor)}`;
+    return `🆕 ${task}${row.assignee ? ` for ${f.text(row.assignee)}` : ''}${by(f, row.actor)}`;
+  if (kind === 'comments') return `💬 ${f.text(row.actor ?? 'Someone')} commented on ${task}`;
+  if (kind === 'task_assigned') return `👤 ${task} → ${f.text(row.new_value!)}${by(f, row.actor)}`;
   if (kind === 'priority_raised')
-    return `⬆️ ${task}: ${row.old_value} → ${row.new_value}${row.actor ? by(row.actor) : ' (schedule)'}`;
-  return `🔄 ${task}: ${escape(row.old_value ?? '')} → ${escape(row.new_value ?? '')}${by(row.actor)}`;
+    return `⬆️ ${task}: ${row.old_value} → ${row.new_value}${row.actor ? by(f, row.actor) : ' (schedule)'}`;
+  return `🔄 ${task}: ${f.text(row.old_value ?? '')} → ${f.text(row.new_value ?? '')}${by(f, row.actor)}`;
 };
 
-const outboxLine = (row: OutboxRow) => (timezone: string) => {
+const outboxLine = (row: OutboxRow) => (f: Formatter, timezone: string) => {
   const { payload } = row;
-  const actor = escape(row.actor ?? 'Someone');
+  const actor = f.text(row.actor ?? 'Someone');
   if (payload.added)
-    return `🛒 ${actor} added ${payload.added.map(escape).join(', ')} to ${escape(payload.list!)}`;
+    return `🛒 ${actor} added ${payload.added.map(f.text).join(', ')} to ${f.text(payload.list!)}`;
   if (payload.cleared) {
     const count = payload.cleared.length;
-    return `🛒 ${actor} cleared ${count} bought item${count === 1 ? '' : 's'} from ${escape(payload.list!)}`;
+    return `🛒 ${actor} cleared ${count} bought item${count === 1 ? '' : 's'} from ${f.text(payload.list!)}`;
   }
   const when = payload.allDay
     ? formatDay(payload.startsAt!.slice(0, 10), timezone)
     : formatTime(payload.startsAt!, timezone);
-  return `📅 ${actor} added ${payload.appointment ? 'an appointment: ' : ''}<b>${escape(payload.title!)}</b> · ${when}${
-    payload.location ? ` · ${escape(payload.location)}` : ''
+  return `📅 ${actor} added ${payload.appointment ? 'an appointment: ' : ''}${f.bold(payload.title!)} · ${when}${
+    payload.location ? ` · ${f.text(payload.location)}` : ''
   }`;
 };
 
@@ -240,9 +249,9 @@ const minutesUntil = (instant: Date) => {
   return minutes < 15 ? minutes : Math.round(minutes / 5) * 5;
 };
 
-const reminderLine = (row: ReminderRow) => (timezone: string) =>
-  `⏰ <b>${escape(row.title)}</b> in ${formatMinutes(minutesUntil(row.starts_at))} · ${formatTime(row.starts_at, timezone)}${
-    row.location ? ` · ${escape(row.location)}` : ''
+const reminderLine = (row: ReminderRow) => (f: Formatter, timezone: string) =>
+  `⏰ ${f.bold(row.title)} in ${formatMinutes(minutesUntil(row.starts_at))} · ${formatTime(row.starts_at, timezone)}${
+    row.location ? ` · ${f.text(row.location)}` : ''
   }`;
 
 const claimActivity = async () => {
@@ -259,15 +268,14 @@ const collectNotes = (
   ...activity.flatMap((row) => {
     const kind = activityKind(row);
     if (!kind) return [];
-    const line = activityLine(kind, row);
     return {
       projectId: row.project_id,
       kind,
-      line: () => line,
+      line: activityLine(kind, row),
       users: [row.assignee_id, row.reporter_id],
       viewRoles: row.view_roles,
       actorId: row.actor_id,
-      sourceChatId: null,
+      source: null,
     };
   }),
   ...outbox.map((row) => ({
@@ -277,19 +285,19 @@ const collectNotes = (
     users: null,
     viewRoles: null,
     actorId: row.actor_id,
-    sourceChatId: row.source_chat_id,
+    source: row.source_platform && { platform: row.source_platform, chatId: row.source_chat_id! },
   })),
   ...overdue.map((row) => ({
     projectId: row.project_id,
     kind: 'overdue' as const,
-    line: (timezone: string) =>
-      `⏰ ${taskLink(row.key, row.number, row.title)} was due ${formatDay(row.due_date, timezone)}${
-        row.assignee ? ` · ${escape(row.assignee)}` : ''
+    line: (f: Formatter, timezone: string) =>
+      `⏰ ${taskLink(f, row.key, row.number, row.title)} was due ${formatDay(row.due_date, timezone)}${
+        row.assignee ? ` · ${f.text(row.assignee)}` : ''
       }`,
     users: [row.assignee_id, row.reporter_id],
     viewRoles: row.view_roles,
     actorId: null,
-    sourceChatId: null,
+    source: null,
   })),
   ...reminders.map((row) => ({
     projectId: row.project_id,
@@ -298,7 +306,7 @@ const collectNotes = (
     users: row.attendee_ids.length ? row.attendee_ids : null,
     viewRoles: null,
     actorId: null,
-    sourceChatId: null,
+    source: null,
   })),
 ];
 
@@ -312,12 +320,12 @@ const sees = (chat: ChatRow, viewRoles: string[] | null, users: (string | null)[
 const wants = (chat: ChatRow, note: Note) =>
   chat.notify.includes(note.kind) &&
   sees(chat, note.viewRoles, note.users ?? []) &&
-  note.sourceChatId !== chat.chat_id &&
+  (note.source?.platform !== chat.platform || note.source.chatId !== chat.chat_id) &&
   (chat.is_group ||
     (note.actorId !== chat.linked_by &&
       (!chat.only_mine || !note.users || note.users.includes(chat.linked_by))));
 
-const digestLines = (chat: ChatRow, day: string, tasks: OverdueRow[]) => {
+const digestLines = (f: Formatter, chat: ChatRow, day: string, tasks: OverdueRow[]) => {
   const due = tasks.filter(
     (task) =>
       task.project_id === chat.project_id &&
@@ -327,38 +335,49 @@ const digestLines = (chat: ChatRow, day: string, tasks: OverdueRow[]) => {
   );
   if (!due.length) return [];
   return [
-    '☀️ <b>Due today</b>',
+    `☀️ ${f.bold('Due today')}`,
     ...due.map(
       (task) =>
-        `• ${taskLink(task.key, task.number, task.title)} · ${escape(task.assignee ?? 'Anyone')}${
+        `• ${taskLink(f, task.key, task.number, task.title)} · ${f.text(task.assignee ?? 'Anyone')}${
           task.due_date < day ? ` · overdue since ${formatDay(task.due_date, chat.timezone)}` : ''
         }`,
     ),
   ];
 };
 
-const compose = (sections: Map<string, string[]>) => {
+const compose = (sections: Map<string, string[]>, maxLength: number) => {
   const blocks: string[] = [];
   let budget = LINES_MAX;
+  let length = 0;
   let hidden = 0;
   for (const [header, lines] of sections) {
-    const shown = lines.slice(0, Math.max(budget, 0));
-    hidden += lines.length - shown.length;
-    budget -= shown.length;
+    const shown: string[] = [];
+    for (const line of lines) {
+      const cost = line.length + 1 + (shown.length ? 0 : header.length + 2);
+      if (budget > 0 && length + cost <= maxLength - MORE_RESERVE) {
+        shown.push(line);
+        budget -= 1;
+        length += cost;
+      } else hidden += 1;
+    }
     if (shown.length) blocks.push([header, ...shown].join('\n'));
   }
   return blocks.join('\n\n') + (hidden ? `\n\n…and ${hidden} more in MSR` : '');
 };
 
-const deliver = async (chatId: number, text: string) => {
-  const answer = await sendMessage(chatId, text);
+const deliver = async (chat: ChatRef, text: string) => {
+  const { send } = PLATFORMS[chat.platform];
+  let answer = await send(chat.chatId, text);
+  if (answer.retryAfter) {
+    await sleep(Math.min(answer.retryAfter, RETRY_MAX_SECONDS) * 1000);
+    answer = await send(chat.chatId, text);
+  }
   if (answer.ok) return;
-  const movedTo = answer.parameters?.migrate_to_chat_id;
-  if (movedTo) {
-    await migrateChat(chatId, movedTo);
-    await sendMessage(movedTo, text);
-  } else if (answer.status === 403) await dropChat(chatId);
-  else logger.warn({ chatId, answer: answer.description }, 'Telegram message failed');
+  if (answer.movedTo) {
+    await migrateChat(chat, answer.movedTo);
+    await send(answer.movedTo, text);
+  } else if (answer.gone) await dropChat(chat);
+  else logger.warn({ ...chat, error: answer.error }, 'Bot message failed');
 };
 
 const notify = async () => {
@@ -374,7 +393,9 @@ const notify = async () => {
     ...new Set([...notes.map((note) => note.projectId), ...digests.map((row) => row.project_id)]),
   ];
   if (!projectIds.length) return;
-  const digestDays = new Map(digests.map((row) => [`${row.chat_id}:${row.project_id}`, row.day]));
+  const digestDays = new Map(
+    digests.map((row) => [`${row.platform}:${row.chat_id}:${row.project_id}`, row.day]),
+  );
   const [chats, digestTasks] = await Promise.all([
     query<ChatRow>(TARGET_CHATS, [projectIds]),
     digests.length
@@ -387,29 +408,31 @@ const notify = async () => {
         ])
       : [],
   ]);
-  const messages = new Map<number, Map<string, string[]>>();
+  const messages = new Map<string, { chat: ChatRef; sections: Map<string, string[]> }>();
   for (const chat of chats) {
-    if (!botAllowed(chat.tier ?? 'free', chat.module)) continue;
-    const day = digestDays.get(`${chat.chat_id}:${chat.project_id}`);
+    if (!botAllowed(chat.tier ?? 'free', chat.module) || !PLATFORMS[chat.platform].enabled()) continue;
+    const { format } = PLATFORMS[chat.platform];
+    const day = digestDays.get(`${chat.platform}:${chat.chat_id}:${chat.project_id}`);
     const lines = [
       ...notes
         .filter((note) => note.projectId === chat.project_id && wants(chat, note))
-        .map((note) => note.line(chat.timezone)),
-      ...(day ? digestLines(chat, day, digestTasks) : []),
+        .map((note) => note.line(format, chat.timezone)),
+      ...(day ? digestLines(format, chat, day, digestTasks) : []),
     ];
     if (!lines.length) continue;
-    const sections = messages.get(chat.chat_id) ?? new Map<string, string[]>();
-    sections.set(`<b>${escape(chat.key)} · ${escape(chat.name)}</b>`, lines);
-    messages.set(chat.chat_id, sections);
+    const ref = { platform: chat.platform, chatId: chat.chat_id };
+    const message = messages.get(chatKey(ref)) ?? { chat: ref, sections: new Map<string, string[]>() };
+    message.sections.set(format.bold(`${chat.key} · ${chat.name}`), lines);
+    messages.set(chatKey(ref), message);
   }
-  const outgoing = [...messages];
+  const outgoing = [...messages.values()];
   for (let index = 0; index < outgoing.length; index += SEND_BATCH)
     await Promise.all(
       outgoing
         .slice(index, index + SEND_BATCH)
-        .map(([chatId, sections]) =>
-          deliver(chatId, compose(sections)).catch((err) =>
-            logger.warn({ err, chatId }, 'Telegram message failed'),
+        .map(({ chat, sections }) =>
+          deliver(chat, compose(sections, PLATFORMS[chat.platform].maxLength)).catch((err) =>
+            logger.warn({ err, ...chat }, 'Bot message failed'),
           ),
         ),
     );

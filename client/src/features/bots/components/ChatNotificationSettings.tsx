@@ -1,7 +1,7 @@
 import { MessageCircle, Unlink, Users } from 'lucide-react';
-import type { UpdateTelegramChatInput } from '@msr/shared/schemas/telegram';
-import { NOTIFY_META, type NotifyKind } from '@msr/shared/telegram';
-import type { TelegramChat } from '@msr/shared/types';
+import { BOT_PLATFORM_META, NOTIFY_META, type NotifyKind } from '@msr/shared/bots';
+import type { UpdateBotChatInput } from '@msr/shared/schemas/bots';
+import type { BotChat } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { Field } from '../../../components/ui/Field';
 import { OptionPicker } from '../../../components/ui/OptionPicker';
@@ -9,14 +9,14 @@ import { Switch } from '../../../components/ui/Switch';
 import { cn } from '../../../lib/cn';
 
 interface ChatNotificationSettingsProps {
-  chat: TelegramChat;
+  chat: BotChat;
   kinds: readonly NotifyKind[];
   meta?: Record<NotifyKind, { label: string; description: string }>;
   lists?: { id: string; name: string }[];
   disabled?: boolean;
   disabledReason?: string;
   unlinking?: boolean;
-  onChange: (patch: UpdateTelegramChatInput) => void;
+  onChange: (patch: UpdateBotChatInput) => void;
   onUnlink: () => void;
   className?: string;
 }
@@ -36,6 +36,8 @@ export function ChatNotificationSettings({
   const toggle = (kind: NotifyKind, on: boolean) =>
     onChange({ notify: on ? [...chat.notify, kind] : chat.notify.filter((item) => item !== kind) });
 
+  const { label, groupLabel } = BOT_PLATFORM_META[chat.platform];
+
   return (
     <div className={cn('flex flex-col gap-4 rounded-control border border-border p-4', className)}>
       <div className="flex items-center gap-3">
@@ -44,10 +46,10 @@ export function ChatNotificationSettings({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-medium">
-            {chat.title || (chat.isGroup ? 'Telegram group' : 'Private chat')}
+            {chat.title || (chat.isGroup ? `${label} ${groupLabel}` : 'Private chat')}
           </p>
           <p className="text-xs text-muted">
-            {chat.isGroup ? 'Group chat' : chat.mine ? 'Your private chat' : 'Private chat'}
+            {label} · {chat.isGroup ? groupLabel : chat.mine ? 'your private chat' : 'private chat'}
           </p>
         </div>
         {!disabled && (

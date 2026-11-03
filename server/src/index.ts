@@ -7,14 +7,17 @@ import { purgeDoneAttachments, purgePendingAttachments } from './modules/attachm
 import { syncStaleConnections } from './modules/calendar/sync';
 import { purgeExpiredGrants } from './modules/connector/service';
 import { escalatePriorities } from './modules/tasks/escalation';
-import { setWebhook, telegramEnabled } from './modules/telegram/api';
-import { runNotifications } from './modules/telegram/notifier';
+import { discordEnabled } from './modules/bots/discord/api';
+import { startGateway } from './modules/bots/discord/gateway';
+import { handleDiscordMessage, type DiscordMessage } from './modules/bots/discord/messages';
+import { runNotifications } from './modules/bots/notifier';
+import { setWebhook, telegramEnabled } from './modules/bots/telegram/api';
 
 await migrate();
 await ensureStorage();
 const HOUR = 3_600_000;
 const CALENDAR_SYNC_MS = 5 * 60_000;
-const TELEGRAM_NOTIFY_MS = 60_000;
+const BOT_NOTIFY_MS = 60_000;
 const purge = () =>
   Promise.all([purgePendingAttachments(), purgeDoneAttachments(), purgeExpiredGrants()]).catch((err) =>
     logger.error({ err }, 'Hourly cleanup failed'),
@@ -38,10 +41,26 @@ if (telegramEnabled()) {
         : logger.error({ answer: answer.description }, 'Telegram webhook failed'),
     )
     .catch((err) => logger.error({ err }, 'Telegram webhook failed'));
-  setInterval(
-    () => runNotifications().catch((err) => logger.error({ err }, 'Telegram notifications failed')),
-    TELEGRAM_NOTIFY_MS,
-  ).unref();
 }
+
+if (discordEnabled()) {
+  let botId: string | null = null;
+  startGateway<DiscordMessage>({
+    token: config.DISCORD_BOT_TOKEN!,
+    onReady: (user) => {
+      botId = user.id;
+    },
+    onMessage: (message) =>
+      void handleDiscordMessage(message, botId).catch((err) =>
+        logger.error({ err }, 'Discord message failed'),
+      ),
+  });
+}
+
+if (telegramEnabled() || discordEnabled())
+  setInterval(
+    () => runNotifications().catch((err) => logger.error({ err }, 'Bot notifications failed')),
+    BOT_NOTIFY_MS,
+  ).unref();
 
 createApp().listen(config.PORT, () => logger.info(`API listening on :${config.PORT}`));

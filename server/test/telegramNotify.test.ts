@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../src/db/pool';
-import { runNotifications } from '../src/modules/telegram/notifier';
+import { runNotifications } from '../src/modules/bots/notifier';
 import { createTask, resetDb, roleId, statusOf, subscribe, type Agent } from './helpers';
 import {
   CHILD_TG,
@@ -21,7 +21,7 @@ import {
 const SIBLING_TG = 505;
 
 const notifyChat = (agent: Agent, chatId: number, patch: Record<string, unknown>) =>
-  agent.patch(`/api/projects/HOME/telegram/chats/${chatId}`).send(patch).expect(200);
+  agent.patch(`/api/projects/HOME/bots/chats/telegram/${chatId}`).send(patch).expect(200);
 
 const run = async () => {
   await pool.query("UPDATE task_activity SET created_at = created_at - interval '1 minute'");
@@ -67,7 +67,7 @@ afterAll(stopTelegram);
 
 beforeEach(async () => {
   await resetDb();
-  await pool.query('INSERT INTO telegram_state (activity_cursor) VALUES (0)');
+  await pool.query('INSERT INTO bot_state (activity_cursor) VALUES (0)');
   telegramFailures.clear();
   sentMessages();
 });
@@ -186,7 +186,7 @@ describe('Telegram notifications', () => {
       expect.stringMatching(/HOME-2 Late<\/a> · Anyone · overdue since /),
     ]);
     expect(await run()).toEqual([]);
-    await pool.query('UPDATE telegram_chats SET digest_sent_on = digest_sent_on - 1');
+    await pool.query('UPDATE bot_chats SET digest_sent_on = digest_sent_on - 1');
     expect(textFor(await run(), PARENT_TG)).toHaveLength(1);
   });
 
@@ -262,11 +262,11 @@ describe('Telegram notifications', () => {
     await createTask(parent, 'HOME', { title: 'Loud' });
     const messages = await run();
     expect(messages.map((message) => message.chatId)).toEqual([GROUP.id, -100500]);
-    expect((await pool.query('SELECT chat_id FROM telegram_chats WHERE NOT is_group')).rows).toEqual([
-      { chat_id: PARENT_TG },
+    expect((await pool.query('SELECT chat_id FROM bot_chats WHERE NOT is_group')).rows).toEqual([
+      { chat_id: String(PARENT_TG) },
     ]);
-    expect((await pool.query('SELECT chat_id FROM telegram_chats WHERE is_group')).rows).toEqual([
-      { chat_id: -100500 },
+    expect((await pool.query('SELECT chat_id FROM bot_chats WHERE is_group')).rows).toEqual([
+      { chat_id: '-100500' },
     ]);
 
     telegramFailures.set(
@@ -275,7 +275,7 @@ describe('Telegram notifications', () => {
     );
     await createTask(parent, 'HOME', { title: 'Kicked' });
     await run();
-    expect((await pool.query('SELECT chat_id FROM telegram_chats WHERE is_group')).rows).toEqual([]);
+    expect((await pool.query('SELECT chat_id FROM bot_chats WHERE is_group')).rows).toEqual([]);
   });
 
   it('caps a busy run at one short message per chat', async () => {
@@ -292,7 +292,7 @@ describe('Telegram notifications', () => {
 
   it('moves a chat when Telegram upgrades its group', async () => {
     const { parent } = await setupFamily();
-    await pool.query("UPDATE telegram_chats SET notify = '{task_created}'");
+    await pool.query("UPDATE bot_chats SET notify = '{task_created}'");
     await postUpdate({ chat: GROUP, migrate_to_chat_id: -100777 }).expect(200);
     await createTask(parent, 'HOME', { title: 'Moved' });
     expect((await run()).map((message) => message.chatId)).toEqual([-100777]);
