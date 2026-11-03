@@ -152,7 +152,7 @@ const REFRESH_PARENTS = `
   ) c
   WHERE p.id = c.id`;
 const FILE_KEYS =
-  'SELECT storage_key FROM attachments WHERE task_id IN (SELECT id FROM tasks WHERE id = ANY($1::uuid[]) OR parent_id = ANY($1::uuid[]))';
+  'SELECT storage_key FROM attachments WHERE purged_at IS NULL AND task_id IN (SELECT id FROM tasks WHERE id = ANY($1::uuid[]) OR parent_id = ANY($1::uuid[]))';
 const DELETE_TASKS = 'DELETE FROM tasks WHERE id = ANY($1::uuid[])';
 const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,

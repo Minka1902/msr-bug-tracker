@@ -7,7 +7,7 @@ const DEMO_PROJECTS = `p.is_demo AND (p.owner_id = $1 OR p.owner_id IN (SELECT i
 
 const DEMO_FILE_KEYS = `
   SELECT a.storage_key FROM attachments a JOIN tasks t ON t.id = a.task_id JOIN projects p ON p.id = t.project_id
-  WHERE ${DEMO_PROJECTS}`;
+  WHERE ${DEMO_PROJECTS} AND a.purged_at IS NULL`;
 const DELETE_DEMO_PROJECTS = `DELETE FROM projects p WHERE ${DEMO_PROJECTS}`;
 const DELETE_DEMO_USERS = 'DELETE FROM users WHERE demo_owner_id = $1';
 const DELETE_DEMO_SET = 'DELETE FROM demo_sets WHERE owner_id = $1';

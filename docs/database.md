@@ -295,6 +295,10 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 | `project_card_types` | `project_id`, `base` (`task_type`), `name` (unique per project, case-insensitive), `icon`, `color`, `create_role_ids` uuid[], `edit_role_ids` uuid[] | A project's own kind of card. It works like its `base` type (workflow, statuses, bug fields). The role lists say who can create and who can edit or move its cards; the owner always can                     |
 | `tasks`              | `card_type_id` uuid, null                                                                                                                            | `FOREIGN KEY (project_id, card_type_id) → project_card_types (project_id, id) ON DELETE SET NULL (card_type_id)`, so a card only uses its own project's types and reverts to `type` when its type is deleted |
 
+### Attachment retention — migration 023
+
+`attachments.purged_at` (timestamptz, null) and a partial index `tasks_done_with_files_idx` on `tasks (completed_at) WHERE attachment_count > 0`. The hourly job marks a file purged once both its card's `completed_at` and its own `created_at` are 7 days old, lowers `attachment_count` in the same statement, then deletes the stored file unless a live row (a duplicate or the next repeat) still uses its `storage_key`. Purged rows stay as tombstones, so links in text still resolve.
+
 ## Invariants
 
 - **Project keys** are globally unique (case-insensitive), match `^[A-Z][A-Z0-9]{1,5}$`, and never change after creation.
@@ -305,6 +309,7 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 - **Completion:** `tasks.completed_at` is set when a task enters a `done`-category status and cleared when it leaves one.
 - **Discussions** in a `done` status always have a decision (`CHECK tasks_discussion_decision`).
 - **Card types:** `tasks.type` always equals the `base` of its card type. A move keeps the card type only when the target project has one with the same name and base.
+- **Attachment retention:** a done card's files are deleted 7 days after it's done, or 7 days after their upload when that came later. `attachment_count` counts only rows with `purged_at IS NULL`.
 - **Counters:** `comment_count`, `attachment_count`, `checklist_total/done` and `subtask_total/done` on `tasks` are updated in the same transaction as the change they count. Tests compare them against fresh recounts.
 - **Demo tagging:** demo rows carry `projects.is_demo = true`, and demo users have `users.demo_owner_id` set. Demo users have no password.
 - **Secrets at rest:** 2FA secrets, AI keys, calendar credentials and feed tokens are sealed with AES-256-GCM under `ENCRYPTION_KEY`, in the format `v1.iv.tag.ciphertext`. Changing or losing the key makes them unreadable.

@@ -146,7 +146,7 @@ Sorting maps a whitelisted key to SQL (`sortSql`), always with `t.number DESC` a
 - **Comments** support one level of replies. Authors can edit and delete their own; `comment.moderate` lets others delete them. Attachments pasted into a comment are linked to it.
 - **Checklist items** use fractional positions, like board cards.
 - **Relations** are `relates` (symmetric, stored in canonical id order so A→B and B→A are the same row) or `duplicates` (directional). Each pair is unique per type. `blocks` exists in the enum for Phase 2.
-- **Attachments:** see Uploads & storage. Image pastes in any rich-text field upload first and insert a link to the stored file into the markdown.
+- **Attachments:** see Uploads & storage. Image pastes in any rich-text field upload first and insert a link to the stored file into the markdown. Files of a done card are deleted 7 days after it's done (`ATTACHMENT_RETENTION_DAYS`, the hourly `purgeDoneAttachments`), including images in its text. Their rows stay with `purged_at`: an image link then serves an "Image deleted" SVG, and any other file answers `410`.
 
 ## Claude and ChatGPT connector
 

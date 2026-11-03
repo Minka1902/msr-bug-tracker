@@ -220,6 +220,7 @@ export interface Attachment {
   uploader: UserRef;
   commentId: string | null;
   createdAt: string;
+  purgedAt: string | null;
 }
 
 export interface TaskRelation {

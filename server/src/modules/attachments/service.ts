@@ -1,3 +1,4 @@
+import { ATTACHMENT_RETENTION_DAYS } from '@msr/shared/attachments';
 import type { Attachment } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { removeStored } from '../../lib/storage';
@@ -15,12 +16,13 @@ export interface AttachmentRow {
   mime: string;
   size: number;
   created_at: Date;
+  purged_at: Date | null;
   uploader_name: string | null;
   uploader_avatar_key: string | null;
 }
 
 const ATTACHMENT_SELECT = `
-  SELECT f.id, f.task_id, f.comment_id, f.uploader_id, f.storage_key, f.name, f.mime, f.size, f.created_at,
+  SELECT f.id, f.task_id, f.comment_id, f.uploader_id, f.storage_key, f.name, f.mime, f.size, f.created_at, f.purged_at,
          u.name AS uploader_name, u.avatar_key AS uploader_avatar_key
   FROM attachments f LEFT JOIN users u ON u.id = f.uploader_id`;
 
@@ -31,7 +33,7 @@ const INSERT_FILES = `
   RETURNING id`;
 const BUMP_COUNT =
   'UPDATE tasks SET attachment_count = attachment_count + $2, updated_at = now() WHERE id = $1 RETURNING project_id';
-const DELETE_FILE = 'DELETE FROM attachments WHERE id = $1 RETURNING storage_key, task_id, name';
+const DELETE_FILE = 'DELETE FROM attachments WHERE id = $1 RETURNING storage_key, task_id, name, purged_at';
 const LINK_TO_COMMENT = `
   WITH linked AS (
     UPDATE attachments SET task_id = $1, comment_id = $2
@@ -40,21 +42,34 @@ const LINK_TO_COMMENT = `
   UPDATE tasks SET attachment_count = attachment_count + (SELECT count(*) FROM linked) WHERE id = $1`;
 const PURGE_PENDING =
   "DELETE FROM attachments WHERE task_id IS NULL AND created_at < now() - interval '24 hours' RETURNING storage_key";
-const UNREFERENCED_KEYS =
-  'SELECT key FROM unnest($1::text[]) AS key WHERE NOT EXISTS (SELECT 1 FROM attachments WHERE storage_key = key)';
+const UNREFERENCED_KEYS = `
+  SELECT key FROM unnest($1::text[]) AS key
+  WHERE NOT EXISTS (SELECT 1 FROM attachments WHERE storage_key = key AND purged_at IS NULL)`;
+const PURGE_DONE = `
+  WITH purged AS (
+    UPDATE attachments a SET purged_at = now() FROM tasks t
+    WHERE a.task_id = t.id AND a.purged_at IS NULL AND t.attachment_count > 0
+      AND t.completed_at < now() - make_interval(days => $1)
+      AND a.created_at < now() - make_interval(days => $1)
+    RETURNING a.task_id, a.storage_key
+  ), counted AS (
+    UPDATE tasks t SET attachment_count = t.attachment_count - p.files
+    FROM (SELECT task_id, count(*)::int AS files FROM purged GROUP BY task_id) p WHERE t.id = p.task_id
+  )
+  SELECT DISTINCT storage_key FROM purged`;
 const COPY_TEXT_FILES = `
   WITH source AS (
     SELECT x.id AS task_id, a.id AS old_id, gen_random_uuid() AS new_id, a.uploader_id, a.storage_key, a.name, a.mime, a.size,
-           a.created_at, t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior
+           a.created_at, a.purged_at, t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior
     FROM unnest($1::uuid[], $2::uuid[]) AS x(id, source_id)
     JOIN tasks t ON t.id = x.id
     JOIN attachments a ON a.task_id = x.source_id AND a.comment_id IS NULL
     WHERE strpos(concat_ws(' ', t.description, t.steps_to_reproduce, t.expected_behavior, t.actual_behavior), a.id::text) > 0
   ), copied AS (
-    INSERT INTO attachments (id, task_id, uploader_id, storage_key, name, mime, size, created_at)
-    SELECT new_id, task_id, uploader_id, storage_key, name, mime, size, created_at FROM source
+    INSERT INTO attachments (id, task_id, uploader_id, storage_key, name, mime, size, created_at, purged_at)
+    SELECT new_id, task_id, uploader_id, storage_key, name, mime, size, created_at, purged_at FROM source
   )
-  SELECT task_id, old_id, new_id, description, steps_to_reproduce, expected_behavior, actual_behavior FROM source`;
+  SELECT task_id, old_id, new_id, purged_at, description, steps_to_reproduce, expected_behavior, actual_behavior FROM source`;
 const REWRITE_TEXTS = `
   UPDATE tasks t SET description = x.description, steps_to_reproduce = x.steps, expected_behavior = x.expected,
          actual_behavior = x.actual, attachment_count = t.attachment_count + x.files
@@ -66,6 +81,7 @@ interface CopiedFile {
   task_id: string;
   old_id: string;
   new_id: string;
+  purged_at: Date | null;
   description: string | null;
   steps_to_reproduce: string | null;
   expected_behavior: string | null;
@@ -85,6 +101,7 @@ export const toAttachment = (row: AttachmentRow): Attachment => ({
   },
   commentId: row.comment_id,
   createdAt: row.created_at.toISOString(),
+  purgedAt: row.purged_at?.toISOString() ?? null,
 });
 
 export const getAttachment = (id: string) =>
@@ -149,13 +166,18 @@ export const linkCommentAttachments = (
 
 export const deleteAttachment = async (id: string, actorId: string) => {
   const removed = await transaction(async (db) => {
-    const row = await queryOne<{ storage_key: string; task_id: string | null; name: string }>(
-      DELETE_FILE,
-      [id],
-      db,
-    );
+    const row = await queryOne<{
+      storage_key: string;
+      task_id: string | null;
+      name: string;
+      purged_at: Date | null;
+    }>(DELETE_FILE, [id], db);
     if (row?.task_id) {
-      const task = await queryOne<{ project_id: string }>(BUMP_COUNT, [row.task_id, -1], db);
+      const task = await queryOne<{ project_id: string }>(
+        BUMP_COUNT,
+        [row.task_id, row.purged_at ? 0 : -1],
+        db,
+      );
       await recordActivity(
         [
           {
@@ -171,7 +193,7 @@ export const deleteAttachment = async (id: string, actorId: string) => {
     }
     return row;
   });
-  await removeUnreferenced([removed?.storage_key]);
+  if (!removed?.purged_at) await removeUnreferenced([removed?.storage_key]);
 };
 
 export const removeUnreferenced = async (keys: (string | null | undefined)[]) => {
@@ -196,7 +218,7 @@ export const copyTextAttachments = async (db: Db, taskIds: string[], sourceIds: 
       rows.map((files) => rewrite(files[0]!.steps_to_reproduce, files)),
       rows.map((files) => rewrite(files[0]!.expected_behavior, files)),
       rows.map((files) => rewrite(files[0]!.actual_behavior, files)),
-      rows.map((files) => files.length),
+      rows.map((files) => files.filter((file) => !file.purged_at).length),
     ],
     db,
   );
@@ -204,3 +226,10 @@ export const copyTextAttachments = async (db: Db, taskIds: string[], sourceIds: 
 
 export const purgePendingAttachments = async () =>
   removeStored((await query<{ storage_key: string }>(PURGE_PENDING)).map((row) => row.storage_key));
+
+export const purgeDoneAttachments = async () =>
+  removeUnreferenced(
+    (await query<{ storage_key: string }>(PURGE_DONE, [ATTACHMENT_RETENTION_DAYS])).map(
+      (row) => row.storage_key,
+    ),
+  );

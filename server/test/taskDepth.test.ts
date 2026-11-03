@@ -15,7 +15,7 @@ const counters = async (taskId: string) =>
     await pool.query(
       `SELECT t.comment_count, t.attachment_count, t.checklist_total, t.checklist_done,
               (SELECT count(*)::int FROM task_comments c WHERE c.task_id = t.id) AS comments,
-              (SELECT count(*)::int FROM attachments a WHERE a.task_id = t.id) AS attachments,
+              (SELECT count(*)::int FROM attachments a WHERE a.task_id = t.id AND a.purged_at IS NULL) AS attachments,
               (SELECT count(*)::int FROM task_checklist_items i WHERE i.task_id = t.id) AS items,
               (SELECT count(*)::int FROM task_checklist_items i WHERE i.task_id = t.id AND i.is_done) AS done
        FROM tasks t WHERE t.id = $1`,

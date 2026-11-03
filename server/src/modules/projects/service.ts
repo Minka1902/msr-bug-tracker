@@ -132,7 +132,7 @@ const PROJECT_EXTRAS = `
 const SET_ARCHIVED =
   'UPDATE projects SET archived_at = CASE WHEN $2 THEN now() ELSE NULL END, updated_at = now() WHERE id = $1';
 const PROJECT_FILE_KEYS =
-  'SELECT a.storage_key FROM attachments a JOIN tasks t ON t.id = a.task_id WHERE t.project_id = $1';
+  'SELECT a.storage_key FROM attachments a JOIN tasks t ON t.id = a.task_id WHERE t.project_id = $1 AND a.purged_at IS NULL';
 const DELETE_PROJECT = 'DELETE FROM projects WHERE id = $1';
 const SET_FAVORITE = 'UPDATE project_members SET is_favorite = $3 WHERE project_id = $1 AND user_id = $2';
 const TAKEN_KEYS = 'SELECT key::text FROM projects WHERE key = ANY($1::citext[])';

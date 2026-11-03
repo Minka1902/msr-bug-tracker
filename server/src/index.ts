@@ -3,7 +3,7 @@ import { config } from './config';
 import { migrate } from './db/migrate';
 import { logger } from './lib/logger';
 import { ensureStorage } from './lib/storage';
-import { purgePendingAttachments } from './modules/attachments/service';
+import { purgeDoneAttachments, purgePendingAttachments } from './modules/attachments/service';
 import { syncStaleConnections } from './modules/calendar/sync';
 import { purgeExpiredGrants } from './modules/connector/service';
 import { escalatePriorities } from './modules/tasks/escalation';
@@ -16,7 +16,7 @@ const HOUR = 3_600_000;
 const CALENDAR_SYNC_MS = 5 * 60_000;
 const TELEGRAM_NOTIFY_MS = 60_000;
 const purge = () =>
-  Promise.all([purgePendingAttachments(), purgeExpiredGrants()]).catch((err) =>
+  Promise.all([purgePendingAttachments(), purgeDoneAttachments(), purgeExpiredGrants()]).catch((err) =>
     logger.error({ err }, 'Hourly cleanup failed'),
   );
 const schedulePriorities = () =>
