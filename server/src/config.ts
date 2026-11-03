@@ -40,6 +40,7 @@ export const envSchema = z
     ),
     MAIL_FROM: optional(z.string()),
     TELEGRAM_BOT_TOKEN: optional(z.string()),
+    DISCORD_BOT_TOKEN: optional(z.string()),
     ENABLE_DEMO_DATA: z
       .enum(['true', 'false'])
       .default('true')

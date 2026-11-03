@@ -1,15 +1,18 @@
 import { Router, type Request } from 'express';
 import { config } from '../../config';
-import { badRequest, forbidden, notFound } from '../../lib/httpError';
+import { HttpError, badRequest, forbidden, notFound } from '../../lib/httpError';
 import { sendStored } from '../../lib/storage';
 import { ATTACHMENT_TYPES, storeUploads, uploadFiles } from '../../lib/upload';
 import { assertCanWrite, assertWritable } from '../projects/access';
 import { loadTaskAccess } from '../tasks/access';
+import { ATTACHMENT_RETENTION_DAYS } from '@msr/shared/attachments';
 import { can } from '@msr/shared/permissions';
 import { deleteAttachment, getAttachment, listAttachments, saveAttachments } from './service';
 
 const INLINE_TYPES = /^(image\/|video\/|application\/pdf$)/;
 const MAX_FILES = 10;
+const PURGED_MESSAGE = `Deleted ${ATTACHMENT_RETENTION_DAYS} days after the card was done`;
+const PURGED_IMAGE = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="120" viewBox="0 0 480 120" role="img" aria-label="Image deleted"><rect width="480" height="120" rx="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-dasharray="6 6"/><text x="240" y="54" text-anchor="middle" font-family="system-ui,sans-serif" font-size="18" font-weight="600" fill="#475569">Image deleted</text><text x="240" y="80" text-anchor="middle" font-family="system-ui,sans-serif" font-size="14" fill="#64748b">${PURGED_MESSAGE}</text></svg>`;
 
 const receive = async (req: Request) => {
   const files = (req.files as Express.Multer.File[] | undefined) ?? [];
@@ -49,6 +52,12 @@ export const createAttachmentsRouter = () => {
       file &&
       (file.task_id ? await loadTaskAccess(file.task_id, req.user!.id) : file.uploader_id === req.user!.id);
     if (!file || !allowed) throw notFound('File not found');
+    if (file.purged_at) {
+      if (!file.mime.startsWith('image/')) throw new HttpError(410, PURGED_MESSAGE);
+      res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+      res.type('svg').send(PURGED_IMAGE);
+      return;
+    }
     res.setHeader('Content-Type', file.mime);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Cache-Control', 'private, max-age=3600');

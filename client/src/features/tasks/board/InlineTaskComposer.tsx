@@ -2,18 +2,17 @@ import { Plus } from 'lucide-react';
 import { useState, type FocusEvent, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import type { TaskType } from '@msr/shared/enums';
-import type { CreateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { errorMessage } from '../../../lib/api';
 import { useConflictGuard } from '../../calendar/useConflictGuard';
 import { useCreateTask } from '../api';
-import { TaskCreateFields, type TaskCreateValues } from '../components/TaskCreateFields';
+import { TaskCreateFields, taskCreateValues, type TaskCreateValues } from '../components/TaskCreateFields';
 
 interface InlineTaskComposerProps {
   project: ProjectDetail;
-  defaults: Omit<CreateTaskInput, 'title'>;
+  defaults: Partial<TaskCreateValues>;
   types: readonly TaskType[];
 }
 
@@ -29,9 +28,9 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
     setTitle('');
     create.mutate(
       {
-        ...defaults,
         projectKey: project.key,
         title: text,
+        statusId: fields.statusId ?? undefined,
         type: fields.type,
         cardTypeId: fields.cardTypeId,
         priority: fields.priority,
@@ -61,17 +60,7 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
   const create = useCreateTask();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
-  const [fields, setFields] = useState<TaskCreateValues>({
-    type: defaults.type ?? types[0]!,
-    cardTypeId: defaults.cardTypeId ?? null,
-    statusId: defaults.statusId ?? null,
-    priority: defaults.priority ?? 'medium',
-    assigneeId: defaults.assigneeId ?? null,
-    dueDate: defaults.dueDate ?? null,
-    recurrence: null,
-    labelIds: defaults.labelIds ?? [],
-    severity: null,
-  });
+  const [fields, setFields] = useState<TaskCreateValues>(() => taskCreateValues(types[0]!, defaults));
 
   if (!open)
     return (

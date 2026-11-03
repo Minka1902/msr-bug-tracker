@@ -1,4 +1,5 @@
 import { Plus, Search } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useScrollHidden } from '../../hooks/useScrollHidden';
 import { cn } from '../../lib/cn';
 import { Button } from '../ui/Button';
@@ -10,9 +11,10 @@ import type { ShellActions } from './shellTypes';
 interface TopbarProps {
   actions: ShellActions;
   phone: boolean;
+  phoneTitle?: ReactNode;
 }
 
-export function Topbar({ actions, phone }: TopbarProps) {
+export function Topbar({ actions, phone, phoneTitle }: TopbarProps) {
   const hidden = useScrollHidden(phone);
 
   return (
@@ -22,7 +24,7 @@ export function Topbar({ actions, phone }: TopbarProps) {
         hidden && '-translate-y-full',
       )}
     >
-      <Logo compact className="md:hidden" />
+      {phone && phoneTitle ? phoneTitle : <Logo compact className="md:hidden" />}
       <button
         type="button"
         onClick={actions.onSearch}
@@ -32,7 +34,7 @@ export function Topbar({ actions, phone }: TopbarProps) {
         <span className="flex-1 text-left">Search tasks, projects…</span>
         <KeyHint keys={['mod', 'K']} />
       </button>
-      <div className="flex-1" />
+      <div className="flex-1 max-md:hidden" />
       <AppearanceMenu className="max-md:hidden" />
       <Button leftIcon={<Plus />} onClick={() => actions.onQuickCreate()} className="max-md:hidden">
         New task

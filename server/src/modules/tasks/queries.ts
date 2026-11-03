@@ -74,7 +74,7 @@ const CARD_COLUMNS = `
   COALESCE((SELECT json_agg(json_build_object('id', l.id, 'name', l.name, 'color', l.color) ORDER BY lower(l.name))
             FROM task_labels tl JOIN labels l ON l.id = tl.label_id WHERE tl.task_id = t.id), '[]') AS labels,
   CASE WHEN t.attachment_count > 0 THEN
-    (SELECT f.id FROM attachments f WHERE f.task_id = t.id AND f.mime LIKE 'image/%' ORDER BY f.created_at LIMIT 1)
+    (SELECT f.id FROM attachments f WHERE f.task_id = t.id AND f.mime LIKE 'image/%' AND f.purged_at IS NULL ORDER BY f.created_at LIMIT 1)
   END AS cover_id,
   CASE WHEN t.parent_id IS NOT NULL THEN (SELECT pt.number FROM tasks pt WHERE pt.id = t.parent_id) END AS parent_number`;
 

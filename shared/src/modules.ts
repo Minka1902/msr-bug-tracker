@@ -35,8 +35,9 @@ export interface PlanMeta {
   priceCents: number;
 }
 
-const SOFTWARE_TYPES: readonly TaskType[] = ['task', 'bug', 'feature', 'improvement'];
-const STEP_TYPES: readonly TaskType[] = ['task', 'errand'];
+const CONCLUSION_MODULES: readonly ProjectModule[] = ['software', 'startup', 'household'];
+const SOFTWARE_TYPES: readonly TaskType[] = ['task', 'bug', 'feature', 'improvement', 'discussion'];
+const STEP_TYPES: readonly TaskType[] = ['task', 'errand', 'discussion'];
 
 export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
   software: {
@@ -96,7 +97,7 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
     description: 'Take an idea from first step to first customers',
     icon: 'rocket',
     kind: 'software',
-    taskTypes: [...SOFTWARE_TYPES, 'discussion'],
+    taskTypes: SOFTWARE_TYPES,
     labels: ['Validation', 'Product', 'Marketing', 'Sales', 'Legal'],
     features: [
       'AI plans validation, product and launch',
@@ -159,8 +160,8 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
 };
 
 export const BOT_META = {
-  label: 'Telegram bot',
-  description: 'Run a project from Telegram and get the updates you pick',
+  label: 'Chat bots',
+  description: 'Run a project from Telegram or Discord and get the updates you pick',
   icon: 'bot',
   features: [
     'Add to lists, create tasks and check what is due by chat',
@@ -188,7 +189,7 @@ export const PLAN_META: Record<PlanTier, PlanMeta> = {
   },
   pro: {
     label: 'Pro',
-    description: 'Every module, and the Telegram bot on any project',
+    description: 'Every module, and the chat bots on any project',
     modules: [...PROJECT_MODULES, ...COMING_SOON_MODULES],
     bot: 'all',
     projectsPerYear: 350,
@@ -205,6 +206,8 @@ export const botAllowed = (tier: PlanTier, module: ProjectModule) =>
 
 export const cardTypesAllowed = (tier: PlanTier, module: ProjectModule) =>
   module === 'startup' || tier === 'pro';
+
+export const hasConclusions = (module: ProjectModule) => CONCLUSION_MODULES.includes(module);
 
 export const minimumPlan = (module: CatalogModule) => PLAN_TIERS.find((tier) => planAllows(tier, module))!;
 

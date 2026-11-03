@@ -70,7 +70,10 @@ export const sentMessages = () => {
 };
 
 export const linkCode = async (agent: Agent, key: string, target: 'private' | 'group') => {
-  const { body } = await agent.post(`/api/projects/${key}/telegram/link`).send({ target }).expect(200);
+  const { body } = await agent
+    .post(`/api/projects/${key}/bots/link`)
+    .send({ platform: 'telegram', target })
+    .expect(200);
   const url = new URL(body.url as string);
   expect(url.pathname).toBe(`/${BOT}`);
   return url.searchParams.get(target === 'group' ? 'startgroup' : 'start')!;

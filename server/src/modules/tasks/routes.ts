@@ -89,7 +89,7 @@ export const createTasksRouter = () => {
   });
 
   scoped.get('/subtasks', async (req, res) => {
-    res.json({ tasks: await listSubtasks(req.task!.id) });
+    res.json({ tasks: await listSubtasks(req.task!.id, req.user!.id) });
   });
 
   router.use('/:taskId', loadTask, scoped);

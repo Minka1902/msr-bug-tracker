@@ -14,9 +14,9 @@ interface PlanCardProps {
 }
 
 const BOT_TEXT = {
-  none: 'No Telegram bot',
-  household: 'Telegram bot for households',
-  all: 'Telegram bot on any project',
+  none: 'No chat bots',
+  household: 'Telegram and Discord bots for households',
+  all: 'Telegram and Discord bots on any project',
 };
 
 export function PlanCard({ tier, current, action, className }: PlanCardProps) {

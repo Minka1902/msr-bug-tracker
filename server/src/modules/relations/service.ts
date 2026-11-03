@@ -2,6 +2,7 @@ import type { RelationType, StatusCategory, TaskType } from '@msr/shared/enums';
 import { formatIdentifier } from '@msr/shared/identifiers';
 import type { CardTypeRef, TaskRelation } from '@msr/shared/types';
 import { query, queryOne, transaction } from '../../db/pool';
+import { visibleTo } from '../cardTypes/visibility';
 import { recordActivity } from '../tasks/activity';
 
 interface RelationRow {
@@ -30,6 +31,7 @@ const LIST_RELATIONS = `
   LEFT JOIN project_card_types ct ON ct.id = o.card_type_id
   WHERE (r.source_id = $1 OR r.target_id = $1)
     AND EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = o.project_id AND m.user_id = $2)
+    AND ${visibleTo('o', '$2')}
   ORDER BY r.created_at`;
 const INSERT_RELATION =
   'INSERT INTO task_relations (source_id, target_id, type, created_by) VALUES ($1, $2, $3, $4) RETURNING id';

@@ -1,7 +1,7 @@
 import { CircleAlert } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import { TYPE_META, workflowOf, type TaskType } from '@msr/shared/enums';
+import { TYPE_META, workflowOf } from '@msr/shared/enums';
 import { MODULE_META } from '@msr/shared/modules';
 import { can } from '@msr/shared/permissions';
 import { Banner } from '../../../components/ui/Banner';
@@ -22,13 +22,8 @@ import { useCreateTask } from '../api';
 import { uploadFiles } from '../collabApi';
 import { TypeIcon, typeLabel } from '../taskMeta';
 import { useTaskPeek } from '../useTaskPeek';
-import { TaskCreateFields, type TaskCreateValues } from './TaskCreateFields';
-
-export interface QuickCreateDefaults {
-  projectKey?: string;
-  statusId?: string;
-  type?: string;
-}
+import type { QuickCreateDefaults } from '../../../context/shellContext';
+import { TaskCreateFields, taskCreateValues, type TaskCreateValues } from './TaskCreateFields';
 
 interface QuickCreateTaskModalProps {
   open: boolean;
@@ -44,23 +39,16 @@ const EMPTY_PROJECT = {
   cardTypes: [],
   isOwner: false,
 };
-const BLANK_FIELDS: Omit<TaskCreateValues, 'type' | 'cardTypeId'> = {
-  statusId: null,
-  priority: 'medium',
-  assigneeId: null,
-  dueDate: null,
-  recurrence: null,
-  labelIds: [],
-  severity: null,
-};
-
 export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCreateTaskModalProps) {
+  const { projectKey: defaultProject, ...presets } = defaults;
+
   const reset = (keepFields: boolean) => {
     setTitle('');
     setDescription('');
     setAttachmentIds([]);
     setEditorVersion((version) => version + 1);
-    if (!keepFields) setFields((current) => ({ ...current, ...BLANK_FIELDS }));
+    if (!keepFields)
+      setFields((current) => taskCreateValues(current.type, { cardTypeId: current.cardTypeId }));
   };
 
   const close = () => {
@@ -124,7 +112,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
   const [chosenProject, setChosenProject] = useState<string | null>(null);
   const projectKey =
     chosenProject ??
-    [defaults.projectKey, lastProject].find((key) => key && allowed.some((project) => project.key === key)) ??
+    [defaultProject, lastProject].find((key) => key && allowed.some((project) => project.key === key)) ??
     allowed[0]?.key ??
     null;
   const project = useProject(projectKey ?? '');
@@ -132,12 +120,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
   const [description, setDescription] = useState('');
   const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [editorVersion, setEditorVersion] = useState(0);
-  const [fields, setFields] = useState<TaskCreateValues>({
-    ...BLANK_FIELDS,
-    type: (defaults.type as TaskType) ?? 'task',
-    cardTypeId: null,
-    statusId: defaults.statusId ?? null,
-  });
+  const [fields, setFields] = useState<TaskCreateValues>(() => taskCreateValues('task', presets));
   const [createMore, setCreateMore] = useState(false);
   const projectData = project.data ?? EMPTY_PROJECT;
   const types = MODULE_META[project.data?.module ?? 'software'].taskTypes;

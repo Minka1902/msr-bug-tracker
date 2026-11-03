@@ -1,3 +1,12 @@
+export const BOT_PLATFORMS = ['telegram', 'discord'] as const;
+
+export type BotPlatform = (typeof BOT_PLATFORMS)[number];
+
+export const BOT_PLATFORM_META: Record<BotPlatform, { label: string; groupLabel: string }> = {
+  telegram: { label: 'Telegram', groupLabel: 'group' },
+  discord: { label: 'Discord', groupLabel: 'channel' },
+};
+
 export const NOTIFY_KINDS = [
   'task_created',
   'task_assigned',

@@ -1,15 +1,32 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { hasConclusions } from '@msr/shared/modules';
+import { uuidSchema } from '@msr/shared/schemas/project';
 import { taskFilterSchema } from '@msr/shared/schemas/task';
+import { notFound } from '../../lib/httpError';
 import { projectOf } from '../projects/access';
 import { timezoneOf } from '../projects/routes';
 import { listTasks } from '../tasks/service';
-import { getDashboard, getProjectActivity, getProjectOverview, MY_TASKS_SCOPE } from './service';
+import {
+  getConclusions,
+  getDashboard,
+  getProjectActivity,
+  getProjectOverview,
+  MY_TASKS_SCOPE,
+} from './service';
 
 const activityQuerySchema = z.object({
   before: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
+const conclusionsQuerySchema = z
+  .object({
+    q: z.string().trim().max(200).optional(),
+    before: z.iso.datetime({ offset: true }).optional(),
+    beforeId: uuidSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(30),
+  })
+  .refine((query) => !query.before === !query.beforeId, 'Pass before and beforeId together');
 
 export const createInsightsRouter = () => {
   const router = Router();
@@ -40,7 +57,22 @@ export const createProjectInsightsRouter = () => {
 
   router.get('/activity', async (req, res) => {
     const { before, limit } = activityQuerySchema.parse(req.query);
-    res.json(await getProjectActivity(projectOf(req).id, before ?? null, limit));
+    res.json(await getProjectActivity(projectOf(req).id, req.user!.id, before ?? null, limit));
+  });
+
+  router.get('/conclusions', async (req, res) => {
+    const project = projectOf(req);
+    if (!hasConclusions(project.module)) throw notFound('This project has no conclusions');
+    const { q, before, beforeId, limit } = conclusionsQuerySchema.parse(req.query);
+    res.json(
+      await getConclusions(
+        project.id,
+        req.user!.id,
+        q || undefined,
+        before && beforeId ? { completedAt: before, id: beforeId } : undefined,
+        limit,
+      ),
+    );
   });
 
   return router;

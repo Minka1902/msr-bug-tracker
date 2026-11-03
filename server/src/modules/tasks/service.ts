@@ -18,6 +18,7 @@ import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { badRequest, forbidden, notFound } from '../../lib/httpError';
 import { assertValidPosition, positionAfter } from '../../lib/position';
 import { copyTextAttachments } from '../attachments/service';
+import { visibleTo } from '../cardTypes/visibility';
 import type { ProjectContext } from '../projects/access';
 import { listStatuses } from '../statuses/service';
 import { recordActivity, type ActivityInput } from './activity';
@@ -152,7 +153,7 @@ const REFRESH_PARENTS = `
   ) c
   WHERE p.id = c.id`;
 const FILE_KEYS =
-  'SELECT storage_key FROM attachments WHERE task_id IN (SELECT id FROM tasks WHERE id = ANY($1::uuid[]) OR parent_id = ANY($1::uuid[]))';
+  'SELECT storage_key FROM attachments WHERE purged_at IS NULL AND task_id IN (SELECT id FROM tasks WHERE id = ANY($1::uuid[]) OR parent_id = ANY($1::uuid[]))';
 const DELETE_TASKS = 'DELETE FROM tasks WHERE id = ANY($1::uuid[])';
 const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
@@ -188,7 +189,7 @@ const RESOLVE_IDENTIFIER = `
   LEFT JOIN tasks t ON t.project_id = p.id AND t.number = $2
   LEFT JOIN task_aliases al ON al.project_id = p.id AND al.number = $2
   WHERE p.key = $1`;
-const SUBTASKS = `${cardSelect()} WHERE t.parent_id = $1 ORDER BY t.position, t.number`;
+const SUBTASKS = `${cardSelect()} WHERE t.parent_id = $1 AND ${visibleTo('t', '$2')} ORDER BY t.position, t.number`;
 const RESERVE_NUMBERS = 'UPDATE projects SET task_seq = task_seq + $2 WHERE id = $1 RETURNING task_seq';
 const ACTOR_TODAY = `SELECT (now() AT TIME ZONE coalesce(preferences->>'timezone', 'UTC'))::date::text AS today FROM users WHERE id = $1`;
 const SPAWN_RECURRENCES = `
@@ -384,8 +385,8 @@ export const getCards = (ids: string[], db?: Db) =>
     rows.map(toCard),
   );
 
-export const listSubtasks = (taskId: string) =>
-  query<CardRow>(SUBTASKS, [taskId]).then((rows) => rows.map(toCard));
+export const listSubtasks = (taskId: string, userId: string) =>
+  query<CardRow>(SUBTASKS, [taskId, userId]).then((rows) => rows.map(toCard));
 
 export const listTasks = async (
   scopeSql: string,

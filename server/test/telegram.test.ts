@@ -66,20 +66,28 @@ describe('Telegram webhook', () => {
     await createHousehold(parent);
     const code = await linkCode(parent, 'HOME', 'private');
     expect(await reply(GROUP, PARENT_TG, `/start@${BOT} ${code}`)).toBe(
-      'Open this link in a private chat with me.',
+      'Use this code in a private chat with me.',
     );
     expect(await reply(dm(PARENT_TG), PARENT_TG, `/start ${code}`)).toContain('expired');
     const groupCode = await linkCode(parent, 'HOME', 'group');
     expect(await reply(dm(PARENT_TG), PARENT_TG, `/start ${groupCode}`)).toBe(
-      'Open this link to add me to a group.',
+      'Use this code in the group you want to connect.',
     );
     await connect(parent, 'HOME', dm(PARENT_TG), PARENT_TG);
     await connect(parent, 'HOME', GROUP, PARENT_TG);
-    const { body } = await parent.get('/api/projects/HOME/telegram').expect(200);
-    expect(body).toMatchObject({ enabled: true, allowed: true, botUsername: BOT, connected: true });
+    const { body } = await parent.get('/api/projects/HOME/bots').expect(200);
+    expect(body).toMatchObject({
+      allowed: true,
+      platforms: [{ platform: 'telegram', botName: BOT, connected: true }],
+    });
     expect(body.chats).toEqual([
-      expect.objectContaining({ chatId: GROUP.id, title: 'Family', isGroup: true }),
-      expect.objectContaining({ chatId: PARENT_TG, isGroup: false, mine: true, onlyMine: true }),
+      expect.objectContaining({
+        platform: 'telegram',
+        chatId: String(GROUP.id),
+        title: 'Family',
+        isGroup: true,
+      }),
+      expect.objectContaining({ chatId: String(PARENT_TG), isGroup: false, mine: true, onlyMine: true }),
     ]);
   });
 
@@ -188,7 +196,10 @@ describe('Telegram webhook', () => {
 
   it('acts with the permissions of whoever sends the message', async () => {
     const { parent, child, guest } = await setupFamily();
-    await child.agent.post('/api/projects/HOME/telegram/link').send({ target: 'group' }).expect(403);
+    await child.agent
+      .post('/api/projects/HOME/bots/link')
+      .send({ platform: 'telegram', target: 'group' })
+      .expect(403);
     await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);
     await connect(guest.agent, 'HOME', dm(GUEST_TG), GUEST_TG);
     expect(await reply(GROUP, CHILD_TG, 'apples')).toBe('Added apples to <b>Groceries</b>.');
@@ -206,7 +217,7 @@ describe('Telegram webhook', () => {
       /^This chat is not connected yet/,
     );
     expect(await reply(GROUP, 999, 'apples')).toBe(
-      'Connect your account first: MSR → Home → Settings → Telegram → Connect me.',
+      'Connect your account first: MSR → Home → Settings → Bots → Connect me.',
     );
     await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);
     await parent.delete(`/api/projects/HOME/members/${child.id}`).expect(204);
@@ -222,14 +233,20 @@ describe('Telegram webhook', () => {
     expect(await reply(GROUP, PARENT_TG, 'apples')).toBe(
       "This project's Telegram bot needs the Personal plan.",
     );
-    await parent.post('/api/projects/HOME/telegram/link').send({ target: 'private' }).expect(402);
+    await parent
+      .post('/api/projects/HOME/bots/link')
+      .send({ platform: 'telegram', target: 'private' })
+      .expect(402);
 
     const owner = agentFor(telegramApp());
     await registerUser(owner);
     await createProject(owner, { key: 'WEB' });
-    await owner.post('/api/projects/WEB/telegram/link').send({ target: 'private' }).expect(402);
+    await owner
+      .post('/api/projects/WEB/bots/link')
+      .send({ platform: 'telegram', target: 'private' })
+      .expect(402);
     await subscribe(owner, 'personal');
-    const { body } = await owner.get('/api/projects/WEB/telegram').expect(200);
+    const { body } = await owner.get('/api/projects/WEB/bots').expect(200);
     expect(body).toMatchObject({ allowed: false, requiredPlan: 'pro' });
     await subscribe(owner, 'pro');
     await connect(owner, 'WEB', dm(404), 404);
@@ -257,7 +274,7 @@ describe('Telegram webhook', () => {
     expect(await reply(GROUP, PARENT_TG, 'use side')).toBe('Project not found');
     await createProject(parent, { key: 'MORE' });
     expect(await reply(GROUP, PARENT_TG, 'use more')).toBe(
-      "This chat isn't connected to MORE. Connect it from that project's Settings → Telegram.",
+      "This chat isn't connected to MORE. Connect it from that project's Settings → Bots.",
     );
   });
 });
@@ -266,18 +283,18 @@ describe('Telegram settings', () => {
   it('lets each person manage their own chats and project editors manage groups', async () => {
     const { parent, child } = await setupFamily();
     await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);
-    const { body } = await child.agent.get('/api/projects/HOME/telegram').expect(200);
-    expect(body.chats).toEqual([expect.objectContaining({ chatId: CHILD_TG, mine: true })]);
+    const { body } = await child.agent.get('/api/projects/HOME/bots').expect(200);
+    expect(body.chats).toEqual([expect.objectContaining({ chatId: String(CHILD_TG), mine: true })]);
     await child.agent
-      .patch(`/api/projects/HOME/telegram/chats/${GROUP.id}`)
+      .patch(`/api/projects/HOME/bots/chats/telegram/${GROUP.id}`)
       .send({ notify: ['comments'] })
       .expect(403);
     await child.agent
-      .patch(`/api/projects/HOME/telegram/chats/${PARENT_TG}`)
+      .patch(`/api/projects/HOME/bots/chats/telegram/${PARENT_TG}`)
       .send({ onlyMine: false })
       .expect(404);
     const updated = await child.agent
-      .patch(`/api/projects/HOME/telegram/chats/${CHILD_TG}`)
+      .patch(`/api/projects/HOME/bots/chats/telegram/${CHILD_TG}`)
       .send({ notify: ['task_assigned', 'shopping_changes'], onlyMine: false })
       .expect(200);
     expect(updated.body.chat).toMatchObject({
@@ -289,25 +306,25 @@ describe('Telegram settings', () => {
     await parent.post('/api/projects/HOME/lists').send({ name: 'Pharmacy' }).expect(201);
     const pharmacy = (await listItems(parent)).find((list) => list.name === 'Pharmacy')!;
     await parent
-      .patch(`/api/projects/HOME/telegram/chats/${GROUP.id}`)
+      .patch(`/api/projects/HOME/bots/chats/telegram/${GROUP.id}`)
       .send({ defaultListId: pharmacy.id })
       .expect(200);
     expect(await reply(GROUP, PARENT_TG, 'plasters')).toBe('Added plasters to <b>Pharmacy</b>.');
     await parent
-      .patch(`/api/projects/HOME/telegram/chats/${GROUP.id}`)
+      .patch(`/api/projects/HOME/bots/chats/telegram/${GROUP.id}`)
       .send({ defaultListId: '00000000-0000-4000-8000-000000000000' })
       .expect(400);
     await parent
-      .patch(`/api/projects/HOME/telegram/chats/${GROUP.id}`)
+      .patch(`/api/projects/HOME/bots/chats/telegram/${GROUP.id}`)
       .send({ defaultListId: null })
       .expect(200);
     expect(await reply(GROUP, PARENT_TG, 'bread')).toBe(`Added bread to <b>${lists[0]!.name}</b>.`);
 
-    await parent.delete(`/api/projects/HOME/telegram/chats/${GROUP.id}`).expect(204);
+    await parent.delete(`/api/projects/HOME/bots/chats/telegram/${GROUP.id}`).expect(204);
     expect(await reply(GROUP, PARENT_TG, 'bread')).toMatch(/^This chat is not connected yet/);
-    await child.agent.delete('/api/me/telegram').expect(204);
-    expect((await child.agent.get('/api/projects/HOME/telegram').expect(200)).body).toMatchObject({
-      connected: false,
+    await child.agent.delete('/api/me/bots/telegram').expect(204);
+    expect((await child.agent.get('/api/projects/HOME/bots').expect(200)).body).toMatchObject({
+      platforms: [{ platform: 'telegram', connected: false }],
       chats: [],
     });
     expect(await reply(dm(CHILD_TG), CHILD_TG, 'mine?')).toMatch(/^This chat is not connected yet/);
@@ -320,13 +337,13 @@ describe('Telegram settings', () => {
     await createProject(owner, { key: 'WEB' });
     await connect(owner, 'WEB', dm(404), 404);
     await owner
-      .patch('/api/projects/WEB/telegram/chats/404')
+      .patch('/api/projects/WEB/bots/chats/telegram/404')
       .send({ notify: ['shopping_changes'] })
       .expect(400);
     await owner
-      .patch('/api/projects/WEB/telegram/chats/404')
+      .patch('/api/projects/WEB/bots/chats/telegram/404')
       .send({ notify: ['task_created', 'new_events'] })
       .expect(200);
-    await owner.patch('/api/projects/WEB/telegram/chats/404').send({}).expect(400);
+    await owner.patch('/api/projects/WEB/bots/chats/telegram/404').send({}).expect(400);
   });
 });

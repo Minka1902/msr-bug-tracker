@@ -40,7 +40,7 @@ const fetchTask = async (identifier: string, { user }: ToolContext, projects: Se
     getTaskDetail(task.id),
     listItems(task.id),
     listComments(task.id),
-    listSubtasks(task.id),
+    listSubtasks(task.id, user.id),
   ]);
   const names = await statusNamesFor([detail.statusId, ...subtasks.map((subtask) => subtask.statusId)]);
   return {

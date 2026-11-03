@@ -19,7 +19,7 @@ import { useProjectContext } from '../useProjectContext';
 import { CardTypeEditor } from './CardTypeEditor';
 
 const DESCRIPTION =
-  'Add your own kinds of cards, like Experiment or Interview, and choose which roles can create and edit them.';
+  'Add your own kinds of cards, like Experiment or Interview, and choose which roles can see, create and edit them.';
 
 export function CardTypeSettings() {
   const openEditor = (cardType: CardType | null) => {
@@ -90,8 +90,9 @@ export function CardTypeSettings() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{cardType.name}</p>
                 <p className="text-xs text-muted">
-                  Works like {TYPE_META[cardType.base].label} · Create: {roleNames(cardType.createRoleIds)} ·
-                  Edit: {roleNames(cardType.editRoleIds)}
+                  Works like {TYPE_META[cardType.base].label} · See:{' '}
+                  {cardType.viewRoleIds.length ? roleNames(cardType.viewRoleIds) : 'Everyone'} · Create:{' '}
+                  {roleNames(cardType.createRoleIds)} · Edit: {roleNames(cardType.editRoleIds)}
                 </p>
               </div>
               <IconButton

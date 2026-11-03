@@ -17,17 +17,7 @@ const paths = (...args: Parameters<typeof settingsTabs>) => settingsTabs(...args
 
 describe('settingsTabs', () => {
   it('gives the owner and admins every tab', () => {
-    const all = [
-      'general',
-      'workflows',
-      'card-types',
-      'labels',
-      'members',
-      'roles',
-      'ai',
-      'telegram',
-      'danger',
-    ];
+    const all = ['general', 'workflows', 'card-types', 'labels', 'members', 'roles', 'ai', 'bots', 'danger'];
     expect(paths(project(DEFAULT_ROLE_PERMISSIONS.owner, { isOwner: true }), true)).toEqual(all);
     expect(paths(project(DEFAULT_ROLE_PERMISSIONS.admin, { cardTypesAllowed: true }), true)).toEqual(all);
   });
@@ -39,7 +29,7 @@ describe('settingsTabs', () => {
 
   it('shows a member only what their role can change', () => {
     expect(paths(project(DEFAULT_ROLE_PERMISSIONS.member), false)).toEqual(['labels', 'danger']);
-    expect(paths(project(HOUSEHOLD_ROLE_PERMISSIONS.member), true)).toEqual(['telegram', 'danger']);
+    expect(paths(project(HOUSEHOLD_ROLE_PERMISSIONS.member), true)).toEqual(['bots', 'danger']);
   });
 
   it('leaves a viewer only the danger zone, where they can leave', () => {

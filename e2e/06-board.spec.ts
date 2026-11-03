@@ -47,3 +47,34 @@ test('moves tasks across the Kanban board with mouse and keyboard', async ({ pag
   await expect(card('Done')).toBeVisible();
   await expect(card('In Progress')).toHaveCount(0);
 });
+
+test('adds a task from a column title or a group title with its values filled in', async ({ page }) => {
+  await signUp(page, 'Header Adder');
+  const { key } = await createProject(page, 'Headers');
+  const statuses = await projectStatuses(page, key);
+  const status = (name: string) => statuses.find((item) => item.workflow === 'task' && item.name === name)!;
+  await createTask(page, key, { title: 'Ranked high', priority: 'high' });
+  const created = async (number: number) =>
+    (
+      await apiGet<{ task: { statusId: string; priority: string } }>(
+        page,
+        `/tasks/by-identifier/${key}-${number}`,
+      )
+    ).task;
+  const dialog = page.getByRole('dialog', { name: 'New task' });
+
+  await page.goto(`/p/${key}/board`);
+  await page.getByRole('button', { name: 'Add task to In Review' }).click();
+  await dialog.getByLabel('Title').fill('From the column');
+  await dialog.getByRole('button', { name: 'Create task' }).click();
+  await expect(page.getByText(`${key}-2 created`)).toBeVisible();
+  expect((await created(2)).statusId).toBe(status('In Review').id);
+
+  await page.getByRole('button', { name: 'Group', exact: true }).click();
+  await page.getByRole('option', { name: 'Priority' }).click();
+  await page.getByRole('button', { name: 'Add task to High' }).click();
+  await dialog.getByLabel('Title').fill('From the group');
+  await dialog.getByRole('button', { name: 'Create task' }).click();
+  await expect(page.getByText(`${key}-3 created`)).toBeVisible();
+  expect(await created(3)).toMatchObject({ priority: 'high', statusId: status('Backlog').id });
+});

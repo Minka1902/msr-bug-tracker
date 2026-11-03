@@ -6,6 +6,7 @@ import {
   PLAN_TIERS,
   PROJECT_MODULES,
   botAllowed,
+  hasConclusions,
   minimumBotPlan,
   minimumPlan,
   planAllows,
@@ -56,6 +57,19 @@ describe('module catalog', () => {
     expect(typesFor('software', 'bug')).toEqual(['bug']);
     expect(typesFor('personal', 'bug')).toEqual([]);
     expect(typesFor('household')).toEqual(['chore', 'errand', 'task', 'discussion']);
+    expect(typesFor('software')).toEqual(['task', 'bug', 'feature', 'improvement', 'discussion']);
+  });
+
+  it('offers discussions exactly once in every module', () => {
+    for (const module of Object.keys(MODULE_META) as (keyof typeof MODULE_META)[])
+      expect(
+        MODULE_META[module].taskTypes.filter((type) => type === 'discussion'),
+        module,
+      ).toHaveLength(1);
+  });
+
+  it('collects decisions in Software, Startup and Household projects', () => {
+    expect(PROJECT_MODULES.filter(hasConclusions)).toEqual(['software', 'household', 'startup']);
   });
 
   it('creates software projects unless a module is given', () => {

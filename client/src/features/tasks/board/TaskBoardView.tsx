@@ -18,16 +18,18 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { useQueryClient } from '@tanstack/react-query';
 import { generateKeyBetween } from 'fractional-indexing';
-import { ChevronDown, KanbanSquare } from 'lucide-react';
+import { ChevronDown, KanbanSquare, Plus } from 'lucide-react';
 import { useMemo, useState, type CSSProperties } from 'react';
 import { toast } from 'sonner';
-import type { Workflow } from '@msr/shared/enums';
+import { TYPE_META, type Workflow } from '@msr/shared/enums';
 import { typesFor } from '@msr/shared/modules';
 import type { BoardColumn, ProjectDetail, TaskCard } from '@msr/shared/types';
 import { EmptyState } from '../../../components/ui/EmptyState';
 import { ErrorState } from '../../../components/ui/ErrorState';
+import { IconButton } from '../../../components/ui/IconButton';
 import { Skeleton } from '../../../components/ui/Skeleton';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useShell } from '../../../hooks/useShell';
 import type { FilterValues } from '../../../hooks/useUrlFilters';
 import { errorMessage } from '../../../lib/api';
 import { cn } from '../../../lib/cn';
@@ -244,16 +246,20 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           canDrag={canDrag}
           swipe={phone}
           onOpen={onOpen}
-          composer={canCreate ? { statusId: status.id, type: composerTypes[0], ...lane.patch?.input } : null}
+          composer={canCreate ? { statusId: status.id, type: composerTypes[0], ...lane.defaults } : null}
           composerTypes={composerTypes}
         />
       );
     });
 
+  const createIn = (statusId: string, lane?: Lane) =>
+    openQuickCreate({ projectKey: project.key, statusId, type: composerTypes[0], ...lane?.defaults });
+
   const canDrag = (task: TaskCard) =>
     permissions.canTransition({ assigneeId: task.assignee?.id ?? null, cardTypeId: task.cardType?.id });
 
   const client = useQueryClient();
+  const { openQuickCreate } = useShell();
   const phone = useMediaQuery(PHONE);
   const permissions = useProjectPermissions(project);
   const update = useUpdateTask();
@@ -293,6 +299,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
   const containers = dragContainers ?? baseContainers;
   const canCreate = permissions.can('task.create');
   const composerTypes = typesFor(project.module, workflow);
+  const noun = TYPE_META[composerTypes[0]!].label.toLowerCase();
 
   if (board.error) return <ErrorState error={board.error} onRetry={board.refetch} />;
   if (board.isPending)
@@ -332,6 +339,15 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
                     {status.name}
                   </span>
                   <span className="text-xs text-subtle tabular-nums">{column?.total ?? 0}</span>
+                  {canCreate && (
+                    <IconButton
+                      icon={<Plus />}
+                      size="xs"
+                      label={`Add ${noun} to ${status.name}`}
+                      onClick={() => createIn(status.id)}
+                      className="ml-auto"
+                    />
+                  )}
                 </div>
               );
             })}
@@ -346,21 +362,31 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
               </div>
             ) : (
               <section key={lane.key} className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => toggleLane(lane.key)}
-                  className="sticky left-0 flex w-fit cursor-pointer items-center gap-2 text-sm font-semibold tracking-wide uppercase"
-                >
-                  <ChevronDown
-                    className={cn(
-                      'size-4 text-accent-text transition-transform',
-                      collapsed[lane.key] && '-rotate-90',
-                    )}
-                  />
-                  {lane.icon}
-                  {lane.label}
-                  <span className="text-xs font-normal text-subtle">{lane.tasks.length}</span>
-                </button>
+                <div className="sticky left-0 flex w-fit items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleLane(lane.key)}
+                    className="flex cursor-pointer items-center gap-2 text-sm font-semibold tracking-wide uppercase"
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'size-4 text-accent-text transition-transform',
+                        collapsed[lane.key] && '-rotate-90',
+                      )}
+                    />
+                    {lane.icon}
+                    {lane.label}
+                    <span className="text-xs font-normal text-subtle">{lane.tasks.length}</span>
+                  </button>
+                  {canCreate && (
+                    <IconButton
+                      icon={<Plus />}
+                      size="xs"
+                      label={`Add ${noun} to ${lane.label}`}
+                      onClick={() => createIn(activeStatusId, lane)}
+                    />
+                  )}
+                </div>
                 {!collapsed[lane.key] && <div className="flex gap-4">{renderLane(lane)}</div>}
               </section>
             ),

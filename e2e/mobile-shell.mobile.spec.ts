@@ -99,6 +99,27 @@ test('phones navigate from the bottom: tab bar, menu sheet and a + button on the
   await expect(page.getByRole('dialog', { name: 'New task' })).toBeVisible();
 });
 
+test('phones show the project name and its actions in the top bar', async ({ page }) => {
+  test.skip(isTablet(page), 'Tablets keep the project header');
+  await signUp(page, 'Bar Reader');
+  const { key } = await createProject(page, 'Top Bar');
+  await page.goto(`/p/${key}/board`);
+
+  const banner = page.getByRole('banner');
+  await expect(banner.getByRole('heading', { level: 1, name: 'Top Bar' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
+  await banner.getByRole('button', { name: 'Project actions' }).click();
+  const sheet = page.getByRole('dialog', { name: 'Top Bar' });
+  await expect(sheet.getByRole('menuitem', { name: 'Copy link' })).toBeVisible();
+  await expect(sheet.getByRole('menuitem', { name: 'Invite people' })).toBeVisible();
+  await sheet.getByRole('menuitem', { name: 'Settings' }).click();
+  await expect(page).toHaveURL(new RegExp(`/p/${key}/settings/general$`));
+  await expect(banner.getByRole('heading', { name: 'Top Bar' })).toBeVisible();
+
+  await page.goto('/my-tasks');
+  await expect(banner.getByRole('heading', { name: 'Top Bar' })).toHaveCount(0);
+});
+
 test('a swipe toward the palm finishes a task and the board moves cards onto status pills', async ({
   page,
 }) => {

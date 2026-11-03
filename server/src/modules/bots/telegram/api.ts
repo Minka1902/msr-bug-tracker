@@ -1,11 +1,12 @@
-import { config } from '../../config';
+import { config } from '../../../config';
+import type { SendResult } from '../platforms';
 
 interface TelegramResult<T> {
   ok: boolean;
   status: number;
   result?: T;
   description?: string;
-  parameters?: { migrate_to_chat_id?: number };
+  parameters?: { migrate_to_chat_id?: number; retry_after?: number };
 }
 
 const API = 'https://api.telegram.org';
@@ -44,10 +45,19 @@ export const botUsername = () => {
   return username;
 };
 
-export const sendMessage = (chatId: number, text: string) =>
-  call('sendMessage', {
-    chat_id: chatId,
+export const sendTelegram = async (chatId: string, text: string): Promise<SendResult> => {
+  const answer = await call('sendMessage', {
+    chat_id: Number(chatId),
     text,
     parse_mode: 'HTML',
     link_preview_options: { is_disabled: true },
   });
+  const movedTo = answer.parameters?.migrate_to_chat_id;
+  return {
+    ok: answer.ok,
+    gone: answer.status === 403,
+    movedTo: movedTo === undefined ? undefined : String(movedTo),
+    retryAfter: answer.parameters?.retry_after,
+    error: answer.description,
+  };
+};

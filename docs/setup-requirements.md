@@ -2,7 +2,7 @@
 
 Everything below is a setting or an account only you can create. Do them in this order. Each step says why it matters and what breaks without it.
 
-Your live app is `https://msr-bug-tracker.onrender.com`. The plans, modules, AI workers, AI planning, appointments and Telegram work is on the branch `minka/wonderful-planck-vw2has`. It goes live once you merge that branch into the branch Render deploys from, usually `main`.
+Your live app is `https://msr-bug-tracker.onrender.com`. Render deploys it from `main`, so a feature goes live once its branch is merged there.
 
 > **Do step 1 before you merge.** The new server refuses to start in production without `ENCRYPTION_KEY`, so the site would go down.
 
@@ -18,7 +18,8 @@ Your live app is `https://msr-bug-tracker.onrender.com`. The plans, modules, AI 
 | 6   | Custom domain                        | A nicer URL, and verifying the Google app                | Optional                                 |
 | 7   | App Store and Play Store listings    | Native store apps (the PWA works without them)           | Optional                                 |
 | 8   | Connect Claude and ChatGPT           | Asking Claude or ChatGPT about your tasks, lists, events | Optional, after the merge                |
-| 9   | Telegram bot                         | Commands and updates in Telegram chats and groups        | Optional, after the merge                |
+| 9   | Telegram bot                         | Commands and updates in Telegram chats and groups        | Optional                                 |
+| 10  | Discord bot                          | Commands and updates in Discord DMs and server channels  | Optional                                 |
 
 Nothing is needed from you for:
 
@@ -169,9 +170,21 @@ Without this, everything else works and the Telegram tab in project settings is 
      ```
 3. In Render, add `TELEGRAM_BOT_TOKEN` with the token and save. Nothing else is needed: the webhook secret comes from `ENCRYPTION_KEY`.
 4. After the deploy, the Render log shows **Telegram webhook set**. If it shows **Telegram webhook failed**, the message says why, usually a wrong token.
-5. In MSR, open a household → **Settings → Telegram → Connect me**, then **Add to a group** for the family group. The bot answers `help` in both.
+5. In MSR, open a household → **Settings → Bots → Telegram → Connect me**, then **Add to a group** for the family group. The bot answers `help` in both.
 
 The bot needs the project owner's plan: **Personal** for households, **Pro** for any other project. The service must stay awake (step 3), or notifications and reminders stop while it sleeps.
+
+## 10. Discord bot (optional)
+
+Without this, everything else works and Settings → Bots shows only Telegram.
+
+1. Open [discord.com/developers/applications](https://discord.com/developers/applications) → **New Application**, named for example "MSR Tracker".
+2. **Bot** → **Reset Token**, and copy the token. On the same page, switch on **Message Content Intent**, so plain messages like "apples" reach the bot. It's free for bots in fewer than 100 servers.
+3. Leave the **Installation** page as it is. MSR builds its own install link with only the permissions it needs: View Channel, Send Messages and Read Message History.
+4. In Render, add `DISCORD_BOT_TOKEN` with the token and save.
+5. After the deploy, the Render log shows **Discord bot connected**. If it shows **Discord bot stopped**, the message says why: usually a wrong token, or Message Content Intent is off.
+6. The bot keeps a live connection to Discord, so the service must stay awake (step 3). While it sleeps the bot is offline.
+7. In MSR, open a project → **Settings → Bots → Discord → Add to a channel**, add the bot to your server, then send `start <code>` in the channel. **Connect me** gives a code to send the bot in a private message.
 
 ---
 
@@ -186,7 +199,7 @@ The bot needs the project owner's plan: **Personal** for households, **Pro** for
 | AI keys                  | Settings → AI, then paste a Claude, ChatGPT, Gemini or Grok API key. Each key is tested before it's saved                                                                                                                                                                                                                                   |
 | Claude / ChatGPT         | Add the connector in Claude or ChatGPT (step 8), sign in to MSR and click **Allow**. Settings → Connected apps disconnects it                                                                                                                                                                                                               |
 | Moving from another tool | Projects → Import. Each tool asks for the user's own token, and the dialog links to where to create it: ClickUp (Settings → Apps), Jira (Atlassian API tokens), Trello (Power-Up admin), Asana (developer console), Linear (Security & access) and GitHub (fine-grained token with read-only Issues). Tokens are used once and never stored |
-| Telegram                 | Project → Settings → Telegram → **Connect me**, or **Add to a group** for a family or team group. Each chat picks its own updates, "only my tasks", and the list plain messages go to                                                                                                                                                       |
+| Telegram and Discord     | Project → Settings → Bots → **Connect me**, or **Add to a group** / **Add to a channel**. Each chat picks its own updates, "only my tasks", and the list plain messages go to                                                                                                                                                               |
 | Households               | New project → Household, then invite the family. **Parent** can do everything. **Child** can only take and finish their own chores and edit the shopping lists. **Guest** can only look                                                                                                                                                     |
 
 ## Environment variables at a glance
@@ -203,6 +216,7 @@ The bot needs the project owner's plan: **Personal** for households, **Pro** for
 | `APP_URL`                                  | Your custom domain's origin                   | Only with a custom domain                    |
 | `ENABLE_DEMO_DATA`                         | `true` (default) or `false`                   | Optional: `false` hides Settings → Demo data |
 | `TELEGRAM_BOT_TOKEN`                       | The token from @BotFather                     | For the Telegram bot                         |
+| `DISCORD_BOT_TOKEN`                        | The token from the Discord Developer Portal   | For the Discord bot                          |
 
 ## What I couldn't test here
 

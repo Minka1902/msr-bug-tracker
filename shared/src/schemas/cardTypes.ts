@@ -13,6 +13,7 @@ const cardTypeFields = {
   color: colorSchema,
   createRoleIds: roleIds,
   editRoleIds: roleIds,
+  viewRoleIds: roleIds,
 };
 
 export const cardTypeSchema = z.object({
@@ -20,6 +21,7 @@ export const cardTypeSchema = z.object({
   base: z.enum(TASK_TYPES),
   createRoleIds: roleIds.default([]),
   editRoleIds: roleIds.default([]),
+  viewRoleIds: roleIds.default([]),
 });
 export const updateCardTypeSchema = z
   .object(cardTypeFields)

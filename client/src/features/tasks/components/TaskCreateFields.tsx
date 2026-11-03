@@ -26,6 +26,22 @@ export interface TaskCreateValues {
   severity: Severity | null;
 }
 
+export const taskCreateValues = (
+  type: TaskType,
+  presets: Partial<TaskCreateValues> = {},
+): TaskCreateValues => ({
+  type,
+  cardTypeId: null,
+  statusId: null,
+  priority: 'medium',
+  assigneeId: null,
+  dueDate: null,
+  recurrence: null,
+  labelIds: [],
+  severity: null,
+  ...presets,
+});
+
 interface TaskCreateFieldsProps {
   project: Pick<
     ProjectDetail,

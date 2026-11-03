@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../src/db/pool';
-import { runNotifications } from '../src/modules/telegram/notifier';
-import { createTask, resetDb, statusOf, type Agent } from './helpers';
+import { runNotifications } from '../src/modules/bots/notifier';
+import { createTask, resetDb, roleId, statusOf, subscribe, type Agent } from './helpers';
 import {
   CHILD_TG,
   GROUP,
@@ -21,7 +21,7 @@ import {
 const SIBLING_TG = 505;
 
 const notifyChat = (agent: Agent, chatId: number, patch: Record<string, unknown>) =>
-  agent.patch(`/api/projects/HOME/telegram/chats/${chatId}`).send(patch).expect(200);
+  agent.patch(`/api/projects/HOME/bots/chats/telegram/${chatId}`).send(patch).expect(200);
 
 const run = async () => {
   await pool.query("UPDATE task_activity SET created_at = created_at - interval '1 minute'");
@@ -67,7 +67,7 @@ afterAll(stopTelegram);
 
 beforeEach(async () => {
   await resetDb();
-  await pool.query('INSERT INTO telegram_state (activity_cursor) VALUES (0)');
+  await pool.query('INSERT INTO bot_state (activity_cursor) VALUES (0)');
   telegramFailures.clear();
   sentMessages();
 });
@@ -113,7 +113,9 @@ describe('Telegram notifications', () => {
     const [group] = textFor(messages, GROUP.id);
     expect(group!.split('\n')).toEqual([
       '<b>HOME · Home</b>',
-      expect.stringMatching(/^🆕 <a href=".+\/t\/HOME-1">HOME-1 Fix the gate<\/a> for Avi Levi \(Dana Levi\)$/),
+      expect.stringMatching(
+        /^🆕 <a href=".+\/t\/HOME-1">HOME-1 Fix the gate<\/a> for Avi Levi \(Dana Levi\)$/,
+      ),
       expect.stringMatching(/^👤 .+HOME-1 Fix the gate.+ → Avi Levi \(Dana Levi\)$/),
       expect.stringMatching(/^⬆️ .+: medium → urgent \(Dana Levi\)$/),
       expect.stringMatching(/^🔄 .+: To do → Done \(Dana Levi\)$/),
@@ -184,7 +186,7 @@ describe('Telegram notifications', () => {
       expect.stringMatching(/HOME-2 Late<\/a> · Anyone · overdue since /),
     ]);
     expect(await run()).toEqual([]);
-    await pool.query('UPDATE telegram_chats SET digest_sent_on = digest_sent_on - 1');
+    await pool.query('UPDATE bot_chats SET digest_sent_on = digest_sent_on - 1');
     expect(textFor(await run(), PARENT_TG)).toHaveLength(1);
   });
 
@@ -260,11 +262,11 @@ describe('Telegram notifications', () => {
     await createTask(parent, 'HOME', { title: 'Loud' });
     const messages = await run();
     expect(messages.map((message) => message.chatId)).toEqual([GROUP.id, -100500]);
-    expect((await pool.query('SELECT chat_id FROM telegram_chats WHERE NOT is_group')).rows).toEqual([
-      { chat_id: PARENT_TG },
+    expect((await pool.query('SELECT chat_id FROM bot_chats WHERE NOT is_group')).rows).toEqual([
+      { chat_id: String(PARENT_TG) },
     ]);
-    expect((await pool.query('SELECT chat_id FROM telegram_chats WHERE is_group')).rows).toEqual([
-      { chat_id: -100500 },
+    expect((await pool.query('SELECT chat_id FROM bot_chats WHERE is_group')).rows).toEqual([
+      { chat_id: '-100500' },
     ]);
 
     telegramFailures.set(
@@ -273,7 +275,7 @@ describe('Telegram notifications', () => {
     );
     await createTask(parent, 'HOME', { title: 'Kicked' });
     await run();
-    expect((await pool.query('SELECT chat_id FROM telegram_chats WHERE is_group')).rows).toEqual([]);
+    expect((await pool.query('SELECT chat_id FROM bot_chats WHERE is_group')).rows).toEqual([]);
   });
 
   it('caps a busy run at one short message per chat', async () => {
@@ -290,9 +292,46 @@ describe('Telegram notifications', () => {
 
   it('moves a chat when Telegram upgrades its group', async () => {
     const { parent } = await setupFamily();
-    await pool.query("UPDATE telegram_chats SET notify = '{task_created}'");
+    await pool.query("UPDATE bot_chats SET notify = '{task_created}'");
     await postUpdate({ chat: GROUP, migrate_to_chat_id: -100777 }).expect(200);
     await createTask(parent, 'HOME', { title: 'Moved' });
     expect((await run()).map((message) => message.chatId)).toEqual([-100777]);
+  });
+
+  it('keeps cards of a restricted type out of groups and away from people who cannot see them', async () => {
+    const { parent, project, otherParent, child } = await setupFamily();
+    await subscribe(parent, 'pro');
+    const admins = [roleId(project, 'admin')];
+    const surprise = (
+      await parent
+        .post('/api/projects/HOME/card-types')
+        .send({
+          name: 'Surprise',
+          base: 'task',
+          icon: 'gift',
+          color: '#ec4899',
+          createRoleIds: admins,
+          editRoleIds: admins,
+          viewRoleIds: admins,
+        })
+        .expect(201)
+    ).body.cardType;
+    await connect(otherParent.agent, 'HOME', dm(OTHER_PARENT_TG), OTHER_PARENT_TG);
+    await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);
+    await notifyChat(parent, GROUP.id, { notify: ['task_created'] });
+    await notifyChat(otherParent.agent, OTHER_PARENT_TG, { notify: ['task_created'], onlyMine: false });
+    await notifyChat(child.agent, CHILD_TG, { notify: ['task_created'], onlyMine: false });
+
+    await createTask(parent, 'HOME', { title: 'Plan the birthday party', cardTypeId: surprise.id });
+    await createTask(parent, 'HOME', { title: 'Fix the gate' });
+    const messages = await run();
+    expect(textFor(messages, GROUP.id).join()).not.toContain('birthday');
+    expect(textFor(messages, GROUP.id).join()).toContain('Fix the gate');
+    expect(textFor(messages, CHILD_TG).join()).not.toContain('birthday');
+    expect(textFor(messages, OTHER_PARENT_TG).join()).toContain('Plan the birthday party');
+
+    expect(await reply(GROUP, PARENT_TG, 'chores?')).not.toContain('birthday');
+    expect(await reply(dm(PARENT_TG), PARENT_TG, 'chores?')).toContain('Plan the birthday party');
+    expect(await reply(GROUP, PARENT_TG, 'HOME-1?')).toBe('Task not found');
   });
 });

@@ -280,6 +280,8 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 
 `tasks.overdue_alerted_for` remembers the due date an overdue alert was sent for, so changing the due date re-arms it.
 
+Migration 025 turns these into the shared bot tables below.
+
 ### Discussions — migration 020
 
 `task_type` gains `discussion`, and `tasks` gains `decision` (text, at most 20,000 chars). `CHECK tasks_discussion_decision` keeps a discussion with a blank decision out of every `done` status. It compares `type::text`, so the migration can add the enum value and the check in one transaction.
@@ -295,6 +297,26 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 | `project_card_types` | `project_id`, `base` (`task_type`), `name` (unique per project, case-insensitive), `icon`, `color`, `create_role_ids` uuid[], `edit_role_ids` uuid[] | A project's own kind of card. It works like its `base` type (workflow, statuses, bug fields). The role lists say who can create and who can edit or move its cards; the owner always can                     |
 | `tasks`              | `card_type_id` uuid, null                                                                                                                            | `FOREIGN KEY (project_id, card_type_id) → project_card_types (project_id, id) ON DELETE SET NULL (card_type_id)`, so a card only uses its own project's types and reverts to `type` when its type is deleted |
 
+### Attachment retention — migration 023
+
+`attachments.purged_at` (timestamptz, null) and a partial index `tasks_done_with_files_idx` on `tasks (completed_at) WHERE attachment_count > 0`. The hourly job marks a file purged once both its card's `completed_at` and its own `created_at` are 7 days old, lowers `attachment_count` in the same statement, then deletes the stored file unless a live row (a duplicate or the next repeat) still uses its `storage_key`. Purged rows stay as tombstones, so links in text still resolve.
+
+### Card type visibility — migration 024
+
+`project_card_types.view_role_ids` (uuid[], default `{}` = everyone). `CHECK project_card_types_view_roles`: when it isn't empty, `create_role_ids` and `edit_role_ids` must be inside it.
+
+### Chat bots — migration 025
+
+`bot_platform` enum (`telegram`, `discord`). The Telegram tables are renamed and get a `platform`; ids become `text`, because Discord snowflakes don't fit in a JS number.
+
+| Table            | Key columns                                                                                                                                     | Notes                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `bot_accounts`   | PK `(platform, external_id)`, unique `(platform, user_id)`                                                                                      | Who a Telegram or Discord sender is in MSR. Replaces `users.telegram_user_id` (rows copied)     |
+| `bot_chats`      | PK `(platform, chat_id, project_id)`, `is_group`, `linked_by`, `notify` text[], `only_mine`, `default_list_id`, `digest_sent_on`, `selected_at` | Was `telegram_chats`. A Discord server channel is a group                                       |
+| `bot_link_codes` | `code_hash` PK, `platform`, `user_id`, `project_id`, `is_group`, `expires_at`                                                                   | Was `telegram_link_codes`. A code only works on the platform it was made for                    |
+| `bot_state`      | one row, `activity_cursor`                                                                                                                      | Was `telegram_state`. One cursor for both platforms                                             |
+| `bot_outbox`     | `project_id`, `kind`, `payload` jsonb, `actor_id`, `source_platform`, `source_chat_id` text                                                     | Was `telegram_outbox`. The source chat stops a bot change echoing back to the chat it came from |
+
 ## Invariants
 
 - **Project keys** are globally unique (case-insensitive), match `^[A-Z][A-Z0-9]{1,5}$`, and never change after creation.
@@ -304,7 +326,9 @@ An AI worker is a `users` row with `agent_owner_id` set, an `agent-<uuid>@agents
 - **Workflows:** every project has two workflows, `task` and `bug`. Each must keep at least one status in the `backlog`/`todo` categories and at least one in `done`. Deleting a status requires a target status for its tasks.
 - **Completion:** `tasks.completed_at` is set when a task enters a `done`-category status and cleared when it leaves one.
 - **Discussions** in a `done` status always have a decision (`CHECK tasks_discussion_decision`).
+- **Card visibility:** a card whose type has `view_role_ids` is visible only to those roles, the project owner and the card's assignee and reporter. Every listing, count and lookup applies the same predicate.
 - **Card types:** `tasks.type` always equals the `base` of its card type. A move keeps the card type only when the target project has one with the same name and base.
+- **Attachment retention:** a done card's files are deleted 7 days after it's done, or 7 days after their upload when that came later. `attachment_count` counts only rows with `purged_at IS NULL`.
 - **Counters:** `comment_count`, `attachment_count`, `checklist_total/done` and `subtask_total/done` on `tasks` are updated in the same transaction as the change they count. Tests compare them against fresh recounts.
 - **Demo tagging:** demo rows carry `projects.is_demo = true`, and demo users have `users.demo_owner_id` set. Demo users have no password.
 - **Secrets at rest:** 2FA secrets, AI keys, calendar credentials and feed tokens are sealed with AES-256-GCM under `ENCRYPTION_KEY`, in the format `v1.iv.tag.ciphertext`. Changing or losing the key makes them unreadable.

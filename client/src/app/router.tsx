@@ -146,6 +146,12 @@ export const router = createBrowserRouter([
                 lazy: lazyRoute(() => import('../features/tasks/pages/BugsPage').then((m) => m.BugsPage)),
               },
               {
+                path: 'conclusions',
+                lazy: lazyRoute(() =>
+                  import('../features/insights/pages/ConclusionsPage').then((m) => m.ConclusionsPage),
+                ),
+              },
+              {
                 path: ':number',
                 lazy: lazyRoute(() => import('../features/tasks/pages/TaskPage').then((m) => m.TaskPage)),
               },
@@ -206,9 +212,9 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: 'telegram',
+                    path: 'bots',
                     lazy: lazyRoute(() =>
-                      import('../features/telegram/pages/TelegramSettings').then((m) => m.TelegramSettings),
+                      import('../features/bots/pages/BotSettings').then((m) => m.BotSettings),
                     ),
                   },
                   {

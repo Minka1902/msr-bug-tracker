@@ -40,6 +40,10 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     });
     return;
   }
+  if (error?.code === PG_CHECK_VIOLATION && error.constraint === 'project_card_types_view_roles') {
+    res.status(400).json({ error: 'Roles that create or edit these cards must also be able to see them' });
+    return;
+  }
   if (error?.type === 'entity.too.large' || error?.code === 'LIMIT_FILE_SIZE') {
     res.status(413).json({ error: 'Payload too large' });
     return;
