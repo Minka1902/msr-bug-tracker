@@ -97,7 +97,7 @@ Each project has roles in `project_roles`, and each role stores an **integer bit
 
 Subtasks move with their parent, and so does the task's activity history. Duplicating copies the fields and labels, adds "(copy)" to the title, and copies the checklist with every item unchecked. It does not copy comments or attachments.
 
-**Discussions.** Startup and Household projects offer a `discussion` type with a `decision` field. A discussion can't enter a `done` status while its decision is blank:
+**Discussions.** Every module offers a `discussion` type with a `decision` field. A discussion can't enter a `done` status while its decision is blank:
 
 - `createTask`, `updateTask` and `bulkUpdateTasks` check first and answer `400 Add a decision before closing KEY-3` with `details: { code: 'decision_required', tasks }`.
 - The client's `useUpdateTask` catches that code, asks "What was decided?", and resends the same patch with the decision. Swiping one card does the same through the bulk route.
@@ -207,7 +207,7 @@ A project's `kind` is `software` or `household`, fixed when the project is creat
 - the starter labels Kitchen, Laundry, Outdoor, School and Pets
 - a Groceries list
 
-The client offers chore, errand and task (`MODULE_META.household.taskTypes`). Its tabs are Home, Chores (the board grouped by person), All tasks, Shopping, Calendar, Activity and Settings.
+The client offers chore, errand, task and discussion (`MODULE_META.household.taskTypes`). Its tabs are Home, Chores (the board grouped by person), All tasks, Shopping, Calendar, Activity and Settings.
 
 `modules/shopping` serves lists and items under `/projects/:key/lists`:
 

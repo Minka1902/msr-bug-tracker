@@ -35,8 +35,8 @@ export interface PlanMeta {
   priceCents: number;
 }
 
-const SOFTWARE_TYPES: readonly TaskType[] = ['task', 'bug', 'feature', 'improvement'];
-const STEP_TYPES: readonly TaskType[] = ['task', 'errand'];
+const SOFTWARE_TYPES: readonly TaskType[] = ['task', 'bug', 'feature', 'improvement', 'discussion'];
+const STEP_TYPES: readonly TaskType[] = ['task', 'errand', 'discussion'];
 
 export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
   software: {
@@ -96,7 +96,7 @@ export const MODULE_META: Record<CatalogModule, ModuleMeta> = {
     description: 'Take an idea from first step to first customers',
     icon: 'rocket',
     kind: 'software',
-    taskTypes: [...SOFTWARE_TYPES, 'discussion'],
+    taskTypes: SOFTWARE_TYPES,
     labels: ['Validation', 'Product', 'Marketing', 'Sales', 'Legal'],
     features: [
       'AI plans validation, product and launch',

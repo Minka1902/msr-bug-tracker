@@ -56,6 +56,15 @@ describe('module catalog', () => {
     expect(typesFor('software', 'bug')).toEqual(['bug']);
     expect(typesFor('personal', 'bug')).toEqual([]);
     expect(typesFor('household')).toEqual(['chore', 'errand', 'task', 'discussion']);
+    expect(typesFor('software')).toEqual(['task', 'bug', 'feature', 'improvement', 'discussion']);
+  });
+
+  it('offers discussions exactly once in every module', () => {
+    for (const module of Object.keys(MODULE_META) as (keyof typeof MODULE_META)[])
+      expect(
+        MODULE_META[module].taskTypes.filter((type) => type === 'discussion'),
+        module,
+      ).toHaveLength(1);
   });
 
   it('creates software projects unless a module is given', () => {

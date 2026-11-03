@@ -100,6 +100,21 @@ describe('discussions', () => {
     expect(copy.body.task).toMatchObject({ statusCategory: 'done', decision: 'Rent the van' });
   });
 
+  it('works the same in software and personal projects', async () => {
+    const owner = agentFor();
+    await registerUser(owner);
+    for (const [key, module] of [
+      ['WEB', 'software'],
+      ['GOAL', 'personal'],
+    ] as const) {
+      const project = await createProject(owner, { key, name: key, module });
+      const task = await discussion(owner, key);
+      const done = statusOf(project, 'task', 'Done');
+      await owner.patch(`/api/tasks/${task.id}`).send({ statusId: done }).expect(400);
+      await owner.patch(`/api/tasks/${task.id}`).send({ statusId: done, decision: 'Go' }).expect(200);
+    }
+  });
+
   it('is offered in households and closes through the AI connector with a decision', async () => {
     const owner = agentFor();
     await registerUser(owner);
