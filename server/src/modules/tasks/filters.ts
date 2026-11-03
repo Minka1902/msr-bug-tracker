@@ -1,11 +1,14 @@
 import { isTaskType } from '@msr/shared/enums';
 import type { TaskFilters, TaskSort } from '@msr/shared/schemas/task';
 import { parseIdentifier } from '@msr/shared/identifiers';
+import { visibleTo } from '../cardTypes/visibility';
 
 export interface FilterContext {
   userId: string;
   timezone: string;
 }
+
+export const escapeLike = (text: string) => text.replace(/[\\%_]/g, '\\$&');
 
 const SORT_SQL: Record<TaskSort, string> = {
   updated: 't.updated_at',
@@ -37,14 +40,14 @@ export const sortSql = (filters: Pick<TaskFilters, 'sort' | 'dir'>) => {
 export const buildTaskFilter = (filters: TaskFilters, context: FilterContext, values: unknown[]) => {
   const param = (value: unknown) => `$${values.push(value)}`;
   const today = () => `(now() AT TIME ZONE ${param(context.timezone)})::date`;
-  const conditions: string[] = [];
+  const conditions = [visibleTo('t', param(context.userId))];
 
   if (filters.q) {
     const identifier = parseIdentifier(filters.q);
     const tsQuery = toTsQuery(filters.q);
     const textMatch = [
       tsQuery && `t.search_vector @@ to_tsquery('simple', ${param(tsQuery)})`,
-      `t.title ILIKE ${param(`%${filters.q.replace(/[\\%_]/g, '\\$&')}%`)}`,
+      `t.title ILIKE ${param(`%${escapeLike(filters.q)}%`)}`,
     ].filter(Boolean);
     conditions.push(
       identifier

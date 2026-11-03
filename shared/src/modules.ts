@@ -35,6 +35,7 @@ export interface PlanMeta {
   priceCents: number;
 }
 
+const CONCLUSION_MODULES: readonly ProjectModule[] = ['software', 'startup', 'household'];
 const SOFTWARE_TYPES: readonly TaskType[] = ['task', 'bug', 'feature', 'improvement', 'discussion'];
 const STEP_TYPES: readonly TaskType[] = ['task', 'errand', 'discussion'];
 
@@ -205,6 +206,8 @@ export const botAllowed = (tier: PlanTier, module: ProjectModule) =>
 
 export const cardTypesAllowed = (tier: PlanTier, module: ProjectModule) =>
   module === 'startup' || tier === 'pro';
+
+export const hasConclusions = (module: ProjectModule) => CONCLUSION_MODULES.includes(module);
 
 export const minimumPlan = (module: CatalogModule) => PLAN_TIERS.find((tier) => planAllows(tier, module))!;
 

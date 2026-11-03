@@ -3,6 +3,7 @@ import {
   Bug,
   CalendarDays,
   ChartPie,
+  Gavel,
   History,
   House,
   KanbanSquare,
@@ -13,7 +14,7 @@ import {
   Star,
 } from 'lucide-react';
 import { Outlet, useParams } from 'react-router';
-import { MODULE_META } from '@msr/shared/modules';
+import { hasConclusions, MODULE_META } from '@msr/shared/modules';
 import { can } from '@msr/shared/permissions';
 import { toast } from 'sonner';
 import { Badge } from '../../../components/ui/Badge';
@@ -41,6 +42,7 @@ const TABS = {
     { path: 'board', label: 'Board', icon: <KanbanSquare /> },
     { path: 'list', label: 'List', icon: <List /> },
     { path: 'bugs', label: 'Bugs', icon: <Bug /> },
+    { path: 'conclusions', label: 'Conclusions', icon: <Gavel /> },
     { path: 'activity', label: 'Activity', icon: <History /> },
     { path: 'settings', label: 'Settings', icon: <Settings /> },
   ],
@@ -50,6 +52,7 @@ const TABS = {
     { path: 'list', label: 'All tasks', icon: <List /> },
     { path: 'shopping', label: 'Shopping', icon: <ShoppingCart /> },
     { path: 'calendar', label: 'Calendar', icon: <CalendarDays /> },
+    { path: 'conclusions', label: 'Conclusions', icon: <Gavel /> },
     { path: 'activity', label: 'Activity', icon: <History /> },
     { path: 'settings', label: 'Settings', icon: <Settings /> },
   ],
@@ -135,7 +138,11 @@ export function ProjectLayout() {
       <TabLinks
         label="Project views"
         items={TABS[data.kind]
-          .filter((tab) => tab.path !== 'bugs' || MODULE_META[data.module].taskTypes.includes('bug'))
+          .filter(
+            (tab) =>
+              (tab.path !== 'bugs' || MODULE_META[data.module].taskTypes.includes('bug')) &&
+              (tab.path !== 'conclusions' || hasConclusions(data.module)),
+          )
           .map((tab) => ({
             to: `${base}/${tab.path}`,
             label: tab.label,

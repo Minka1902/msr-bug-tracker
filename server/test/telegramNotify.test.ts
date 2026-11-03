@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../src/db/pool';
 import { runNotifications } from '../src/modules/telegram/notifier';
-import { createTask, resetDb, statusOf, type Agent } from './helpers';
+import { createTask, resetDb, roleId, statusOf, subscribe, type Agent } from './helpers';
 import {
   CHILD_TG,
   GROUP,
@@ -113,7 +113,9 @@ describe('Telegram notifications', () => {
     const [group] = textFor(messages, GROUP.id);
     expect(group!.split('\n')).toEqual([
       '<b>HOME · Home</b>',
-      expect.stringMatching(/^🆕 <a href=".+\/t\/HOME-1">HOME-1 Fix the gate<\/a> for Avi Levi \(Dana Levi\)$/),
+      expect.stringMatching(
+        /^🆕 <a href=".+\/t\/HOME-1">HOME-1 Fix the gate<\/a> for Avi Levi \(Dana Levi\)$/,
+      ),
       expect.stringMatching(/^👤 .+HOME-1 Fix the gate.+ → Avi Levi \(Dana Levi\)$/),
       expect.stringMatching(/^⬆️ .+: medium → urgent \(Dana Levi\)$/),
       expect.stringMatching(/^🔄 .+: To do → Done \(Dana Levi\)$/),
@@ -294,5 +296,42 @@ describe('Telegram notifications', () => {
     await postUpdate({ chat: GROUP, migrate_to_chat_id: -100777 }).expect(200);
     await createTask(parent, 'HOME', { title: 'Moved' });
     expect((await run()).map((message) => message.chatId)).toEqual([-100777]);
+  });
+
+  it('keeps cards of a restricted type out of groups and away from people who cannot see them', async () => {
+    const { parent, project, otherParent, child } = await setupFamily();
+    await subscribe(parent, 'pro');
+    const admins = [roleId(project, 'admin')];
+    const surprise = (
+      await parent
+        .post('/api/projects/HOME/card-types')
+        .send({
+          name: 'Surprise',
+          base: 'task',
+          icon: 'gift',
+          color: '#ec4899',
+          createRoleIds: admins,
+          editRoleIds: admins,
+          viewRoleIds: admins,
+        })
+        .expect(201)
+    ).body.cardType;
+    await connect(otherParent.agent, 'HOME', dm(OTHER_PARENT_TG), OTHER_PARENT_TG);
+    await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);
+    await notifyChat(parent, GROUP.id, { notify: ['task_created'] });
+    await notifyChat(otherParent.agent, OTHER_PARENT_TG, { notify: ['task_created'], onlyMine: false });
+    await notifyChat(child.agent, CHILD_TG, { notify: ['task_created'], onlyMine: false });
+
+    await createTask(parent, 'HOME', { title: 'Plan the birthday party', cardTypeId: surprise.id });
+    await createTask(parent, 'HOME', { title: 'Fix the gate' });
+    const messages = await run();
+    expect(textFor(messages, GROUP.id).join()).not.toContain('birthday');
+    expect(textFor(messages, GROUP.id).join()).toContain('Fix the gate');
+    expect(textFor(messages, CHILD_TG).join()).not.toContain('birthday');
+    expect(textFor(messages, OTHER_PARENT_TG).join()).toContain('Plan the birthday party');
+
+    expect(await reply(GROUP, PARENT_TG, 'chores?')).not.toContain('birthday');
+    expect(await reply(dm(PARENT_TG), PARENT_TG, 'chores?')).toContain('Plan the birthday party');
+    expect(await reply(GROUP, PARENT_TG, 'HOME-1?')).toBe('Task not found');
   });
 });

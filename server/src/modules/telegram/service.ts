@@ -3,6 +3,7 @@ import type { ProjectModule } from '@msr/shared/modules';
 import type { NotifyKind } from '@msr/shared/telegram';
 import { query, queryOne, transaction } from '../../db/pool';
 import { hashToken } from '../../lib/tokens';
+import { visibleTo } from '../cardTypes/visibility';
 import { USER_COLUMNS, type UserRow } from '../users/service';
 
 export interface ChatRow {
@@ -71,6 +72,7 @@ const OPEN_TASKS = `
   JOIN project_statuses s ON s.id = t.status_id
   LEFT JOIN users u ON u.id = t.assignee_id
   WHERE t.project_id = $1 AND s.category <> 'done' AND t.parent_id IS NULL AND ($2::uuid IS NULL OR t.assignee_id = $2)
+    AND ${visibleTo('t', '$4::uuid')}
   ORDER BY u.name NULLS LAST, t.due_date NULLS LAST, t.number
   LIMIT $3`;
 
@@ -138,11 +140,17 @@ export const queueNotification = (
 export const hasTelegram = (userId: string) =>
   queryOne<{ linked: boolean }>(HAS_TELEGRAM, [userId]).then((row) => !!row?.linked);
 
-export const openTasks = (projectId: string, assigneeId: string | null, limit: number) =>
+export const openTasks = (
+  projectId: string,
+  assigneeId: string | null,
+  limit: number,
+  viewerId: string | null,
+) =>
   query<{ number: number; title: string; due_date: string | null; assignee: string | null }>(OPEN_TASKS, [
     projectId,
     assigneeId,
     limit,
+    viewerId,
   ]);
 
 export const statusName = (statusId: string) =>

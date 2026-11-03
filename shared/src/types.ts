@@ -125,6 +125,7 @@ export interface CardType extends CardTypeRef {
   base: TaskType;
   createRoleIds: string[];
   editRoleIds: string[];
+  viewRoleIds: string[];
 }
 
 export interface AiInstructions {
@@ -258,6 +259,14 @@ export interface BoardColumn {
 export interface Page<T> {
   items: T[];
   hasMore: boolean;
+}
+
+export interface Conclusion extends TaskCard {
+  decision: string;
+}
+
+export interface ConclusionsPage extends Page<Conclusion> {
+  open: TaskCard[];
 }
 
 export interface InviteSummary {

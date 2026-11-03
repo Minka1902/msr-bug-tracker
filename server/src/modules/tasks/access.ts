@@ -15,7 +15,7 @@ export interface TaskContext {
   parentId: string | null;
   reporterId: string | null;
   assigneeId: string | null;
-  cardType: { name: string; editRoleIds: string[] } | null;
+  cardType: { name: string; editRoleIds: string[]; restricted: boolean } | null;
 }
 
 interface TaskAccessRow {
@@ -26,6 +26,7 @@ interface TaskAccessRow {
   assignee_id: string | null;
   card_type_name: string | null;
   card_type_edit_roles: string[] | null;
+  card_type_restricted: boolean | null;
   id: string;
   key: string;
   module: ProjectModule;
@@ -39,13 +40,16 @@ interface TaskAccessRow {
 const LOAD_TASK = `
   SELECT t.id AS task_id, t.number, t.parent_id, t.reporter_id, t.assignee_id,
          ct.name AS card_type_name, ct.edit_role_ids AS card_type_edit_roles,
+         ct.view_role_ids <> '{}' AS card_type_restricted,
          p.id, p.key::text, p.module, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
   FROM tasks t
   JOIN projects p ON p.id = t.project_id
   JOIN project_members m ON m.project_id = p.id AND m.user_id = $2
   JOIN project_roles r ON r.id = m.role_id
   LEFT JOIN project_card_types ct ON ct.id = t.card_type_id
-  WHERE t.id = $1`;
+  WHERE t.id = $1
+    AND (ct.id IS NULL OR ct.view_role_ids = '{}' OR m.role_id = ANY(ct.view_role_ids) OR p.owner_id = $2
+         OR t.assignee_id = $2 OR t.reporter_id = $2)`;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,7 +67,11 @@ export const loadTaskAccess = async (taskId: string, userId: string) => {
       reporterId: row.reporter_id,
       assigneeId: row.assignee_id,
       cardType: row.card_type_name
-        ? { name: row.card_type_name, editRoleIds: row.card_type_edit_roles! }
+        ? {
+            name: row.card_type_name,
+            editRoleIds: row.card_type_edit_roles!,
+            restricted: row.card_type_restricted!,
+          }
         : null,
     } satisfies TaskContext,
   };

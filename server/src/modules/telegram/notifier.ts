@@ -15,6 +15,7 @@ interface Note {
   kind: NotifyKind;
   line: (timezone: string) => string;
   users: (string | null)[] | null;
+  viewRoles: string[] | null;
   actorId: string | null;
   sourceChatId: number | null;
 }
@@ -33,6 +34,7 @@ interface ActivityRow {
   assignee_id: string | null;
   assignee: string | null;
   reporter_id: string | null;
+  view_roles: string[] | null;
 }
 
 interface OutboxRow {
@@ -62,6 +64,7 @@ interface OverdueRow {
   assignee_id: string | null;
   assignee: string | null;
   reporter_id: string | null;
+  view_roles: string[] | null;
 }
 
 interface DigestRow {
@@ -88,6 +91,8 @@ interface ChatRow {
   key: string;
   name: string;
   module: ProjectModule;
+  owner_id: string;
+  role_id: string | null;
   timezone: string;
   tier: PaidTier | null;
 }
@@ -99,6 +104,8 @@ const TITLE_MAX = 80;
 const SEND_BATCH = 20;
 const DIGEST_TIME = '08:00';
 
+const VIEW_ROLES = `(SELECT NULLIF(ct.view_role_ids, '{}') FROM project_card_types ct WHERE ct.id = t.card_type_id) AS view_roles`;
+
 const CLAIM_CURSOR = `
   WITH prev AS (SELECT activity_cursor FROM telegram_state WHERE id FOR UPDATE),
        next AS (SELECT max(id) AS id FROM task_activity WHERE created_at < now() - interval '${ACTIVITY_DELAY}')
@@ -109,7 +116,7 @@ const CLAIM_CURSOR = `
 const ACTIVITY = `
   SELECT e.project_id, p.key::text AS key, e.action, e.field, e.old_value #>> '{}' AS old_value,
          e.new_value #>> '{}' AS new_value, e.actor_id, a.name AS actor, t.number, t.title,
-         t.assignee_id, asg.name AS assignee, t.reporter_id
+         t.assignee_id, asg.name AS assignee, t.reporter_id, ${VIEW_ROLES}
   FROM task_activity e
   JOIN tasks t ON t.id = e.task_id
   JOIN projects p ON p.id = e.project_id
@@ -138,7 +145,7 @@ const CLAIM_OVERDUE = `
           (SELECT preferences->>'timezone' FROM users WHERE id = coalesce(t.assignee_id, t.reporter_id)), 'UTC'))::date
     AND EXISTS (SELECT 1 FROM telegram_chats c WHERE c.project_id = t.project_id AND 'overdue' = ANY(c.notify))
   RETURNING t.project_id, p.key::text AS key, t.number, t.title, t.due_date::text AS due_date,
-            t.assignee_id, (SELECT name FROM users WHERE id = t.assignee_id) AS assignee, t.reporter_id`;
+            t.assignee_id, (SELECT name FROM users WHERE id = t.assignee_id) AS assignee, t.reporter_id, ${VIEW_ROLES}`;
 const CLAIM_DIGESTS = `
   UPDATE telegram_chats c SET digest_sent_on = (now() AT TIME ZONE z.timezone)::date
   FROM (SELECT id, coalesce(preferences->>'timezone', 'UTC') AS timezone FROM users) z
@@ -148,7 +155,7 @@ const CLAIM_DIGESTS = `
   RETURNING c.chat_id, c.project_id, c.digest_sent_on::text AS day`;
 const DIGEST_TASKS = `
   SELECT t.project_id, p.key::text AS key, t.number, t.title, t.due_date::text AS due_date,
-         t.assignee_id, u.name AS assignee, t.reporter_id
+         t.assignee_id, u.name AS assignee, t.reporter_id, ${VIEW_ROLES}
   FROM tasks t JOIN projects p ON p.id = t.project_id LEFT JOIN users u ON u.id = t.assignee_id
   WHERE t.project_id = ANY($1::uuid[]) AND t.completed_at IS NULL AND t.due_date <= $2::date
   ORDER BY u.name NULLS LAST, t.due_date, t.number`;
@@ -168,6 +175,7 @@ const CLAIM_REMINDERS = `
             ARRAY(SELECT user_id FROM calendar_event_attendees a WHERE a.event_id = e.id) AS attendee_ids`;
 const TARGET_CHATS = `
   SELECT c.chat_id, c.project_id, c.is_group, c.linked_by, c.notify, c.only_mine, p.key::text AS key, p.name, p.module,
+         p.owner_id, (SELECT m.role_id FROM project_members m WHERE m.project_id = c.project_id AND m.user_id = c.linked_by) AS role_id,
          coalesce(u.preferences->>'timezone', 'UTC') AS timezone,
          (SELECT s.tier FROM (${activeSubscription('p.owner_id')}) s) AS tier
   FROM telegram_chats c
@@ -257,6 +265,7 @@ const collectNotes = (
       kind,
       line: () => line,
       users: [row.assignee_id, row.reporter_id],
+      viewRoles: row.view_roles,
       actorId: row.actor_id,
       sourceChatId: null,
     };
@@ -266,6 +275,7 @@ const collectNotes = (
     kind: row.kind,
     line: outboxLine(row),
     users: null,
+    viewRoles: null,
     actorId: row.actor_id,
     sourceChatId: row.source_chat_id,
   })),
@@ -277,6 +287,7 @@ const collectNotes = (
         row.assignee ? ` · ${escape(row.assignee)}` : ''
       }`,
     users: [row.assignee_id, row.reporter_id],
+    viewRoles: row.view_roles,
     actorId: null,
     sourceChatId: null,
   })),
@@ -285,13 +296,22 @@ const collectNotes = (
     kind: 'appointment_reminders' as const,
     line: reminderLine(row),
     users: row.attendee_ids.length ? row.attendee_ids : null,
+    viewRoles: null,
     actorId: null,
     sourceChatId: null,
   })),
 ];
 
+const sees = (chat: ChatRow, viewRoles: string[] | null, users: (string | null)[]) =>
+  !viewRoles ||
+  (!chat.is_group &&
+    (chat.owner_id === chat.linked_by ||
+      viewRoles.includes(chat.role_id!) ||
+      users.includes(chat.linked_by)));
+
 const wants = (chat: ChatRow, note: Note) =>
   chat.notify.includes(note.kind) &&
+  sees(chat, note.viewRoles, note.users ?? []) &&
   note.sourceChatId !== chat.chat_id &&
   (chat.is_group ||
     (note.actorId !== chat.linked_by &&
@@ -302,6 +322,7 @@ const digestLines = (chat: ChatRow, day: string, tasks: OverdueRow[]) => {
     (task) =>
       task.project_id === chat.project_id &&
       task.due_date <= day &&
+      sees(chat, task.view_roles, [task.assignee_id, task.reporter_id]) &&
       (chat.is_group || !chat.only_mine || [task.assignee_id, task.reporter_id].includes(chat.linked_by)),
   );
   if (!due.length) return [];

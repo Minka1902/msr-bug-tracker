@@ -1,6 +1,8 @@
 import { parseIdentifier } from '@msr/shared/identifiers';
 import type { ProjectSummary, TaskCard } from '@msr/shared/types';
 import { query } from '../../db/pool';
+import { visibleTo } from '../cardTypes/visibility';
+import { escapeLike } from '../tasks/filters';
 import { cardSelect, toCard, type CardRow } from '../tasks/queries';
 
 const TASK_LIMIT = 20;
@@ -14,7 +16,7 @@ const SEARCH_PROJECTS = `
   LIMIT ${PROJECT_LIMIT}`;
 
 const SEARCH_TASKS = `${cardSelect()}
-  WHERE t.project_id IN (SELECT project_id FROM project_members WHERE user_id = $1)
+  WHERE t.project_id IN (SELECT project_id FROM project_members WHERE user_id = $1) AND ${visibleTo('t', '$1')}
     AND ((p.key = $2 AND t.number = $3) OR ($4::text IS NOT NULL AND t.search_vector @@ to_tsquery('simple', $4)) OR t.title ILIKE $5 OR $6 <% t.title)
   ORDER BY (p.key = $2 AND t.number = $3) DESC NULLS LAST,
            ts_rank(t.search_vector, to_tsquery('simple', COALESCE($4, ''))) DESC,
@@ -30,7 +32,7 @@ const toTsQuery = (text: string) => {
     : null;
 };
 
-const like = (text: string) => `%${text.replace(/[\\%_]/g, '\\$&')}%`;
+const like = (text: string) => `%${escapeLike(text)}%`;
 
 export const search = async (
   userId: string,
@@ -46,7 +48,7 @@ export const search = async (
     query<Pick<ProjectSummary, 'key' | 'name' | 'color' | 'icon' | 'emblem'>>(SEARCH_PROJECTS, [
       userId,
       like(q),
-      `${q.replace(/[\\%_]/g, '\\$&')}%`,
+      `${escapeLike(q)}%`,
       q,
     ]),
     query<CardRow>(SEARCH_TASKS, [

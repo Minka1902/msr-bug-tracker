@@ -9,6 +9,7 @@ import type {
   UpcomingConflict,
 } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
+import { visibleTo } from '../cardTypes/visibility';
 import { avatarUrl } from '../users/service';
 import type { ExternalEvent } from './types';
 
@@ -137,7 +138,7 @@ const LIST_DEADLINES = `
   JOIN projects p ON p.id = t.project_id
   JOIN project_statuses s ON s.id = t.status_id
   WHERE t.due_date BETWEEN $2::date AND $3::date AND s.category <> 'done'
-    AND CASE WHEN $4::uuid IS NULL THEN ${DEADLINE_OWNER} ELSE t.project_id = $4 END
+    AND CASE WHEN $4::uuid IS NULL THEN ${DEADLINE_OWNER} ELSE t.project_id = $4 AND ${visibleTo('t', '$1')} END
   ORDER BY t.due_date, t.number`;
 const IMPORTANT_EVENTS = `
   SELECT e.id, e.title, e.starts_at, e.ends_at, e.all_day, e.owner_id, u.id AS user_id, ${CALENDAR_NAME} AS calendar_name
@@ -460,7 +461,15 @@ export const saveEvent = (
   event: EventRow,
   fields: Pick<
     NewEvent,
-    'title' | 'description' | 'location' | 'startsAt' | 'endsAt' | 'allDay' | 'important' | 'appointment' | 'reminders'
+    | 'title'
+    | 'description'
+    | 'location'
+    | 'startsAt'
+    | 'endsAt'
+    | 'allDay'
+    | 'important'
+    | 'appointment'
+    | 'reminders'
   >,
   etag: string | null,
   attendeeIds?: string[],

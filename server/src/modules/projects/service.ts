@@ -18,6 +18,7 @@ import type { Emblem } from '@msr/shared/emblem';
 import type { CreateProjectInput, UpdateProjectInput } from '@msr/shared/schemas/project';
 import type { CardType, ProjectDetail, ProjectSummary } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
+import { visibleTo } from '../cardTypes/visibility';
 import { avatarUrl } from '../users/service';
 import { listLabels } from '../labels/service';
 import { listMembers } from '../members/service';
@@ -79,7 +80,7 @@ const SUMMARY_SQL = `
            min(t.due_date) FILTER (WHERE s.category <> 'done' AND t.due_date >= (now() AT TIME ZONE $2)::date) AS next_due,
            max(t.updated_at) AS last_task_update
     FROM tasks t JOIN project_statuses s ON s.id = t.status_id
-    WHERE t.project_id = p.id
+    WHERE t.project_id = p.id AND ${visibleTo('t', 'my.user_id')}
   ) st
   CROSS JOIN LATERAL (SELECT count(*)::int AS member_count FROM project_members WHERE project_id = p.id) mc
   CROSS JOIN LATERAL (
@@ -126,7 +127,8 @@ const PROJECT_EXTRAS = `
          (SELECT s.tier FROM (${activeSubscription('p.owner_id')}) s) AS owner_tier,
          COALESCE((SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'base', c.base, 'icon', c.icon,
                                                      'color', c.color, 'createRoleIds', c.create_role_ids,
-                                                     'editRoleIds', c.edit_role_ids) ORDER BY lower(c.name))
+                                                     'editRoleIds', c.edit_role_ids, 'viewRoleIds', c.view_role_ids)
+                            ORDER BY lower(c.name))
                    FROM project_card_types c WHERE c.project_id = p.id), '[]') AS card_types
   FROM projects p WHERE p.id = $1`;
 const SET_ARCHIVED =

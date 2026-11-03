@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { Severity, TaskType } from '@msr/shared/enums';
-import type { ActivityEntry, Page, ProjectSummary, TaskCard } from '@msr/shared/types';
+import type { ActivityEntry, ConclusionsPage, Page, ProjectSummary, TaskCard } from '@msr/shared/types';
 import { api } from '../../lib/api';
 
 export interface Dashboard {
@@ -32,6 +32,7 @@ export interface SearchResults {
 }
 
 const ACTIVITY_PAGE = 50;
+const CONCLUSIONS_PAGE = 30;
 
 export const useDashboard = () =>
   useQuery({ queryKey: ['tasks', 'dashboard'], queryFn: () => api<Dashboard>('/dashboard') });
@@ -51,6 +52,22 @@ export const useProjectActivity = (key: string) =>
       }),
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (last) => (last.hasMore ? last.items.at(-1)?.id : undefined),
+  });
+
+export const useConclusions = (key: string, q: string) =>
+  useInfiniteQuery({
+    queryKey: ['tasks', 'conclusions', key.toUpperCase(), q],
+    queryFn: ({ pageParam, signal }) =>
+      api<ConclusionsPage>(`/projects/${key}/conclusions`, {
+        query: { q, limit: CONCLUSIONS_PAGE, ...pageParam },
+        signal,
+      }),
+    initialPageParam: undefined as { before: string; beforeId: string } | undefined,
+    getNextPageParam: (last) => {
+      const end = last.items.at(-1);
+      return last.hasMore && end?.completedAt ? { before: end.completedAt, beforeId: end.id } : undefined;
+    },
+    placeholderData: keepPreviousData,
   });
 
 export const useSearch = (q: string) =>

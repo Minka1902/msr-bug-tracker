@@ -17,8 +17,17 @@ test('adds a custom card type and uses it on a card', async ({ page }) => {
     .getByRole('group', { name: 'Who can create them' })
     .getByRole('checkbox', { name: 'Member' })
     .click();
+  await editor.getByRole('radio', { name: 'Chosen roles' }).click();
+  const viewers = editor.getByRole('group', { name: 'Who can see them' });
+  await expect(viewers.getByRole('checkbox', { name: 'Admin' })).toBeChecked();
+  await viewers.getByRole('checkbox', { name: 'Member' }).click();
+  await expect(
+    editor
+      .getByRole('group', { name: 'Who can edit and move them' })
+      .getByRole('checkbox', { name: 'Member' }),
+  ).not.toBeChecked();
   await editor.getByRole('button', { name: 'Add card type' }).click();
-  await expect(page.getByText('Works like Task · Create: Owner, Admin ·')).toBeVisible();
+  await expect(page.getByText('Works like Task · See: Owner, Admin · Create: Owner, Admin ·')).toBeVisible();
 
   await page.goto(`/p/${key}/${task.number}`);
   await page
@@ -58,6 +67,19 @@ test('asks for the decision when a discussion is closed', async ({ page }) => {
   await expect(
     page.getByRole('region', { name: 'Decision' }).getByText('Stripe, for the lower fees'),
   ).toBeVisible();
+
+  await createTask(page, key, { title: 'Which domain?', type: 'discussion' });
+  await page.goto(`/p/${key}`);
+  await page.getByRole('link', { name: 'Conclusions' }).click();
+  const decision = page.getByRole('article', { name: 'Which payment provider?' });
+  await expect(decision.getByText('Stripe, for the lower fees')).toBeVisible();
+  await expect(
+    page
+      .getByRole('region', { name: 'Waiting for a decision (1)' })
+      .getByRole('button', { name: /Which domain\?/ }),
+  ).toBeVisible();
+  await page.getByLabel('Search decisions').fill('nothing like this');
+  await expect(page.getByText('No decisions match')).toBeVisible();
 });
 
 test('saves AI instructions for the project', async ({ page }) => {

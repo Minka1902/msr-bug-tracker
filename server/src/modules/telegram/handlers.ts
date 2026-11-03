@@ -4,7 +4,7 @@ import { MODULE_META, PLAN_META, botAllowed, minimumBotPlan } from '@msr/shared/
 import { createItemSchema } from '@msr/shared/schemas/shopping';
 import { createTaskSchema } from '@msr/shared/schemas/task';
 import type { ShoppingItem, ShoppingList } from '@msr/shared/types';
-import { HttpError, badRequest } from '../../lib/httpError';
+import { HttpError, badRequest, notFound } from '../../lib/httpError';
 import { logger } from '../../lib/logger';
 import { listCalendarItems } from '../calendar/service';
 import { loadRefs, resolveStatus } from '../connector/refs';
@@ -178,8 +178,21 @@ const showList = async (context: Context, name: string) => {
   return describeList(list);
 };
 
+const viewerOf = (context: Context) => (context.chat.is_group ? null : context.sender.id);
+
+const findVisibleTask = async (context: Context, identifier: string) => {
+  const found = await findTaskByIdentifier(identifier, context.sender.id);
+  if (context.chat.is_group && found.task.cardType?.restricted) throw notFound('Task not found');
+  return found;
+};
+
 const showTasks = async (context: Context, mine: boolean) => {
-  const rows = await openTasks(context.project.id, mine ? context.sender.id : null, TASKS_LIMIT);
+  const rows = await openTasks(
+    context.project.id,
+    mine ? context.sender.id : null,
+    TASKS_LIMIT,
+    viewerOf(context),
+  );
   if (!rows.length) return mine ? 'Nothing open for you. 🎉' : 'Nothing open. 🎉';
   const groups = new Map<string, string[]>();
   for (const row of rows) {
@@ -193,7 +206,7 @@ const showTasks = async (context: Context, mine: boolean) => {
 };
 
 const showTask = async (context: Context, identifier: string) => {
-  const { task } = await findTaskByIdentifier(identifier, context.sender.id);
+  const { task } = await findVisibleTask(context, identifier);
   const detail = await getTaskDetail(task.id);
   return [
     `<b>${escape(detail.identifier)}</b> ${link(`/t/${detail.identifier}`, detail.title)}`,
@@ -204,7 +217,7 @@ const showTask = async (context: Context, identifier: string) => {
 };
 
 const finishTask = async (context: Context, identifier: string, decision: string | null) => {
-  const { project, task } = await findTaskByIdentifier(identifier, context.sender.id);
+  const { project, task } = await findVisibleTask(context, identifier);
   const detail = await getTaskDetail(task.id);
   if (detail.type === 'discussion' && !decision && !detail.decision.trim())
     return `${escape(detail.identifier)} is a discussion. Close it with its decision: <code>done ${escape(detail.identifier)}: what you decided</code>`;

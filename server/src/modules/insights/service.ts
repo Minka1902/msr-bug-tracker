@@ -1,22 +1,27 @@
 import type { Severity, TaskType } from '@msr/shared/enums';
+import type { ConclusionsPage } from '@msr/shared/types';
 import { query, queryOne } from '../../db/pool';
+import { visibleTo } from '../cardTypes/visibility';
 import { getProjectSummary, listProjects } from '../projects/service';
 import { ACTIVITY_SELECT, toActivity, type ActivityRow } from '../tasks/activity';
+import { escapeLike } from '../tasks/filters';
+import { cardSelect, toCard, type CardRow } from '../tasks/queries';
 import { getCards } from '../tasks/service';
 
 const TREND_DAYS = 14;
 const LIST_SIZE = 8;
+const OPEN_DISCUSSIONS = 50;
 
 export const MY_TASKS_SCOPE = `t.assignee_id = $1 AND p.archived_at IS NULL
   AND t.project_id IN (SELECT project_id FROM project_members WHERE user_id = $1)`;
 
-const scopedTasks = (projectFilter: string) => `
+const scopedTasks = (projectFilter: string, viewer: string) => `
   scope AS (${projectFilter}),
   today AS (SELECT (now() AT TIME ZONE $2)::date AS d),
   t AS (
     SELECT t.id, t.type, t.priority, t.severity, t.due_date, t.created_at, t.updated_at, t.completed_at, t.status_id, s.category
     FROM tasks t JOIN project_statuses s ON s.id = t.status_id
-    WHERE t.project_id IN (SELECT id FROM scope)
+    WHERE t.project_id IN (SELECT id FROM scope) AND ${visibleTo('t', viewer)}
   )`;
 
 const trend = (column: 'completed_at' | 'created_at') => `
@@ -38,9 +43,12 @@ const UPCOMING = `
      ORDER BY due_date, priority LIMIT ${LIST_SIZE}) x)`;
 
 const DASHBOARD = `
-  WITH ${scopedTasks(`
+  WITH ${scopedTasks(
+    `
     SELECT p.id FROM project_members m JOIN projects p ON p.id = m.project_id
-    WHERE m.user_id = $1 AND p.archived_at IS NULL`)}
+    WHERE m.user_id = $1 AND p.archived_at IS NULL`,
+    '$1',
+  )}
   SELECT
     (SELECT json_build_object(
        'total', count(*)::int,
@@ -60,10 +68,11 @@ const DASHBOARD = `
 const DASHBOARD_ACTIVITY = `${ACTIVITY_SELECT}
   WHERE e.project_id IN (
     SELECT p.id FROM project_members m JOIN projects p ON p.id = m.project_id WHERE m.user_id = $1 AND p.archived_at IS NULL)
+    AND ${visibleTo('t', '$1')}
   ORDER BY e.id DESC LIMIT 15`;
 
 const OVERVIEW = `
-  WITH ${scopedTasks('SELECT $1::uuid AS id')}
+  WITH ${scopedTasks('SELECT $1::uuid AS id', '$3')}
   SELECT
     (SELECT COALESCE(json_agg(json_build_object('statusId', status_id, 'count', n)), '[]') FROM (SELECT status_id, count(*)::int AS n FROM t GROUP BY status_id) x) AS by_status,
     (SELECT COALESCE(json_object_agg(type, n), '{}') FROM (SELECT type, count(*)::int AS n FROM t GROUP BY type) x) AS by_type,
@@ -72,7 +81,17 @@ const OVERVIEW = `
     ${HIGH_PRIORITY_BUGS} AS bug_ids,
     ${UPCOMING} AS upcoming_ids`;
 
-const PROJECT_ACTIVITY = `${ACTIVITY_SELECT} WHERE e.project_id = $1 AND ($2::bigint IS NULL OR e.id < $2) ORDER BY e.id DESC LIMIT $3`;
+const PROJECT_ACTIVITY = `${ACTIVITY_SELECT}
+  WHERE e.project_id = $1 AND ($2::bigint IS NULL OR e.id < $2) AND ${visibleTo('t', '$4')}
+  ORDER BY e.id DESC LIMIT $3`;
+
+const DISCUSSIONS = (done: boolean) => `${cardSelect(done ? 't.decision' : '')}
+  WHERE t.project_id = $1 AND t.type = 'discussion' AND t.completed_at IS ${done ? 'NOT ' : ''}NULL
+    AND ${visibleTo('t', '$2')} AND ($3::text IS NULL OR t.title ILIKE $3${done ? ' OR t.decision ILIKE $3' : ''})`;
+const DECIDED = `${DISCUSSIONS(true)}
+    AND ($4::timestamptz IS NULL OR (date_trunc('milliseconds', t.completed_at), t.id) < ($4, $5::uuid))
+  ORDER BY date_trunc('milliseconds', t.completed_at) DESC, t.id DESC LIMIT $6`;
+const OPEN = `${DISCUSSIONS(false)} ORDER BY t.updated_at DESC LIMIT ${OPEN_DISCUSSIONS}`;
 
 interface DashboardRow {
   totals: { total: number; completed: number; incomplete: number; inProgress: number; overdue: number };
@@ -125,9 +144,9 @@ export const getDashboard = async (userId: string, timezone: string) => {
 
 export const getProjectOverview = async (projectId: string, userId: string, timezone: string) => {
   const [row, summary, activity] = await Promise.all([
-    queryOne<OverviewRow>(OVERVIEW, [projectId, timezone]),
+    queryOne<OverviewRow>(OVERVIEW, [projectId, timezone, userId]),
     getProjectSummary(projectId, userId, timezone),
-    query<ActivityRow>(PROJECT_ACTIVITY, [projectId, null, 10]),
+    query<ActivityRow>(PROJECT_ACTIVITY, [projectId, null, 10, userId]),
   ]);
   const [highPriorityBugs, upcoming] = await cardsInOrder([row!.bug_ids, row!.upcoming_ids]);
   return {
@@ -142,7 +161,38 @@ export const getProjectOverview = async (projectId: string, userId: string, time
   };
 };
 
-export const getProjectActivity = async (projectId: string, before: number | null, limit: number) => {
-  const rows = await query<ActivityRow>(PROJECT_ACTIVITY, [projectId, before, limit + 1]);
+export const getProjectActivity = async (
+  projectId: string,
+  userId: string,
+  before: number | null,
+  limit: number,
+) => {
+  const rows = await query<ActivityRow>(PROJECT_ACTIVITY, [projectId, before, limit + 1, userId]);
   return { items: rows.slice(0, limit).map(toActivity), hasMore: rows.length > limit };
+};
+
+export const getConclusions = async (
+  projectId: string,
+  userId: string,
+  q: string | undefined,
+  before: { completedAt: string; id: string } | undefined,
+  limit: number,
+): Promise<ConclusionsPage> => {
+  const text = q ? `%${escapeLike(q)}%` : null;
+  const [decided, open] = await Promise.all([
+    query<CardRow & { decision: string }>(DECIDED, [
+      projectId,
+      userId,
+      text,
+      before?.completedAt ?? null,
+      before?.id ?? null,
+      limit + 1,
+    ]),
+    before ? [] : query<CardRow>(OPEN, [projectId, userId, text]),
+  ]);
+  return {
+    items: decided.slice(0, limit).map((row) => ({ ...toCard(row), decision: row.decision })),
+    hasMore: decided.length > limit,
+    open: open.map(toCard),
+  };
 };

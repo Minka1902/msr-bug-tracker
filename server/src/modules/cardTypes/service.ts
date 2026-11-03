@@ -6,18 +6,19 @@ import { badRequest, notFound } from '../../lib/httpError';
 import type { ProjectContext } from '../projects/access';
 
 const COLUMNS =
-  'id, name, base, icon, color, create_role_ids AS "createRoleIds", edit_role_ids AS "editRoleIds"';
+  'id, name, base, icon, color, create_role_ids AS "createRoleIds", edit_role_ids AS "editRoleIds", view_role_ids AS "viewRoleIds"';
 const ROLES_IN_PROJECT =
   'SELECT count(*)::int AS count FROM project_roles WHERE project_id = $1 AND id = ANY($2::uuid[])';
 const INSERT_CARD_TYPE = `
-  INSERT INTO project_card_types (project_id, base, name, icon, color, create_role_ids, edit_role_ids)
-  SELECT $1, $2, $3, $4, $5, $6, $7
-  WHERE (SELECT count(*) FROM project_card_types WHERE project_id = $1) < $8
+  INSERT INTO project_card_types (project_id, base, name, icon, color, create_role_ids, edit_role_ids, view_role_ids)
+  SELECT $1, $2, $3, $4, $5, $6, $7, $8
+  WHERE (SELECT count(*) FROM project_card_types WHERE project_id = $1) < $9
   RETURNING ${COLUMNS}`;
 const UPDATE_CARD_TYPE = `
   UPDATE project_card_types
   SET name = COALESCE($3, name), icon = COALESCE($4, icon), color = COALESCE($5, color),
-      create_role_ids = COALESCE($6, create_role_ids), edit_role_ids = COALESCE($7, edit_role_ids)
+      create_role_ids = COALESCE($6, create_role_ids), edit_role_ids = COALESCE($7, edit_role_ids),
+      view_role_ids = COALESCE($8, view_role_ids)
   WHERE id = $1 AND project_id = $2
   RETURNING ${COLUMNS}`;
 const DELETE_CARD_TYPE = 'DELETE FROM project_card_types WHERE id = $1 AND project_id = $2 RETURNING id';
@@ -32,7 +33,7 @@ const assertRoles = async (projectId: string, ...lists: (string[] | undefined)[]
 export const createCardType = async (project: ProjectContext, input: CardTypeInput) => {
   if (!MODULE_META[project.module].taskTypes.includes(input.base))
     throw badRequest('Base the card type on one of this project’s card types');
-  await assertRoles(project.id, input.createRoleIds, input.editRoleIds);
+  await assertRoles(project.id, input.createRoleIds, input.editRoleIds, input.viewRoleIds);
   const created = await queryOne<CardType>(INSERT_CARD_TYPE, [
     project.id,
     input.base,
@@ -41,6 +42,7 @@ export const createCardType = async (project: ProjectContext, input: CardTypeInp
     input.color,
     input.createRoleIds,
     input.editRoleIds,
+    input.viewRoleIds,
     CARD_TYPES_MAX,
   ]);
   if (!created) throw badRequest(`A project can have up to ${CARD_TYPES_MAX} card types`);
@@ -48,7 +50,7 @@ export const createCardType = async (project: ProjectContext, input: CardTypeInp
 };
 
 export const updateCardType = async (project: ProjectContext, id: string, input: UpdateCardTypeInput) => {
-  await assertRoles(project.id, input.createRoleIds, input.editRoleIds);
+  await assertRoles(project.id, input.createRoleIds, input.editRoleIds, input.viewRoleIds);
   const updated = await queryOne<CardType>(UPDATE_CARD_TYPE, [
     id,
     project.id,
@@ -57,6 +59,7 @@ export const updateCardType = async (project: ProjectContext, id: string, input:
     input.color ?? null,
     input.createRoleIds ?? null,
     input.editRoleIds ?? null,
+    input.viewRoleIds ?? null,
   ]);
   if (!updated) throw notFound('Card type not found');
   return updated;

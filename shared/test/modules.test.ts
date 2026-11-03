@@ -6,6 +6,7 @@ import {
   PLAN_TIERS,
   PROJECT_MODULES,
   botAllowed,
+  hasConclusions,
   minimumBotPlan,
   minimumPlan,
   planAllows,
@@ -65,6 +66,10 @@ describe('module catalog', () => {
         MODULE_META[module].taskTypes.filter((type) => type === 'discussion'),
         module,
       ).toHaveLength(1);
+  });
+
+  it('collects decisions in Software, Startup and Household projects', () => {
+    expect(PROJECT_MODULES.filter(hasConclusions)).toEqual(['software', 'household', 'startup']);
   });
 
   it('creates software projects unless a module is given', () => {

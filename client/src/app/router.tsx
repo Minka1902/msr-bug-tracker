@@ -146,6 +146,12 @@ export const router = createBrowserRouter([
                 lazy: lazyRoute(() => import('../features/tasks/pages/BugsPage').then((m) => m.BugsPage)),
               },
               {
+                path: 'conclusions',
+                lazy: lazyRoute(() =>
+                  import('../features/insights/pages/ConclusionsPage').then((m) => m.ConclusionsPage),
+                ),
+              },
+              {
                 path: ':number',
                 lazy: lazyRoute(() => import('../features/tasks/pages/TaskPage').then((m) => m.TaskPage)),
               },
