@@ -1,5 +1,5 @@
 import { Suspense, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router';
+import { useMatch, useNavigate } from 'react-router';
 import type { ProjectModule } from '@msr/shared/modules';
 import type { CurrentUser } from '@msr/shared/types';
 import { AppShell } from '../components/layout/AppShell';
@@ -12,6 +12,7 @@ import { InstallHint } from '../features/pwa/InstallHint';
 import { OfflineBanner } from '../features/pwa/OfflineBanner';
 import { useProjects } from '../features/projects/api';
 import { CreateProjectModal } from '../features/projects/components/CreateProjectModal';
+import { ProjectTopbar } from '../features/projects/components/ProjectTopbar';
 import type { QuickCreateDefaults } from '../features/tasks/components/QuickCreateTaskModal';
 import { useHotkey } from '../hooks/useHotkey';
 import { lazyComponent } from '../lib/lazy';
@@ -37,6 +38,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
     logout.mutate(undefined, { onSuccess: () => navigate('/login', { replace: true }) });
 
   const navigate = useNavigate();
+  const projectRoute = useMatch('/p/:key/*');
   const logout = useLogout();
   const projects = useProjects();
   const [creatingProject, setCreatingProject] = useState<{
@@ -78,6 +80,7 @@ export function AppLayout({ user, children }: AppLayoutProps) {
           onCreateProject: () => shell.openCreateProject(),
           onInvite: () => shell.openInvite(),
         }}
+        phoneTitle={projectRoute && <ProjectTopbar projectKey={projectRoute.params.key!} />}
         banners={
           <>
             <OfflineBanner />

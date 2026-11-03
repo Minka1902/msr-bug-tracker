@@ -19,10 +19,11 @@ interface AppShellProps {
   projects: ShellProject[];
   actions: ShellActions;
   banners?: ReactNode;
+  phoneTitle?: ReactNode;
   children: ReactNode;
 }
 
-export function AppShell({ user, projects, actions, banners, children }: AppShellProps) {
+export function AppShell({ user, projects, actions, banners, phoneTitle, children }: AppShellProps) {
   const setCollapsed = (next: boolean) => {
     setCollapsedState(next);
     writeLocal(STORAGE_KEY, { collapsed: next });
@@ -67,7 +68,7 @@ export function AppShell({ user, projects, actions, banners, children }: AppShel
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-app md:overflow-hidden">
-          <Topbar actions={actions} phone={phone} />
+          <Topbar actions={actions} phone={phone} phoneTitle={phoneTitle} />
           <main className="flex-1 px-4 pb-[calc(9.5rem+env(safe-area-inset-bottom))] max-[375px]:px-3 md:overflow-y-auto md:px-6 md:pb-6 scrollbar-thin">
             {banners && <div className="mb-4 flex flex-col gap-2 empty:hidden">{banners}</div>}
             {children}
