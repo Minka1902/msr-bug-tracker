@@ -50,6 +50,10 @@ test('a Viewer can read but not create, edit or assign', async ({ page, browser 
   await viewerPage.goto(`/p/${project.key}/list`);
   await expect(viewerPage.getByRole('table', { name: 'Tasks' }).getByText('Draft roadmap')).toBeVisible();
   await expect(viewerPage.getByRole('button', { name: 'Add task' })).toHaveCount(0);
+  await viewerPage.goto(`/p/${project.key}/board`);
+  await expect(viewerPage.getByRole('button', { name: /Draft roadmap/ })).toBeVisible();
+  await expect(viewerPage.getByRole('button', { name: /^Add task/ })).toHaveCount(0);
+  await viewerPage.goto(`/p/${project.key}/list`);
   await expect(
     viewerPage.getByRole('button', { name: `Assignee of ${task.identifier}: Owner` }),
   ).toBeDisabled();

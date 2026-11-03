@@ -6,6 +6,7 @@ import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Avatar } from '../../../components/ui/Avatar';
 import { OptionDot } from '../../../components/ui/OptionPicker';
+import type { TaskCreateValues } from '../components/TaskCreateFields';
 import { PriorityIcon, typeChange, TypeIcon, typeLabel, typeValue } from '../taskMeta';
 
 export type GroupBy = 'none' | 'type' | 'priority' | 'assignee' | 'label';
@@ -15,6 +16,7 @@ export interface Lane {
   label: string;
   icon?: ReactNode;
   tasks: TaskCard[];
+  defaults: Partial<TaskCreateValues>;
   patch?: { input: UpdateTaskInput; optimistic: Partial<TaskCard> };
 }
 
@@ -48,6 +50,7 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
           label: typeLabel(change.optimistic),
           icon: <TypeIcon {...change.optimistic} />,
           tasks: byKey(value),
+          defaults: change.input,
           patch: change,
         };
       })
@@ -59,6 +62,7 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
       label: PRIORITY_META[priority].label,
       icon: <PriorityIcon priority={priority} decorative />,
       tasks: byKey(priority),
+      defaults: { priority },
       patch: { input: { priority }, optimistic: { priority } },
     }));
 
@@ -72,6 +76,7 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
           label: member.name,
           icon: <Avatar name={member.name} src={member.avatarUrl} size="xs" decorative />,
           tasks: byKey(member.id),
+          defaults: { assigneeId: member.id },
           patch: {
             input: { assigneeId: member.id },
             optimistic: { assignee: { id: member.id, name: member.name, avatarUrl: member.avatarUrl } },
@@ -82,6 +87,7 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
         label: 'Unassigned',
         icon: <UserRound className="size-4 text-subtle" />,
         tasks: byKey(NONE),
+        defaults: { assigneeId: null },
         patch: { input: { assigneeId: null }, optimistic: { assignee: null } },
       },
     ];
@@ -97,10 +103,11 @@ export const groupTasks = (tasks: TaskCard[], groupBy: GroupBy, project: Project
           label: label.name,
           icon: <OptionDot color={label.color} />,
           tasks: byKey(label.id),
+          defaults: { labelIds: [label.id] },
         })),
-      { key: NONE, label: 'No label', tasks: byKey(NONE) },
+      { key: NONE, label: 'No label', tasks: byKey(NONE), defaults: {} },
     ];
   }
 
-  return [{ key: 'all', label: '', tasks }];
+  return [{ key: 'all', label: '', tasks, defaults: {} }];
 };

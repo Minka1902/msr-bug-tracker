@@ -1,5 +1,6 @@
 import type { Emblem } from '@msr/shared/emblem';
 import type { ProjectKind } from '@msr/shared/enums';
+import type { ShellContextValue } from '../../context/shellContext';
 
 export interface ShellProject {
   key: string;
@@ -20,7 +21,7 @@ export interface ShellUser {
 export interface ShellActions {
   onLogout: () => void;
   onSearch: () => void;
-  onQuickCreate: (defaults?: { projectKey?: string; type?: string }) => void;
+  onQuickCreate: ShellContextValue['openQuickCreate'];
   onCreateProject: () => void;
   onInvite: () => void;
 }

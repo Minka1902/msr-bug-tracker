@@ -1,10 +1,10 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { TaskType } from '@msr/shared/enums';
-import type { CreateTaskInput } from '@msr/shared/schemas/task';
 import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { cn } from '../../../lib/cn';
+import type { TaskCreateValues } from '../components/TaskCreateFields';
 import { InlineTaskComposer } from './InlineTaskComposer';
 import { SortableTaskCard } from './SortableTaskCard';
 
@@ -16,7 +16,7 @@ interface BoardCellProps {
   hiddenCount?: number;
   loadingMore?: boolean;
   onLoadMore?: () => void;
-  composer?: Omit<CreateTaskInput, 'title'> | null;
+  composer?: Partial<TaskCreateValues> | null;
   composerTypes: readonly TaskType[];
   canDrag?: (task: TaskCard) => boolean;
   swipe?: boolean;
