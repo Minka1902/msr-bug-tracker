@@ -47,6 +47,7 @@ erDiagram
   calendar_events ||--o{ calendar_event_attendees : invites
   projects ||--o{ shopping_lists : has
   shopping_lists ||--o{ shopping_items : holds
+  projects ||--o{ household_places : keeps
   oauth_clients ||--o{ oauth_codes : issues
   oauth_clients ||--o{ oauth_grants : holds
   users ||--o{ oauth_grants : authorizes
@@ -239,10 +240,11 @@ Task deadlines are not stored here. They are read from `tasks.due_date` and belo
 
 ### Shopping lists — migration 010
 
-| Table            | Key columns                                                                                                    | Notes                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `shopping_lists` | `project_id`, `name` (1–60), `position`                                                                        | Every new household gets a "Groceries" list                                            |
-| `shopping_items` | `list_id`, `name` (1–120), `quantity` (≤ 40), `is_checked`, `checked_by`, `checked_at`, `added_by`, `position` | Read sorted by `(is_checked, position)`. New items go to the top of the unchecked ones |
+| Table              | Key columns                                                                                                                                                                                                                                                                                                           | Notes                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `shopping_lists`   | `project_id`, `name` (1–60), `position`                                                                                                                                                                                                                                                                               | Every new household gets a "Groceries" list                                                          |
+| `shopping_items`   | `list_id`, `name` (1–120), `quantity` (≤ 40), `is_checked`, `checked_by`, `checked_at`, `added_by`, `position`                                                                                                                                                                                                        | Read sorted by `(is_checked, position)`. New items go to the top of the unchecked ones               |
+| `household_places` | `project_id`, `name` (1–120, the only required field), `category` (medical, school, shops, food, services, government, family, friends, emergency, other), `contact_name`, `phone`, `phone_alt`, `email`, `website`, `address`, `city`, `postal_code`, `opening_hours`, `notes` (≤ 4000), `is_favorite`, `created_by` | Migration 028. Read sorted by `(is_favorite DESC, lower(name))`. Only household projects have places |
 
 ### Connector — migration 011
 

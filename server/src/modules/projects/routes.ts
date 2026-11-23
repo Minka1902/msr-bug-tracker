@@ -14,6 +14,7 @@ import { createProjectImportRouter } from '../importer/routes';
 import { createProjectInvitesRouter } from '../invites/routes';
 import { createMembersRouter } from '../members/routes';
 import { createRolesRouter } from '../roles/routes';
+import { createPlacesRouter } from '../places/routes';
 import { createShoppingRouter } from '../shopping/routes';
 import { createStatusesRouter } from '../statuses/routes';
 import { createProjectTasksRouter } from '../tasks/projectRoutes';
@@ -113,6 +114,7 @@ export const createProjectsRouter = () => {
   scoped.use('/members', createMembersRouter());
   scoped.use('/invites', createProjectInvitesRouter());
   scoped.use('/lists', createShoppingRouter());
+  scoped.use('/places', createPlacesRouter());
   scoped.use('/plan', createProjectPlanRouter());
   scoped.use('/bots', createProjectBotsRouter());
   scoped.use(createProjectImportRouter());

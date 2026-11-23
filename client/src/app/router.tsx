@@ -114,6 +114,12 @@ export const router = createBrowserRouter([
                 ),
               },
               {
+                path: 'places',
+                lazy: lazyRoute(() =>
+                  import('../features/household/pages/PlacesPage').then((m) => m.PlacesPage),
+                ),
+              },
+              {
                 path: 'calendar',
                 lazy: lazyRoute(() =>
                   import('../features/household/pages/HouseholdCalendarPage').then(
