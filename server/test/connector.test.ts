@@ -348,9 +348,10 @@ describe('Connector tools', () => {
 
     const added = await call(tokens.access_token, 'add_shopping_items', {
       projectKey: 'HOME',
-      items: [{ name: 'Milk', quantity: '2' }, { name: 'Bread' }],
+      items: [{ name: 'Milk', quantity: '2' }, { name: 'Bread' }, { name: 'Hose', url: 'https://a.co/d/x' }],
     });
     expect(added.data).toMatchObject({ list: 'Groceries' });
+    expect(added.data.items).toContainEqual({ name: 'Hose', url: 'https://a.co/d/x', checked: false });
     const checked = await call(tokens.access_token, 'check_shopping_items', {
       projectKey: 'HOME',
       items: ['milk'],

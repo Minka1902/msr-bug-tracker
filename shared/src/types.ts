@@ -373,6 +373,7 @@ export interface ShoppingItem {
   id: string;
   name: string;
   quantity: string;
+  url: string | null;
   isChecked: boolean;
   checkedBy: UserRef | null;
   addedBy: string | null;

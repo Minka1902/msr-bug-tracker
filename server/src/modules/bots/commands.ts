@@ -1,3 +1,4 @@
+import { parseSharedLink } from '@msr/shared/sharedLink';
 import type { BotLanguage } from './language';
 
 export type When =
@@ -12,6 +13,7 @@ export type Command =
   | { kind: 'help' }
   | { kind: 'use'; key: string }
   | { kind: 'add'; items: string[]; list: string | null }
+  | { kind: 'add_link'; name: string; url: string; list: string | null }
   | { kind: 'bought'; items: string[] }
   | { kind: 'lists' }
   | { kind: 'list'; name: string }
@@ -54,6 +56,7 @@ const IDENTIFIER = new RegExp(`^${TASK_ID}\\??$`, 'i');
 const START = /^start(?:\s+(\S+))?$/i;
 const MENTION = /@[a-z0-9_]*bot\b|<@!?\d+>/gi;
 const COMMA_SPLIT = /\s*(?:,|&)\s*/;
+const LINK = /https?:\/\//i;
 
 const date = (day: string, month: string): When => ({ kind: 'date', day: Number(day), month: Number(month) });
 
@@ -198,7 +201,18 @@ export const parseCommand = (raw: string, language: BotLanguage = 'en'): Command
   let match: RegExpMatchArray | null;
   if ((match = text.match(START))) return match[1] ? { kind: 'start', code: match[1] } : { kind: 'help' };
   if ((match = text.match(IDENTIFIER))) return { kind: 'task', identifier: match[1]!.toUpperCase() };
-  const command = matchGrammar(grammar, text) ?? (language === 'en' ? null : matchGrammar(GRAMMARS.en, text));
+  let matched: Grammar = grammar;
+  let command = matchGrammar(grammar, text);
+  if (!command && language !== 'en') {
+    matched = GRAMMARS.en;
+    command = matchGrammar(matched, text);
+  }
+  if (LINK.test(text) && (!command || command.kind === 'add')) {
+    const source =
+      command?.kind === 'add' ? text.replace(command.list ? matched.addToList : matched.add, '$1') : text;
+    const link = parseSharedLink({ text: source });
+    if (link.url) return { kind: 'add_link', name: link.name, url: link.url, list: command?.list ?? null };
+  }
   if (command) return command;
   if (text.endsWith('?') && text.length > 1) return { kind: 'list', name: text.slice(0, -1).trim() };
   return { kind: 'add', items: itemsOf(grammar, text), list: null };

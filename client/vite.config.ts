@@ -22,6 +22,11 @@ export default defineConfig({
         orientation: 'any',
         theme_color: '#4f56f0',
         background_color: '#0a1023',
+        share_target: {
+          action: '/share',
+          method: 'GET',
+          params: { title: 'title', text: 'text', url: 'url' },
+        },
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,ico}'],

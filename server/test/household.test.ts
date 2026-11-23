@@ -197,6 +197,30 @@ describe('shopping lists', () => {
       .send({ name: 'Nails' })
       .expect(404);
   });
+
+  it('keeps a product link on an item, trims a very long one and refuses other schemes', async () => {
+    const { parent } = await setupHousehold();
+    const [groceries] = (await parent.get('/api/projects/HOME/lists').expect(200)).body.lists;
+    const base = `/api/projects/HOME/lists/${groceries.id}/items`;
+    const url = 'https://a.aliexpress.com/_mKxyz12';
+    const added = await parent.post(base).send({ name: 'Garden hose', url }).expect(201);
+    const hose = added.body.list.items.find((item: { name: string }) => item.name === 'Garden hose');
+    expect(hose.url).toBe(url);
+
+    const long = `https://www.amazon.com/x/dp/B01?${'a'.repeat(2100)}`;
+    const trimmed = await parent.post(base).send({ name: 'Charger', url: long }).expect(201);
+    expect(trimmed.body.list.items.find((item: { name: string }) => item.name === 'Charger').url).toBe(
+      'https://www.amazon.com/x/dp/B01',
+    );
+    await parent.post(base).send({ name: 'Bad', url: 'javascript:alert(1)' }).expect(400);
+    const plain = await parent.post(base).send({ name: 'Milk' }).expect(201);
+    expect(plain.body.list.items.find((item: { name: string }) => item.name === 'Milk').url).toBeNull();
+
+    const edited = await parent.patch(`${base}/${hose.id}`).send({ url: null }).expect(200);
+    expect(
+      edited.body.list.items.find((item: { name: string }) => item.name === 'Garden hose').url,
+    ).toBeNull();
+  });
 });
 
 describe('carry over until done', () => {

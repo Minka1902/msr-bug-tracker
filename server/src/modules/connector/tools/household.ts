@@ -18,6 +18,7 @@ const compactList = (list: ShoppingList) => ({
   items: list.items.map((item) => ({
     name: item.name,
     ...(item.quantity && { quantity: item.quantity }),
+    ...(item.url && { url: item.url }),
     checked: item.isChecked,
   })),
 });
@@ -69,6 +70,7 @@ export const registerHouseholdTools = (server: McpServer, context: ToolContext) 
             z.object({
               name: z.string().trim().min(1).max(120),
               quantity: z.string().trim().max(40).optional(),
+              url: z.url().optional().describe('A product page, like an AliExpress, Amazon or SHEIN link'),
             }),
           )
           .min(1)

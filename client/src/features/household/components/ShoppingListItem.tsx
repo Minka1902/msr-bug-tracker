@@ -1,9 +1,11 @@
-import { X } from 'lucide-react';
+import { ExternalLink, X } from 'lucide-react';
 import type { ShoppingItem } from '@msr/shared/types';
 import { Avatar } from '../../../components/ui/Avatar';
+import { Button } from '../../../components/ui/Button';
 import { Checkbox } from '../../../components/ui/Checkbox';
 import { IconButton } from '../../../components/ui/IconButton';
 import { cn } from '../../../lib/cn';
+import { linkLabel } from '../linkLabel';
 
 interface ShoppingListItemProps {
   item: ShoppingItem;
@@ -26,6 +28,18 @@ export function ShoppingListItem({ item, onToggle, onRemove, disabled, className
         {item.name}
         {item.quantity && <span className="ml-2 text-xs text-muted">{item.quantity}</span>}
       </span>
+      {item.url && (
+        <Button asChild size="icon-sm" variant="ghost">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open in ${linkLabel(item.url)}`}
+          >
+            <ExternalLink />
+          </a>
+        </Button>
+      )}
       {item.isChecked && item.checkedBy && (
         <Avatar name={item.checkedBy.name} src={item.checkedBy.avatarUrl} size="xs" />
       )}

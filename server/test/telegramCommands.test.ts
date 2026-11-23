@@ -203,3 +203,48 @@ describe('Russian commands', () => {
     expect(parseCommand(text, 'ru')).toEqual(command);
   });
 });
+
+describe('shared links', () => {
+  it.each([
+    [
+      'I just found this on AliExpress: US $12.34 | Garden Hose 30m https://a.aliexpress.com/_mKxyz12',
+      'en',
+      { kind: 'add_link', name: 'Garden Hose 30m', url: 'https://a.aliexpress.com/_mKxyz12', list: null },
+    ],
+    [
+      'add https://a.co/d/abc123 to the hardware list',
+      'en',
+      { kind: 'add_link', name: 'Amazon item', url: 'https://a.co/d/abc123', list: 'hardware' },
+    ],
+    [
+      'add https://a.co/d/x',
+      'en',
+      { kind: 'add_link', name: 'Amazon item', url: 'https://a.co/d/x', list: null },
+    ],
+    [
+      'הוסף https://a.co/d/x',
+      'he',
+      { kind: 'add_link', name: 'Amazon item', url: 'https://a.co/d/x', list: null },
+    ],
+    [
+      'https://il.shein.com/Floral-Midi-Dress-p-123.html',
+      'he',
+      {
+        kind: 'add_link',
+        name: 'Floral Midi Dress',
+        url: 'https://il.shein.com/Floral-Midi-Dress-p-123.html',
+        list: null,
+      },
+    ],
+  ])('%s', (text, language, command) => {
+    expect(parseCommand(text, language as 'en' | 'he')).toEqual(command);
+  });
+
+  it('keeps links inside a decision', () => {
+    expect(parseCommand('done HOME-3: we chose https://a.co/d/x')).toEqual({
+      kind: 'done',
+      identifier: 'HOME-3',
+      decision: 'we chose https://a.co/d/x',
+    });
+  });
+});

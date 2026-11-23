@@ -78,6 +78,10 @@ export const router = createBrowserRouter([
             ),
           },
           {
+            path: '/share',
+            lazy: lazyRoute(() => import('../features/household/pages/SharePage').then((m) => m.SharePage)),
+          },
+          {
             path: '/shop',
             lazy: lazyRoute(() => import('../features/shop/pages/ShopPage').then((m) => m.ShopPage)),
           },

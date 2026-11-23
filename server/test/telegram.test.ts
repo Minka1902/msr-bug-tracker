@@ -180,6 +180,22 @@ describe('Telegram webhook', () => {
     expect(await reply(GROUP, PARENT_TG, 'help')).toContain('<b>What I understand</b>');
   });
 
+  it('adds a shared product link to the shopping list', async () => {
+    const { parent } = await setupFamily();
+    expect(
+      await reply(
+        GROUP,
+        PARENT_TG,
+        'I just found this on AliExpress: US $12.34 | Garden Hose 30m https://a.aliexpress.com/_mKxyz12',
+      ),
+    ).toBe('Added Garden Hose 30m to <b>Groceries</b>.');
+    const [groceries] = (await parent.get('/api/projects/HOME/lists').expect(200)).body.lists;
+    expect(groceries.items[0]).toMatchObject({
+      name: 'Garden Hose 30m',
+      url: 'https://a.aliexpress.com/_mKxyz12',
+    });
+  });
+
   it('closes a discussion only with its decision', async () => {
     const { parent } = await setupFamily();
     const { body } = await parent

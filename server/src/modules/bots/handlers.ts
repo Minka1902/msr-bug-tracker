@@ -112,7 +112,11 @@ const pickList = (context: Context, lists: ShoppingList[], name: string | null) 
   return list;
 };
 
-const addToList = async (context: Context, items: string[], listName: string | null) => {
+const addToList = async (
+  context: Context,
+  items: { name: string; url?: string }[],
+  listName: string | null,
+) => {
   const { f, t } = context;
   householdOnly(context);
   if (!items.length) return t.help(f, true);
@@ -120,11 +124,11 @@ const addToList = async (context: Context, items: string[], listName: string | n
   const list = pickList(context, await listLists(context.project.id), listName);
   await addItems(
     list.id,
-    items.map((name) => createItemSchema.parse({ name })),
+    items.map((item) => createItemSchema.parse(item)),
     context.sender.id,
     { platform: context.chat.platform, chatId: context.chat.chat_id },
   );
-  return t.added(items.map(f.text).join(', '), f.bold(list.name));
+  return t.added(items.map((item) => f.text(item.name)).join(', '), f.bold(list.name));
 };
 
 const tickItems = async (context: Context, items: string[]) => {
@@ -293,7 +297,13 @@ const run = (context: Context, command: Command): Promise<string> | string => {
     case 'use':
       return switchProject(context, command.key);
     case 'add':
-      return addToList(context, command.items, command.list);
+      return addToList(
+        context,
+        command.items.map((name) => ({ name })),
+        command.list,
+      );
+    case 'add_link':
+      return addToList(context, [{ name: command.name, url: command.url }], command.list);
     case 'bought':
       return tickItems(context, command.items);
     case 'lists':

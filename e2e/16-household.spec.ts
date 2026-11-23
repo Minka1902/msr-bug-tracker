@@ -42,11 +42,15 @@ test('a child can only finish their own chores, and everyone can use the shoppin
   await kidPage.getByRole('checkbox', { name: 'Check off Fish food' }).click();
   await expect(kidPage.getByRole('checkbox', { name: 'Uncheck Fish food' })).toBeChecked();
 
-  const { lists } = await apiGet<{ lists: { items: { name: string; isChecked: boolean }[] }[] }>(
-    page,
-    `/projects/${home.key}/lists`,
-  );
-  expect(lists[0]!.items).toEqual([expect.objectContaining({ name: 'Fish food', isChecked: true })]);
+  await expect
+    .poll(async () => {
+      const { lists } = await apiGet<{ lists: { items: { name: string; isChecked: boolean }[] }[] }>(
+        page,
+        `/projects/${home.key}/lists`,
+      );
+      return lists[0]!.items;
+    })
+    .toEqual([expect.objectContaining({ name: 'Fish food', isChecked: true })]);
   await kidPage.context().close();
   await siblingPage.context().close();
 });
