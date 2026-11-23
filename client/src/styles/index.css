@@ -8,6 +8,7 @@
 @custom-variant clean (&:where([data-style='clean'], [data-style='clean'] *));
 @custom-variant rail (&:where([data-nav='rail'], [data-nav='rail'] *));
 @custom-variant lefty (&:where([data-hand='left'], [data-hand='left'] *));
+@custom-variant topbar-hidden (&:where([data-topbar-hidden] *));
 
 @theme {
   --breakpoint-md: 46.5rem;
@@ -54,6 +55,7 @@
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
+    --topbar-h: calc(3.25rem + env(safe-area-inset-top));
   }
 
   body {

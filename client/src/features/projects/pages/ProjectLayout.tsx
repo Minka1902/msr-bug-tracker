@@ -24,7 +24,6 @@ import { ErrorState } from '../../../components/ui/ErrorState';
 import { IconButton } from '../../../components/ui/IconButton';
 import { ProjectAvatar } from '../../../components/ui/ProjectAvatar';
 import { Skeleton } from '../../../components/ui/Skeleton';
-import { TabLinks } from '../../../components/ui/TabLinks';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useShell } from '../../../hooks/useShell';
 import { ApiError, errorMessage } from '../../../lib/api';
@@ -34,6 +33,7 @@ import { NotFoundPage } from '../../../pages/NotFoundPage';
 import { useArchiveProject, useProject, useToggleFavorite } from '../api';
 import { ProjectLinks } from '../components/ProjectLinks';
 import { ProjectSwitcher } from '../components/ProjectSwitcher';
+import { ProjectTabsBar } from '../components/ProjectTabsBar';
 import { useProjectPermissions } from '../useProjectPermissions';
 
 const TABS = {
@@ -135,7 +135,7 @@ export function ProjectLayout() {
           This project is archived and read-only.
         </Banner>
       )}
-      <TabLinks
+      <ProjectTabsBar
         label="Project views"
         items={TABS[data.kind]
           .filter(
