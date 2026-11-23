@@ -279,8 +279,17 @@ describe('carry over until done', () => {
       dueDate: '2030-05-10',
     });
 
+    const archived = await createProject(parent, { key: 'CABIN', name: 'Cabin', module: 'household' });
+    const shelved = await createTask(parent, archived.key, {
+      title: 'Chop wood',
+      type: 'chore',
+      dueDate: '2030-05-10',
+    });
+    await parent.post(`/api/projects/${archived.key}/archive`).expect(200);
+
     await carryOverTasks(new Date('2030-05-11T12:00:00Z'));
 
+    expect((await taskById(parent, shelved.id)).dueDate).toBe('2030-05-10');
     const moved = await taskById(parent, late.id);
     expect([moved.startDate, moved.dueDate]).toEqual(['2030-05-09', '2030-05-11']);
     expect((await taskById(parent, done.id)).dueDate).toBe('2030-05-10');
@@ -296,6 +305,40 @@ describe('carry over until done', () => {
         newValue: '2030-05-11',
       }),
     );
+  });
+
+  it('keeps a recurring chore on its own schedule after carrying it, unless its due date is changed by hand', async () => {
+    const { parent, project } = await setupHousehold();
+    const done = statusOf(project, 'task', 'Done');
+    const weekly = { freq: 'weekly' as const, interval: 1 };
+    const trash = await createTask(parent, project.key, {
+      title: 'Trash',
+      type: 'chore',
+      dueDate: '2030-05-06',
+      recurrence: weekly,
+    });
+    const plants = await createTask(parent, project.key, {
+      title: 'Plants',
+      type: 'chore',
+      dueDate: '2030-05-06',
+      recurrence: weekly,
+    });
+
+    await carryOverTasks(new Date('2030-05-07T12:00:00Z'));
+    await carryOverTasks(new Date('2030-05-08T12:00:00Z'));
+    expect((await taskById(parent, trash.id)).dueDate).toBe('2030-05-08');
+    await parent.patch(`/api/tasks/${plants.id}`).send({ dueDate: '2030-05-09' }).expect(200);
+    await parent.patch(`/api/tasks/${trash.id}`).send({ statusId: done }).expect(200);
+    await parent.patch(`/api/tasks/${plants.id}`).send({ statusId: done }).expect(200);
+
+    const { body } = await parent.get(`/api/projects/${project.key}/tasks`).expect(200);
+    const next = (title: string) =>
+      body.items.find(
+        (task: { title: string; id: string }) =>
+          task.title === title && ![trash.id, plants.id].includes(task.id),
+      );
+    expect(next('Trash').dueDate).toBe('2030-05-13');
+    expect(next('Plants').dueDate).toBe('2030-05-16');
   });
 
   it("uses the assignee's time zone, then the reporter's, to decide the day has ended", async () => {

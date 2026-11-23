@@ -90,6 +90,8 @@ describe('language detection', () => {
     ['HOME-12?', null],
     ['use HOME', 'en'],
     ['12/11', null],
+    ['/start abc123', null],
+    ['/tasks@msr_bot', null],
   ])('%s', (text, language) => {
     expect(detectLanguage(text)).toBe(language);
   });

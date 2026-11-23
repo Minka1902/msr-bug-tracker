@@ -54,6 +54,7 @@ interface CurrentRow {
   reporter_id: string | null;
   start_date: string | null;
   due_date: string | null;
+  carried_from: string | null;
   recurrence: TaskRecurrence | null;
   escalate_from: Priority | null;
   escalate_to: Priority | null;
@@ -291,7 +292,14 @@ const spawnRecurrences = async (
   project: ProjectContext,
   completed: Pick<
     CurrentRow,
-    'id' | 'workflow' | 'assignee_id' | 'start_date' | 'due_date' | 'parent_id' | 'recurrence'
+    | 'id'
+    | 'workflow'
+    | 'assignee_id'
+    | 'start_date'
+    | 'due_date'
+    | 'carried_from'
+    | 'parent_id'
+    | 'recurrence'
   >[],
   actorId: string,
 ) => {
@@ -310,7 +318,7 @@ const spawnRecurrences = async (
     ).map((row) => row.user_id),
   );
   const plans = sources.map((row, index) => {
-    const dueDate = nextOccurrence(row.recurrence!, row.due_date, today);
+    const dueDate = nextOccurrence(row.recurrence!, row.carried_from ?? row.due_date, today);
     return {
       row,
       status: pickStatus(statuses, row.workflow, 'todo'),
@@ -640,6 +648,7 @@ export const updateTask = (
     )
       throw decisionRequired([formatIdentifier(project.key, current.number)]);
 
+    if ('due_date' in sets && current.carried_from) sets.carried_from = null;
     const columns = Object.keys(sets);
     if (columns.length) {
       const assignments = columns.map((column, index) => `${column} = $${index + 2}`);
@@ -1031,6 +1040,13 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
         scheduled.forEach((row) => log(row.id, 'escalation', describeEscalation(scheduleOf(row)), null));
       }
       await scalar('due_date', 'dueDate', patch.dueDate, (row) => row.due_date, patch.dueDate);
+      const carried = rows.filter((row) => row.carried_from);
+      if (carried.length)
+        await query(
+          'UPDATE tasks SET carried_from = NULL WHERE id = ANY($1::uuid[])',
+          [carried.map((row) => row.id)],
+          db,
+        );
     }
     if (patch.assigneeId !== undefined) {
       await assertMembers(db, project.id, [patch.assigneeId]);

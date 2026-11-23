@@ -474,9 +474,9 @@ describe('committing a plan', () => {
     const home = await createProject(owner, { key: 'HOME', name: 'Home', module: 'household' });
     await owner
       .post(`/api/projects/${home.key}/plan`)
-      .send({ tasks: [tasks[0]], agentId: null })
+      .send({ tasks: [tasks[0]], features: [{ title: 'Recipes', summary: '', phase: 'mvp' }], agentId: null })
       .expect(201);
-    const [chore] = (await owner.get(`/api/projects/${home.key}/tasks`)).body.items;
-    expect(chore.type).toBe('chore');
+    const items = (await owner.get(`/api/projects/${home.key}/tasks`)).body.items;
+    expect(items.map((item: { type: string }) => item.type)).toEqual(['chore']);
   });
 });

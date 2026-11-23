@@ -25,8 +25,9 @@ const purge = () =>
   );
 const schedulePriorities = () =>
   carryOverTasks()
+    .catch((err) => logger.error({ err }, 'Carry over failed'))
     .then(() => escalatePriorities(null, true))
-    .catch((err) => logger.error({ err }, 'Carry over or priority schedule failed'));
+    .catch((err) => logger.error({ err }, 'Priority schedule failed'));
 void purge();
 void schedulePriorities();
 setInterval(purge, HOUR).unref();

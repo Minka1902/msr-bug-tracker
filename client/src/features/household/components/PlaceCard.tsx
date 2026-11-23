@@ -1,10 +1,10 @@
 import { Clock, Copy, Globe, Mail, MapPin, Navigation, Pencil, Phone, Star } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { PLACE_CATEGORY_META } from '@msr/shared/places';
 import type { Place } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import { IconButton } from '../../../components/ui/IconButton';
+import { LinkButton } from '../../../components/ui/LinkButton';
 import { ProjectIcon } from '../../../components/ui/ProjectIcon';
 import { copyText } from '../../../lib/clipboard';
 import { cn } from '../../../lib/cn';
@@ -16,29 +16,6 @@ interface PlaceCardProps {
   onEdit: (place: Place) => void;
   onToggleFavorite: (place: Place) => void;
 }
-
-const LinkButton = ({
-  href,
-  label,
-  icon,
-  children,
-}: {
-  href: string;
-  label: string;
-  icon: ReactNode;
-  children: ReactNode;
-}) => (
-  <Button asChild size="sm" variant="soft" leftIcon={icon}>
-    <a
-      href={href}
-      aria-label={label}
-      target={href.startsWith('http') ? '_blank' : undefined}
-      rel="noopener noreferrer"
-    >
-      {children}
-    </a>
-  </Button>
-);
 
 export function PlaceCard({ place, canEdit, onEdit, onToggleFavorite }: PlaceCardProps) {
   const links = placeLinks(place);
@@ -88,32 +65,32 @@ export function PlaceCard({ place, canEdit, onEdit, onToggleFavorite }: PlaceCar
       )}
       <div className="flex flex-wrap gap-1.5">
         {links.call && (
-          <LinkButton href={links.call} label={`Call ${place.phone}`} icon={<Phone />}>
+          <LinkButton href={links.call} aria-label={`Call ${place.phone}`} leftIcon={<Phone />}>
             {place.phone}
           </LinkButton>
         )}
         {altCall && (
-          <LinkButton href={altCall} label={`Call ${place.phoneAlt}`} icon={<Phone />}>
+          <LinkButton href={altCall} aria-label={`Call ${place.phoneAlt}`} leftIcon={<Phone />}>
             {place.phoneAlt}
           </LinkButton>
         )}
         {links.google && (
-          <LinkButton href={links.google} label="Open in Google Maps" icon={<MapPin />}>
+          <LinkButton href={links.google} aria-label="Open in Google Maps" leftIcon={<MapPin />}>
             Maps
           </LinkButton>
         )}
         {links.waze && (
-          <LinkButton href={links.waze} label="Open in Waze" icon={<Navigation />}>
+          <LinkButton href={links.waze} aria-label="Open in Waze" leftIcon={<Navigation />}>
             Waze
           </LinkButton>
         )}
         {links.mail && (
-          <LinkButton href={links.mail} label={`Email ${place.email}`} icon={<Mail />}>
+          <LinkButton href={links.mail} aria-label={`Email ${place.email}`} leftIcon={<Mail />}>
             Email
           </LinkButton>
         )}
         {place.website && (
-          <LinkButton href={place.website} label="Open website" icon={<Globe />}>
+          <LinkButton href={place.website} aria-label="Open website" leftIcon={<Globe />}>
             Website
           </LinkButton>
         )}

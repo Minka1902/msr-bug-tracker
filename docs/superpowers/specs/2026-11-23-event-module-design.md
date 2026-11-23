@@ -48,7 +48,7 @@ Every type uses the same blocks; the template only switches them on.
 
 ## Data model (MVP)
 
-New migration `031_events.sql`:
+New migration `032_events.sql`:
 
 ```sql
 ALTER TABLE projects ADD COLUMN event_type text

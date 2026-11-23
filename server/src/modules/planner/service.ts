@@ -60,9 +60,7 @@ const PLAN_WIRE = z.object({
 });
 const HANDOFF_TITLE = 'Plan this project: steps, features and decisions';
 const PROJECT_BRIEF = 'SELECT name, description FROM projects WHERE id = $1';
-const HANDOFF_CARD = `
-  SELECT t.id, p.key::text AS key, t.number FROM tasks t JOIN projects p ON p.id = t.project_id
-  WHERE t.project_id = $1 AND t.assignee_id = $2 AND t.title = $3 ORDER BY t.number DESC LIMIT 1`;
+const CARD_NUMBER = 'SELECT number FROM tasks WHERE id = $1';
 const PHASE_LABELS = { mvp: 'MVP', later: 'Later' } as const;
 
 const clip = (value: string, max: number) => value.trim().slice(0, max);
@@ -197,7 +195,7 @@ export const commitPlan = async (
       dueDate: task.dueDate,
       checklist: task.steps.map((text) => ({ text, done: false })),
     })),
-    ...features.map((feature): NormalizedTask => ({
+    ...(typesFor(project.module).includes('feature') ? features : []).map((feature): NormalizedTask => ({
       ...emptyTask(feature.title),
       type: 'feature',
       statusCategory: 'todo',
@@ -226,7 +224,7 @@ export const handoffPlan = async (
     project.id,
   ]))!;
   const motivation = { ...DEFAULT_PREFERENCES.motivation, ...actor.preferences.motivation };
-  await commitImport(
+  const result = await commitImport(
     project,
     [
       {
@@ -241,10 +239,7 @@ export const handoffPlan = async (
     actor.id,
     { source: 'AI plan' },
   );
-  const card = (await queryOne<{ id: string; key: string; number: number }>(HANDOFF_CARD, [
-    project.id,
-    worker.id,
-    HANDOFF_TITLE,
-  ]))!;
-  return { id: card.id, identifier: formatIdentifier(card.key, card.number) };
+  const id = result.ids[0]!;
+  const { number } = (await queryOne<{ number: number }>(CARD_NUMBER, [id]))!;
+  return { id, identifier: formatIdentifier(project.key, number) };
 };
