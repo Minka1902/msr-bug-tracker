@@ -49,6 +49,7 @@ export function Popover({
           align={align}
           sideOffset={6}
           collisionPadding={12}
+          aria-label={title}
           className={cn(
             popoverSurface,
             'max-h-(--radix-popover-content-available-height) overflow-auto',

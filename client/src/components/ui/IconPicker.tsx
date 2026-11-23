@@ -49,7 +49,11 @@ export function IconPicker({ value, onChange, color, className }: IconPickerProp
         onChange={(event) => setQuery(event.target.value)}
       />
       {!search && (
-        <div role="group" aria-label="Icon categories" className={tabListVariants({ variant: 'pill' })}>
+        <div
+          role="group"
+          aria-label="Icon categories"
+          className={cn(tabListVariants({ variant: 'pill' }), 'contain-inline-size')}
+        >
           {CATEGORIES.map((category) => (
             <button
               key={category.id}
