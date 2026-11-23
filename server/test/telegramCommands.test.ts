@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCommand } from '../src/modules/bots/commands';
+import { detectLanguage } from '../src/modules/bots/language';
 
 describe('Telegram command parser', () => {
   it.each([
@@ -75,5 +76,130 @@ describe('Telegram command parser', () => {
       items: ['candles', 'sandpaper'],
       list: null,
     });
+  });
+});
+
+describe('language detection', () => {
+  it.each([
+    ['apples, milk', 'en'],
+    ['קניתי חלב', 'he'],
+    ['סגור HOME-12', 'he'],
+    ['купил молоко', 'ru'],
+    ['готово HOME-12', 'ru'],
+    ['?', null],
+    ['HOME-12?', null],
+    ['use HOME', 'en'],
+    ['12/11', null],
+  ])('%s', (text, language) => {
+    expect(detectLanguage(text)).toBe(language);
+  });
+});
+
+describe('Hebrew commands', () => {
+  it.each([
+    ['עזרה', { kind: 'help' }],
+    ['רשימות?', { kind: 'lists' }],
+    ['מטלות?', { kind: 'tasks' }],
+    ['משימות', { kind: 'tasks' }],
+    ['שלי?', { kind: 'mine' }],
+    ['המשימות שלי?', { kind: 'mine' }],
+    ['תורים?', { kind: 'appointments' }],
+    ['פגישות?', { kind: 'appointments' }],
+    ['עבור ל home', { kind: 'use', key: 'HOME' }],
+    ['סגור home-12', { kind: 'done', identifier: 'HOME-12', decision: null }],
+    [
+      'בוצע HOME-12: קונים את הספה הכחולה',
+      { kind: 'done', identifier: 'HOME-12', decision: 'קונים את הספה הכחולה' },
+    ],
+    ['done HOME-3', { kind: 'done', identifier: 'HOME-3', decision: null }],
+    ['פתח את הפרויקט', { kind: 'open_project' }],
+    ['פתח את רשימות הקניות', { kind: 'open_list', name: null }],
+    ['פתח את רשימת סופר', { kind: 'open_list', name: 'סופר' }],
+    ['הוסף מסמרים לרשימת כלי עבודה', { kind: 'add', items: ['מסמרים'], list: 'כלי עבודה' }],
+    ['תוסיף חלב, לחם', { kind: 'add', items: ['חלב', 'לחם'], list: null }],
+    ['חלב, ביצים וגבינה', { kind: 'add', items: ['חלב', 'ביצים', 'גבינה'], list: null }],
+    ['תמצית וניל', { kind: 'add', items: ['תמצית וניל'], list: null }],
+    ['קניתי חלב, לחם', { kind: 'bought', items: ['חלב', 'לחם'] }],
+    ['קנינו ביצים', { kind: 'bought', items: ['ביצים'] }],
+    ['סופר?', { kind: 'list', name: 'סופר' }],
+    [
+      'דנה צריכה לשטוף את האוטו מחר',
+      { kind: 'assign', person: 'דנה', title: 'לשטוף את האוטו', when: { kind: 'tomorrow' } },
+    ],
+    [
+      'אבא צריך לקנות מתנה היום',
+      { kind: 'assign', person: 'אבא', title: 'לקנות מתנה', when: { kind: 'today' } },
+    ],
+    [
+      'תום צריך לשלם ארנונה מחרתיים',
+      { kind: 'assign', person: 'תום', title: 'לשלם ארנונה', when: { kind: 'days', days: 2 } },
+    ],
+    [
+      'מיה צריכה להאכיל את החתול ביום שישי',
+      { kind: 'assign', person: 'מיה', title: 'להאכיל את החתול', when: { kind: 'weekday', day: 5 } },
+    ],
+    [
+      'רון צריך לסדר את החדר בשבת',
+      { kind: 'assign', person: 'רון', title: 'לסדר את החדר', when: { kind: 'weekday', day: 6 } },
+    ],
+    [
+      'אני צריך לתקן את הברז ב-12/11',
+      { kind: 'assign', person: 'אני', title: 'לתקן את הברז', when: { kind: 'date', day: 12, month: 11 } },
+    ],
+  ])('%s', (text, command) => {
+    expect(parseCommand(text, 'he')).toEqual(command);
+  });
+});
+
+describe('Russian commands', () => {
+  it.each([
+    ['помощь', { kind: 'help' }],
+    ['списки?', { kind: 'lists' }],
+    ['дела?', { kind: 'tasks' }],
+    ['задачи', { kind: 'tasks' }],
+    ['мои?', { kind: 'mine' }],
+    ['мои задачи?', { kind: 'mine' }],
+    ['встречи?', { kind: 'appointments' }],
+    ['перейди в home', { kind: 'use', key: 'HOME' }],
+    ['готово home-12', { kind: 'done', identifier: 'HOME-12', decision: null }],
+    [
+      'сделано HOME-12: берём синий диван',
+      { kind: 'done', identifier: 'HOME-12', decision: 'берём синий диван' },
+    ],
+    ['открой проект', { kind: 'open_project' }],
+    ['открой списки', { kind: 'open_list', name: null }],
+    ['открой список продукты', { kind: 'open_list', name: 'продукты' }],
+    ['добавь гвозди в список инструменты', { kind: 'add', items: ['гвозди'], list: 'инструменты' }],
+    ['добавь хлеб и масло', { kind: 'add', items: ['хлеб', 'масло'], list: null }],
+    ['молоко, яйца и сыр', { kind: 'add', items: ['молоко', 'яйца', 'сыр'], list: null }],
+    ['я купил молоко', { kind: 'bought', items: ['молоко'] }],
+    ['купила хлеб и сыр', { kind: 'bought', items: ['хлеб', 'сыр'] }],
+    ['продукты?', { kind: 'list', name: 'продукты' }],
+    [
+      'Дана должна помыть машину завтра',
+      { kind: 'assign', person: 'Дана', title: 'Помыть машину', when: { kind: 'tomorrow' } },
+    ],
+    [
+      'папа должен купить подарок сегодня',
+      { kind: 'assign', person: 'папа', title: 'Купить подарок', when: { kind: 'today' } },
+    ],
+    [
+      'Том должен заплатить послезавтра',
+      { kind: 'assign', person: 'Том', title: 'Заплатить', when: { kind: 'days', days: 2 } },
+    ],
+    [
+      'Миша должен покормить кота в пятницу',
+      { kind: 'assign', person: 'Миша', title: 'Покормить кота', when: { kind: 'weekday', day: 5 } },
+    ],
+    [
+      'Оля должна убрать комнату во вторник',
+      { kind: 'assign', person: 'Оля', title: 'Убрать комнату', when: { kind: 'weekday', day: 2 } },
+    ],
+    [
+      'я должен починить кран на 12/11',
+      { kind: 'assign', person: 'я', title: 'Починить кран', when: { kind: 'date', day: 12, month: 11 } },
+    ],
+  ])('%s', (text, command) => {
+    expect(parseCommand(text, 'ru')).toEqual(command);
   });
 });

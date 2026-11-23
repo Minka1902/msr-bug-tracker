@@ -1,4 +1,3 @@
-import { formatMinutes } from '@msr/shared/calendar';
 import { PRIORITIES, type Priority } from '@msr/shared/enums';
 import { formatIdentifier } from '@msr/shared/identifiers';
 import type { BotPlatform, NotifyKind } from '@msr/shared/bots';
@@ -7,13 +6,15 @@ import { query } from '../../db/pool';
 import { logger } from '../../lib/logger';
 import { activeSubscription } from '../shop/service';
 import { formatDay, formatTime, type Formatter } from './format';
+import type { BotLanguage } from './language';
 import { PLATFORMS } from './platforms';
 import { dropChat, migrateChat, type ChatRef } from './service';
+import { BOT_TEXT } from './texts';
 
 interface Note {
   projectId: string;
   kind: NotifyKind;
-  line: (f: Formatter, timezone: string) => string;
+  line: (f: Formatter, timezone: string, language: BotLanguage) => string;
   users: (string | null)[] | null;
   viewRoles: string[] | null;
   actorId: string | null;
@@ -97,6 +98,7 @@ interface ChatRow {
   owner_id: string;
   role_id: string | null;
   timezone: string;
+  language: BotLanguage;
   tier: PaidTier | null;
 }
 
@@ -179,7 +181,7 @@ const CLAIM_REMINDERS = `
   RETURNING e.project_id, e.title, e.location, e.starts_at,
             ARRAY(SELECT user_id FROM calendar_event_attendees a WHERE a.event_id = e.id) AS attendee_ids`;
 const TARGET_CHATS = `
-  SELECT c.platform, c.chat_id, c.project_id, c.is_group, c.linked_by, c.notify, c.only_mine, p.key::text AS key, p.name, p.module,
+  SELECT c.platform, c.chat_id, c.project_id, c.is_group, c.linked_by, c.notify, c.only_mine, c.language, p.key::text AS key, p.name, p.module,
          p.owner_id, (SELECT m.role_id FROM project_members m WHERE m.project_id = c.project_id AND m.user_id = c.linked_by) AS role_id,
          coalesce(u.preferences->>'timezone', 'UTC') AS timezone,
          (SELECT s.tier FROM (${activeSubscription('p.owner_id')}) s) AS tier
@@ -216,30 +218,31 @@ const activityKind = (row: ActivityRow): NotifyKind | null => {
   return 'status_changed';
 };
 
-const activityLine = (kind: NotifyKind, row: ActivityRow) => (f: Formatter) => {
-  const task = taskLink(f, row.key, row.number, row.title);
-  if (kind === 'task_created')
-    return `🆕 ${task}${row.assignee ? ` for ${f.text(row.assignee)}` : ''}${by(f, row.actor)}`;
-  if (kind === 'comments') return `💬 ${f.text(row.actor ?? 'Someone')} commented on ${task}`;
-  if (kind === 'task_assigned') return `👤 ${task} → ${f.text(row.new_value!)}${by(f, row.actor)}`;
-  if (kind === 'priority_raised')
-    return `⬆️ ${task}: ${row.old_value} → ${row.new_value}${row.actor ? by(f, row.actor) : ' (schedule)'}`;
-  return `🔄 ${task}: ${f.text(row.old_value ?? '')} → ${f.text(row.new_value ?? '')}${by(f, row.actor)}`;
-};
+const activityLine =
+  (kind: NotifyKind, row: ActivityRow) => (f: Formatter, _timezone: string, language: BotLanguage) => {
+    const t = BOT_TEXT[language];
+    const task = taskLink(f, row.key, row.number, row.title);
+    if (kind === 'task_created')
+      return `${t.created(task, row.assignee && f.text(row.assignee))}${by(f, row.actor)}`;
+    if (kind === 'comments') return t.commented(f.text(row.actor ?? t.someone), task);
+    if (kind === 'task_assigned') return `👤 ${task} → ${f.text(row.new_value!)}${by(f, row.actor)}`;
+    if (kind === 'priority_raised')
+      return `⬆️ ${task}: ${t.priority[row.old_value as Priority]} → ${t.priority[row.new_value as Priority]}${
+        row.actor ? by(f, row.actor) : ` (${t.schedule})`
+      }`;
+    return `🔄 ${task}: ${f.text(row.old_value ?? '')} → ${f.text(row.new_value ?? '')}${by(f, row.actor)}`;
+  };
 
-const outboxLine = (row: OutboxRow) => (f: Formatter, timezone: string) => {
+const outboxLine = (row: OutboxRow) => (f: Formatter, timezone: string, language: BotLanguage) => {
+  const t = BOT_TEXT[language];
   const { payload } = row;
-  const actor = f.text(row.actor ?? 'Someone');
-  if (payload.added)
-    return `🛒 ${actor} added ${payload.added.map(f.text).join(', ')} to ${f.text(payload.list!)}`;
-  if (payload.cleared) {
-    const count = payload.cleared.length;
-    return `🛒 ${actor} cleared ${count} bought item${count === 1 ? '' : 's'} from ${f.text(payload.list!)}`;
-  }
+  const actor = f.text(row.actor ?? t.someone);
+  if (payload.added) return t.addedItems(actor, payload.added.map(f.text).join(', '), f.text(payload.list!));
+  if (payload.cleared) return t.cleared(actor, payload.cleared.length, f.text(payload.list!));
   const when = payload.allDay
-    ? formatDay(payload.startsAt!.slice(0, 10), timezone)
-    : formatTime(payload.startsAt!, timezone);
-  return `📅 ${actor} added ${payload.appointment ? 'an appointment: ' : ''}${f.bold(payload.title!)} · ${when}${
+    ? formatDay(payload.startsAt!.slice(0, 10), timezone, language)
+    : formatTime(payload.startsAt!, timezone, language);
+  return `${t.addedEvent(actor, !!payload.appointment, f.bold(payload.title!))} · ${when}${
     payload.location ? ` · ${f.text(payload.location)}` : ''
   }`;
 };
@@ -249,10 +252,14 @@ const minutesUntil = (instant: Date) => {
   return minutes < 15 ? minutes : Math.round(minutes / 5) * 5;
 };
 
-const reminderLine = (row: ReminderRow) => (f: Formatter, timezone: string) =>
-  `⏰ ${f.bold(row.title)} in ${formatMinutes(minutesUntil(row.starts_at))} · ${formatTime(row.starts_at, timezone)}${
-    row.location ? ` · ${f.text(row.location)}` : ''
-  }`;
+const reminderLine = (row: ReminderRow) => (f: Formatter, timezone: string, language: BotLanguage) => {
+  const t = BOT_TEXT[language];
+  return `${t.reminder(f.bold(row.title), t.duration(minutesUntil(row.starts_at)))} · ${formatTime(
+    row.starts_at,
+    timezone,
+    language,
+  )}${row.location ? ` · ${f.text(row.location)}` : ''}`;
+};
 
 const claimActivity = async () => {
   const [range] = await query<{ from_id: string; to_id: string }>(CLAIM_CURSOR);
@@ -290,10 +297,11 @@ const collectNotes = (
   ...overdue.map((row) => ({
     projectId: row.project_id,
     kind: 'overdue' as const,
-    line: (f: Formatter, timezone: string) =>
-      `⏰ ${taskLink(f, row.key, row.number, row.title)} was due ${formatDay(row.due_date, timezone)}${
-        row.assignee ? ` · ${f.text(row.assignee)}` : ''
-      }`,
+    line: (f: Formatter, timezone: string, language: BotLanguage) =>
+      `${BOT_TEXT[language].wasDue(
+        taskLink(f, row.key, row.number, row.title),
+        formatDay(row.due_date, timezone, language),
+      )}${row.assignee ? ` · ${f.text(row.assignee)}` : ''}`,
     users: [row.assignee_id, row.reporter_id],
     viewRoles: row.view_roles,
     actorId: null,
@@ -326,6 +334,7 @@ const wants = (chat: ChatRow, note: Note) =>
       (!chat.only_mine || !note.users || note.users.includes(chat.linked_by))));
 
 const digestLines = (f: Formatter, chat: ChatRow, day: string, tasks: OverdueRow[]) => {
+  const t = BOT_TEXT[chat.language];
   const due = tasks.filter(
     (task) =>
       task.project_id === chat.project_id &&
@@ -335,17 +344,19 @@ const digestLines = (f: Formatter, chat: ChatRow, day: string, tasks: OverdueRow
   );
   if (!due.length) return [];
   return [
-    `☀️ ${f.bold('Due today')}`,
+    `☀️ ${f.bold(t.dueToday)}`,
     ...due.map(
       (task) =>
-        `• ${taskLink(f, task.key, task.number, task.title)} · ${f.text(task.assignee ?? 'Anyone')}${
-          task.due_date < day ? ` · overdue since ${formatDay(task.due_date, chat.timezone)}` : ''
+        `• ${taskLink(f, task.key, task.number, task.title)} · ${f.text(task.assignee ?? t.anyone)}${
+          task.due_date < day
+            ? ` · ${t.overdueSince(formatDay(task.due_date, chat.timezone, chat.language))}`
+            : ''
         }`,
     ),
   ];
 };
 
-const compose = (sections: Map<string, string[]>, maxLength: number) => {
+const compose = (sections: Map<string, string[]>, maxLength: number, language: BotLanguage) => {
   const blocks: string[] = [];
   let budget = LINES_MAX;
   let length = 0;
@@ -362,7 +373,7 @@ const compose = (sections: Map<string, string[]>, maxLength: number) => {
     }
     if (shown.length) blocks.push([header, ...shown].join('\n'));
   }
-  return blocks.join('\n\n') + (hidden ? `\n\n…and ${hidden} more in MSR` : '');
+  return blocks.join('\n\n') + (hidden ? `\n\n${BOT_TEXT[language].more(hidden)}` : '');
 };
 
 const deliver = async (chat: ChatRef, text: string) => {
@@ -408,7 +419,10 @@ const notify = async () => {
         ])
       : [],
   ]);
-  const messages = new Map<string, { chat: ChatRef; sections: Map<string, string[]> }>();
+  const messages = new Map<
+    string,
+    { chat: ChatRef; language: BotLanguage; sections: Map<string, string[]> }
+  >();
   for (const chat of chats) {
     if (!botAllowed(chat.tier ?? 'free', chat.module) || !PLATFORMS[chat.platform].enabled()) continue;
     const { format } = PLATFORMS[chat.platform];
@@ -416,12 +430,16 @@ const notify = async () => {
     const lines = [
       ...notes
         .filter((note) => note.projectId === chat.project_id && wants(chat, note))
-        .map((note) => note.line(format, chat.timezone)),
+        .map((note) => note.line(format, chat.timezone, chat.language)),
       ...(day ? digestLines(format, chat, day, digestTasks) : []),
     ];
     if (!lines.length) continue;
     const ref = { platform: chat.platform, chatId: chat.chat_id };
-    const message = messages.get(chatKey(ref)) ?? { chat: ref, sections: new Map<string, string[]>() };
+    const message = messages.get(chatKey(ref)) ?? {
+      chat: ref,
+      language: chat.language,
+      sections: new Map<string, string[]>(),
+    };
     message.sections.set(format.bold(`${chat.key} · ${chat.name}`), lines);
     messages.set(chatKey(ref), message);
   }
@@ -430,8 +448,8 @@ const notify = async () => {
     await Promise.all(
       outgoing
         .slice(index, index + SEND_BATCH)
-        .map(({ chat, sections }) =>
-          deliver(chat, compose(sections, PLATFORMS[chat.platform].maxLength)).catch((err) =>
+        .map(({ chat, language, sections }) =>
+          deliver(chat, compose(sections, PLATFORMS[chat.platform].maxLength, language)).catch((err) =>
             logger.warn({ err, ...chat }, 'Bot message failed'),
           ),
         ),
