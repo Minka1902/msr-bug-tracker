@@ -9,6 +9,7 @@ import {
   roleId,
   setupTeam,
   statusOf,
+  subscribe,
   type Agent,
 } from './helpers';
 
@@ -356,6 +357,114 @@ describe('bulk updates', () => {
     await member.agent.post('/api/projects/WEB/tasks/bulk-delete').send({ ids }).expect(403);
     await owner.post('/api/projects/WEB/tasks/bulk-delete').send({ ids }).expect(204);
     expect((await owner.get('/api/projects/WEB/tasks')).body.items).toHaveLength(0);
+  });
+});
+
+describe('bulk due dates, types and moves', () => {
+  const bulk = (agent: Agent, ids: string[], patch: Record<string, unknown>) =>
+    agent.patch('/api/projects/WEB/tasks/bulk').send({ ids, patch });
+
+  it('sets and clears due dates, refusing tasks that start later and dropping the schedule', async () => {
+    const { owner, project } = await setupTeam();
+    const starts = await createTask(owner, project.key, { startDate: '2030-05-05' });
+    const plain = await createTask(owner, project.key);
+    const scheduled = await createTask(owner, project.key, {
+      dueDate: '2030-05-20',
+      escalation: { from: 'low', to: 'high' },
+    });
+    const refused = await bulk(owner, [starts.id, plain.id], { dueDate: '2030-05-01' }).expect(400);
+    expect(refused.body.details.tasks).toEqual([starts.identifier]);
+
+    const { body } = await bulk(owner, [starts.id, plain.id], { dueDate: '2030-05-10' }).expect(200);
+    expect(body.tasks.map((task: { dueDate: string }) => task.dueDate)).toEqual(['2030-05-10', '2030-05-10']);
+
+    const cleared = await bulk(owner, [scheduled.id], { dueDate: null }).expect(200);
+    expect(cleared.body.tasks[0]).toMatchObject({ dueDate: null, escalation: null });
+  });
+
+  it('changes the type, moving cards into the new workflow by category', async () => {
+    const { owner, project } = await setupTeam();
+    const todo = await createTask(owner, project.key);
+    const doing = await createTask(owner, project.key, {
+      statusId: statusOf(project, 'task', 'In Progress'),
+    });
+    const { body } = await bulk(owner, [todo.id, doing.id], { type: 'bug' }).expect(200);
+    const byId = Object.fromEntries(body.tasks.map((task: { id: string }) => [task.id, task]));
+    expect(byId[todo.id]).toMatchObject({ type: 'bug', statusId: statusOf(project, 'bug', 'Open') });
+    expect(byId[doing.id]).toMatchObject({ type: 'bug', statusId: statusOf(project, 'bug', 'In Progress') });
+
+    await bulk(owner, [todo.id], { type: 'chore' }).expect(400);
+    await bulk(owner, [todo.id], { cardTypeId: null }).expect(400);
+  });
+
+  it('applies a card type and its base type together', async () => {
+    const { owner, project } = await setupTeam();
+    await subscribe(owner, 'pro');
+    const experiment = (
+      await owner
+        .post('/api/projects/WEB/card-types')
+        .send({ name: 'Experiment', base: 'task', icon: 'rocket', color: '#8b5cf6' })
+        .expect(201)
+    ).body.cardType;
+    const bug = await createTask(owner, project.key, { type: 'bug' });
+    const { body } = await bulk(owner, [bug.id], { cardTypeId: experiment.id }).expect(200);
+    expect(body.tasks[0]).toMatchObject({ type: 'task', statusId: statusOf(project, 'task', 'To Do') });
+    expect(body.tasks[0].cardType).toMatchObject({ id: experiment.id });
+  });
+
+  it('moves selected tasks and their subtasks to another project in one go', async () => {
+    const { owner, project } = await setupTeam();
+    await createProject(owner, { key: 'APP', name: 'App' });
+    await createTask(owner, 'APP');
+    const parent = await createTask(owner, project.key, { title: 'Parent' });
+    const child = await createTask(owner, project.key, { title: 'Child', parentId: parent.id });
+    const solo = await createTask(owner, project.key, { title: 'Solo' });
+    const stays = await createTask(owner, project.key, { title: 'Stays' });
+    const orphan = await createTask(owner, project.key, { title: 'Orphan', parentId: stays.id });
+
+    await owner
+      .post('/api/projects/WEB/tasks/bulk-move')
+      .send({ ids: [parent.id, child.id, solo.id, orphan.id], projectKey: 'APP' })
+      .expect(204);
+
+    const read = async (id: string) => (await owner.get(`/api/tasks/${id}`).expect(200)).body.task;
+    const [movedParent, movedChild, movedSolo, movedOrphan, kept] = await Promise.all(
+      [parent, child, solo, orphan, stays].map((task) => read(task.id)),
+    );
+    expect([movedParent, movedChild, movedSolo, movedOrphan].map((task) => task.projectKey)).toEqual([
+      'APP',
+      'APP',
+      'APP',
+      'APP',
+    ]);
+    expect(new Set([movedParent, movedChild, movedSolo, movedOrphan].map((task) => task.number)).size).toBe(
+      4,
+    );
+    expect(Math.min(...[movedParent, movedChild, movedSolo, movedOrphan].map((task) => task.number))).toBe(2);
+    expect(movedChild.parentId).toBe(parent.id);
+    expect(movedOrphan.parentId).toBeNull();
+    expect(kept).toMatchObject({ projectKey: 'WEB', subtaskTotal: 0 });
+    expect((await owner.get(`/api/tasks/by-identifier/${solo.identifier}`)).body.task.identifier).toBe(
+      movedSolo.identifier,
+    );
+  });
+
+  it('needs task.move here and task.create there to move in bulk', async () => {
+    const { owner, project, member } = await setupTeam();
+    await createProject(owner, { key: 'APP', name: 'App' });
+    const task = await createTask(owner, project.key);
+    await member.agent
+      .post('/api/projects/WEB/tasks/bulk-move')
+      .send({ ids: [task.id], projectKey: 'APP' })
+      .expect(403);
+    await owner
+      .post('/api/projects/WEB/tasks/bulk-move')
+      .send({ ids: [task.id], projectKey: 'NOPE' })
+      .expect(404);
+    await owner
+      .post('/api/projects/WEB/tasks/bulk-move')
+      .send({ ids: [task.id], projectKey: 'WEB' })
+      .expect(400);
   });
 });
 

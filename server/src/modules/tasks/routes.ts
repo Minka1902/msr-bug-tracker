@@ -1,12 +1,17 @@
 import { Router } from 'express';
 import { canTransitionTask } from '@msr/shared/permissions';
 import { moveTaskSchema, updateTaskSchema } from '@msr/shared/schemas/task';
-import { prepared } from '../../db/pool';
 import { forbidden, notFound } from '../../lib/httpError';
 import { removeUnreferenced } from '../attachments/service';
-import { assertCanWrite, assertWritable, projectOf, toProjectContext } from '../projects/access';
+import { assertCanWrite, assertWritable, projectOf } from '../projects/access';
 import { listTaskActivity } from './activity';
-import { assertCanPatchTask, assertCardTypeEditable, findTaskByIdentifier, loadTask } from './access';
+import {
+  assertCanPatchTask,
+  assertCardTypeEditable,
+  findTaskByIdentifier,
+  loadMoveTarget,
+  loadTask,
+} from './access';
 import {
   deleteTasks,
   duplicateTask,
@@ -16,13 +21,6 @@ import {
   reopenTask,
   updateTask,
 } from './service';
-
-const LOAD_TARGET_PROJECT = `
-  SELECT p.id, p.key::text, p.module, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
-  FROM projects p
-  JOIN project_members m ON m.project_id = p.id AND m.user_id = $2
-  JOIN project_roles r ON r.id = m.role_id
-  WHERE p.key = $1`;
 
 export const createTasksRouter = () => {
   const router = Router();
@@ -70,16 +68,8 @@ export const createTasksRouter = () => {
   scoped.post('/move', async (req, res) => {
     const source = projectOf(req);
     const { projectKey } = moveTaskSchema.parse(req.body);
-    const [row] = await prepared<Parameters<typeof toProjectContext>[0]>(
-      'load-target-project',
-      LOAD_TARGET_PROJECT,
-      [projectKey, req.user!.id],
-    );
-    if (!row) throw notFound('Target project not found');
-    const target = toProjectContext(row, req.user!.id);
-    assertCanWrite(source, 'task.move');
+    const target = await loadMoveTarget(source, projectKey, req.user!.id);
     assertCardTypeEditable(source, req.task!);
-    assertCanWrite(target, 'task.create');
     if (target.id === source.id) throw notFound('The task is already in this project');
     res.json({ task: await moveTask(source, target, req.task!.id, req.user!.id) });
   });

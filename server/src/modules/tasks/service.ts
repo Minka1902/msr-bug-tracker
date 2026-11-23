@@ -10,6 +10,7 @@ import {
 } from '@msr/shared/enums';
 import { describeEscalation } from '@msr/shared/escalation';
 import { formatIdentifier } from '@msr/shared/identifiers';
+import { typesFor } from '@msr/shared/modules';
 import { cardTypeAllows, missingTaskPermissions } from '@msr/shared/permissions';
 import { describeRecurrence, nextAssignee, nextOccurrence } from '@msr/shared/recurrence';
 import type { BulkPatch, CreateTaskInput, TaskFilters, UpdateTaskInput } from '@msr/shared/schemas/task';
@@ -172,18 +173,6 @@ const COPY_LABELS =
 const COPY_CHECKLIST = `
   INSERT INTO task_checklist_items (task_id, text, is_done, position)
   SELECT $2, text, false, position FROM task_checklist_items WHERE task_id = $1`;
-const MOVE_ROW = `
-  UPDATE tasks SET project_id = $2, number = $3, status_id = $4, position = $5, assignee_id = $6, parent_id = $7,
-         completed_at = CASE WHEN $8 THEN COALESCE(completed_at, now()) END, updated_at = now(),
-         card_type_id = (SELECT tt.id FROM project_card_types st
-                         JOIN project_card_types tt ON tt.project_id = $2 AND lower(tt.name) = lower(st.name) AND tt.base = st.base
-                         WHERE st.id = tasks.card_type_id)
-  WHERE id = $1`;
-const INSERT_ALIAS = 'INSERT INTO task_aliases (project_id, number, task_id) VALUES ($1, $2, $3)';
-const MOVE_ACTIVITY = 'UPDATE task_activity SET project_id = $2 WHERE task_id = $1';
-const TARGET_LABELS_BY_NAME = `
-  SELECT tl.id FROM task_labels src JOIN labels sl ON sl.id = src.label_id JOIN labels tl ON lower(tl.name) = lower(sl.name) AND tl.project_id = $2
-  WHERE src.task_id = $1`;
 const RESOLVE_IDENTIFIER = `
   SELECT COALESCE(t.id, al.task_id) AS id
   FROM projects p
@@ -753,66 +742,107 @@ export const duplicateTask = (project: ProjectContext, taskId: string, actorId: 
     return getTaskDetail(created!.id, db);
   });
 
-export const moveTask = (source: ProjectContext, target: ProjectContext, taskId: string, actorId: string) =>
-  transaction(async (db) => {
-    const [main] = await lockTasks(db, source.id, [taskId]);
-    if (!main) throw notFound('Task not found');
-    const children = await query<CurrentRow>(
-      `SELECT t.*, s.workflow, s.category FROM tasks t JOIN project_statuses s ON s.id = t.status_id WHERE t.parent_id = $1 ORDER BY t.number FOR UPDATE OF t`,
-      [taskId],
-      db,
-    );
-    const statuses = await listStatuses(target.id, db);
-    const lastByStatus = new Map<string, string | null>();
-    const assigneeIds = [main, ...children].map((row) => row.assignee_id).filter(Boolean);
-    const memberIds = new Set(
-      (await query<{ user_id: string }>(MEMBER_IDS, [target.id, assigneeIds], db)).map((row) => row.user_id),
-    );
+const MOVE_ROWS = `
+  UPDATE tasks t SET project_id = $2, number = x.number, status_id = x.status_id, position = x.position,
+         assignee_id = x.assignee_id, parent_id = x.parent_id, updated_at = now(),
+         completed_at = CASE WHEN s.category = 'done' THEN COALESCE(t.completed_at, now()) END,
+         card_type_id = (SELECT tt.id FROM project_card_types st
+                         JOIN project_card_types tt ON tt.project_id = $2 AND lower(tt.name) = lower(st.name) AND tt.base = st.base
+                         WHERE st.id = t.card_type_id)
+  FROM unnest($1::uuid[], $3::int[], $4::uuid[], $5::text[], $6::uuid[], $7::uuid[])
+    AS x(id, number, status_id, position, assignee_id, parent_id)
+  JOIN project_statuses s ON s.id = x.status_id
+  WHERE t.id = x.id`;
+const INSERT_ALIASES = `
+  INSERT INTO task_aliases (project_id, number, task_id) SELECT $1, x.number, x.task_id
+  FROM unnest($2::int[], $3::uuid[]) AS x(number, task_id)`;
+const MOVE_LABELS = `
+  WITH source AS (
+    SELECT tl.task_id, lower(l.name) AS name FROM task_labels tl JOIN labels l ON l.id = tl.label_id
+    WHERE tl.task_id = ANY($1::uuid[])
+  ), cleared AS (DELETE FROM task_labels WHERE task_id = ANY($1::uuid[]))
+  INSERT INTO task_labels (task_id, label_id)
+  SELECT source.task_id, l.id FROM source JOIN labels l ON l.project_id = $2 AND lower(l.name) = source.name
+  ON CONFLICT DO NOTHING`;
+const MOVE_ACTIVITY_ROWS = 'UPDATE task_activity SET project_id = $2 WHERE task_id = ANY($1::uuid[])';
+const CHILDREN_OF = `
+  SELECT t.*, s.workflow, s.category FROM tasks t JOIN project_statuses s ON s.id = t.status_id
+  WHERE t.parent_id = ANY($1::uuid[]) AND NOT t.id = ANY($1::uuid[]) ORDER BY t.number FOR UPDATE OF t`;
 
-    for (const row of [main, ...children]) {
-      const status = pickStatus(statuses, row.workflow, row.category);
-      if (!lastByStatus.has(status.id)) lastByStatus.set(status.id, await lastPosition(db, status.id));
-      const position = positionAfter(lastByStatus.get(status.id));
-      lastByStatus.set(status.id, position);
-      const number = await allocateNumber(db, target.id);
-      const labelIds = (await query<{ id: string }>(TARGET_LABELS_BY_NAME, [row.id, target.id], db)).map(
-        (label) => label.id,
-      );
-      await query(
-        MOVE_ROW,
-        [
-          row.id,
-          target.id,
-          number,
-          status.id,
-          position,
-          row.assignee_id && memberIds.has(row.assignee_id) ? row.assignee_id : null,
-          row.id === main.id ? null : main.id,
-          status.category === 'done',
-        ],
-        db,
-      );
-      await query(INSERT_ALIAS, [source.id, row.number, row.id], db);
-      await query(CLEAR_LABELS, [row.id], db);
-      if (labelIds.length) await query(INSERT_LABELS, [row.id, labelIds], db);
-      await query(MOVE_ACTIVITY, [row.id, target.id], db);
-      await recordActivity(
-        [
-          {
-            projectId: target.id,
-            taskId: row.id,
-            actorId,
-            action: 'moved',
-            oldValue: formatIdentifier(source.key, row.number),
-            newValue: formatIdentifier(target.key, number),
-          },
-        ],
-        db,
+export const moveTasks = (source: ProjectContext, target: ProjectContext, ids: string[], actorId: string) =>
+  transaction(async (db) => {
+    const uniqueIds = [...new Set(ids)];
+    const selected = await lockTasks(db, source.id, uniqueIds);
+    if (selected.length !== uniqueIds.length) throw notFound('Some tasks were not found in this project');
+    const locked = lockedCards(source, selected);
+    if (locked.length)
+      throw forbidden(`Your role (${source.roleName}) can't move some of these cards`, {
+        tasks: locked.map((row) => formatIdentifier(source.key, row.number)),
+      });
+    const rows = [...selected, ...(await query<CurrentRow>(CHILDREN_OF, [uniqueIds], db))];
+    const movedIds = new Set(rows.map((row) => row.id));
+    const statuses = await listStatuses(target.id, db);
+    const members = new Set(
+      (
+        await query<{ user_id: string }>(
+          MEMBER_IDS,
+          [target.id, rows.map((row) => row.assignee_id).filter(Boolean)],
+          db,
+        )
+      ).map((row) => row.user_id),
+    );
+    const plans = rows.map((row) => ({ row, status: pickStatus(statuses, row.workflow, row.category) }));
+    const positions = new Map<string, string>();
+    for (const status of new Set(plans.map((plan) => plan.status))) {
+      const group = plans.filter((plan) => plan.status === status);
+      generateNKeysBetween(await lastPosition(db, status.id), null, group.length).forEach((position, index) =>
+        positions.set(group[index]!.row.id, position),
       );
     }
-    await refreshParents(db, [main.parent_id, main.id]);
-    return getTaskDetail(main.id, db);
+    const last = (await queryOne<{ task_seq: number }>(RESERVE_NUMBERS, [target.id, rows.length], db))!
+      .task_seq;
+    const numbers = rows.map((_, index) => last - rows.length + 1 + index);
+    const taskIds = rows.map((row) => row.id);
+
+    await query(INSERT_ALIASES, [source.id, rows.map((row) => row.number), taskIds], db);
+    await query(
+      MOVE_ROWS,
+      [
+        taskIds,
+        target.id,
+        numbers,
+        plans.map((plan) => plan.status.id),
+        taskIds.map((id) => positions.get(id)!),
+        rows.map((row) => (row.assignee_id && members.has(row.assignee_id) ? row.assignee_id : null)),
+        rows.map((row) => (row.parent_id && movedIds.has(row.parent_id) ? row.parent_id : null)),
+      ],
+      db,
+    );
+    await query(MOVE_LABELS, [taskIds, target.id], db);
+    await query(MOVE_ACTIVITY_ROWS, [taskIds, target.id], db);
+    await recordActivity(
+      rows.map((row, index) => ({
+        projectId: target.id,
+        taskId: row.id,
+        actorId,
+        action: 'moved',
+        oldValue: formatIdentifier(source.key, row.number),
+        newValue: formatIdentifier(target.key, numbers[index]!),
+      })),
+      db,
+    );
+    await refreshParents(db, [...rows.map((row) => row.parent_id), ...taskIds]);
   });
+
+export const moveTask = async (
+  source: ProjectContext,
+  target: ProjectContext,
+  taskId: string,
+  actorId: string,
+) => {
+  await moveTasks(source, target, [taskId], actorId);
+  return getTaskDetail(taskId);
+};
 
 const bulkPermissionPatch = (patch: BulkPatch) => {
   const shape: Record<string, unknown> = {};
@@ -820,6 +850,8 @@ const bulkPermissionPatch = (patch: BulkPatch) => {
   if (patch.priority) shape.priority = true;
   if (patch.severity !== undefined) shape.severity = true;
   if (patch.addLabelIds || patch.removeLabelIds) shape.labelIds = true;
+  if (patch.dueDate !== undefined) shape.dueDate = true;
+  if (patch.type || patch.cardTypeId !== undefined) shape.type = true;
   return shape;
 };
 
@@ -853,6 +885,55 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
     const activity: ActivityInput[] = [];
     const log = (taskId: string, field: string, oldValue: unknown, newValue: unknown) =>
       activity.push({ projectId: project.id, taskId, actorId, action: 'updated', field, oldValue, newValue });
+
+    if (patch.type || patch.cardTypeId !== undefined) {
+      const cardType = patch.cardTypeId
+        ? await resolveCardType(db, project, patch.cardTypeId, patch.type)
+        : null;
+      const type = cardType?.base ?? patch.type!;
+      if (!typesFor(project.module).includes(type))
+        throw badRequest(`${TYPE_META[type].label} cards aren't part of this project`);
+      const cardTypeId = cardType?.id ?? null;
+      const changed = rows.filter((row) => row.type !== type || row.card_type_id !== cardTypeId);
+      const undecided = changed.filter((row) => row.category === 'done' && isUndecided(type, row.decision));
+      if (undecided.length)
+        throw decisionRequired(undecided.map((row) => formatIdentifier(project.key, row.number)));
+      const workflow = workflowOf(type);
+      const statuses = changed.some((row) => row.workflow !== workflow)
+        ? await listStatuses(project.id, db)
+        : [];
+      const moves = changed.map((row) => ({
+        row,
+        status: row.workflow === workflow ? null : pickStatus(statuses, workflow, row.category),
+      }));
+      const positions = new Map<string, string>();
+      for (const status of new Set(moves.flatMap(({ status }) => (status ? [status] : [])))) {
+        const group = moves.filter((move) => move.status === status);
+        generateNKeysBetween(await lastPosition(db, status.id), null, group.length).forEach(
+          (position, index) => positions.set(group[index]!.row.id, position),
+        );
+      }
+      if (moves.length) {
+        await query(
+          `UPDATE tasks t SET type = $2::task_type, card_type_id = $3, status_id = coalesce(x.status_id, t.status_id),
+                  position = coalesce(x.position, t.position), updated_at = now()
+           FROM unnest($1::uuid[], $4::uuid[], $5::text[]) AS x(id, status_id, position)
+           WHERE t.id = x.id`,
+          [
+            moves.map(({ row }) => row.id),
+            type,
+            cardTypeId,
+            moves.map(({ status }) => status?.id ?? null),
+            moves.map(({ row }) => positions.get(row.id) ?? null),
+          ],
+          db,
+        );
+        moves.forEach(({ row, status }) => {
+          log(row.id, 'type', row.card_type_name ?? row.type, cardType?.name ?? type);
+          if (status) log(row.id, 'status', row.status_name, status.name);
+        });
+      }
+    }
 
     if (patch.statusId || patch.statusCategory) {
       const statuses = await listStatuses(project.id, db);
@@ -932,6 +1013,25 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
     }
     if (patch.severity !== undefined)
       await scalar('severity', 'severity', patch.severity, (row) => row.severity, patch.severity);
+    if (patch.dueDate !== undefined) {
+      const late = patch.dueDate
+        ? rows.filter((row) => row.start_date && row.start_date > patch.dueDate!)
+        : [];
+      if (late.length)
+        throw badRequest('Start date must be on or before the due date', {
+          tasks: late.map((row) => formatIdentifier(project.key, row.number)),
+        });
+      const scheduled = rows.filter((row) => row.escalate_from);
+      if (!patch.dueDate && scheduled.length) {
+        await query(
+          'UPDATE tasks SET escalate_from = NULL, escalate_to = NULL, escalate_since = NULL WHERE id = ANY($1::uuid[])',
+          [scheduled.map((row) => row.id)],
+          db,
+        );
+        scheduled.forEach((row) => log(row.id, 'escalation', describeEscalation(scheduleOf(row)), null));
+      }
+      await scalar('due_date', 'dueDate', patch.dueDate, (row) => row.due_date, patch.dueDate);
+    }
     if (patch.assigneeId !== undefined) {
       await assertMembers(db, project.id, [patch.assigneeId]);
       const name = patch.assigneeId
@@ -968,7 +1068,7 @@ export const bulkUpdateTasks = (project: ProjectContext, ids: string[], patch: B
       await query('UPDATE tasks SET updated_at = now() WHERE id = ANY($1::uuid[])', [uniqueIds], db);
 
     await recordActivity(activity, db);
-    if (patch.statusId || patch.statusCategory) {
+    if (patch.statusId || patch.statusCategory || patch.dueDate) {
       const scheduledIds = rows.filter((row) => row.escalate_from).map((row) => row.id);
       if (scheduledIds.length) await escalatePriorities(scheduledIds, true, db);
     }

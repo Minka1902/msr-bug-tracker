@@ -5,7 +5,7 @@ import type { ProjectModule } from '@msr/shared/modules';
 import { canEditTask, cardTypeAllows, isOwnTask, missingTaskPermissions } from '@msr/shared/permissions';
 import type { UpdateTaskInput } from '@msr/shared/schemas/task';
 import { forbidden, notFound } from '../../lib/httpError';
-import { assertWritable, toProjectContext, type ProjectContext } from '../projects/access';
+import { assertCanWrite, assertWritable, toProjectContext, type ProjectContext } from '../projects/access';
 import { resolveIdentifier } from './service';
 
 export interface TaskContext {
@@ -132,4 +132,24 @@ export const assertCanAssignOnCreate = (
     userId,
   );
   if (missing.length) throw forbidden(`Your role (${project.roleName}) can't assign this task`, { missing });
+};
+
+const LOAD_TARGET_PROJECT = `
+  SELECT p.id, p.key::text, p.module, p.owner_id, p.archived_at, r.permissions, r.id AS role_id, r.name AS role_name
+  FROM projects p
+  JOIN project_members m ON m.project_id = p.id AND m.user_id = $2
+  JOIN project_roles r ON r.id = m.role_id
+  WHERE p.key = $1`;
+
+export const loadMoveTarget = async (source: ProjectContext, projectKey: string, userId: string) => {
+  assertCanWrite(source, 'task.move');
+  const [row] = await prepared<Parameters<typeof toProjectContext>[0]>(
+    'load-target-project',
+    LOAD_TARGET_PROJECT,
+    [projectKey, userId],
+  );
+  if (!row) throw notFound('Target project not found');
+  const target = toProjectContext(row, userId);
+  assertCanWrite(target, 'task.create');
+  return target;
 };
