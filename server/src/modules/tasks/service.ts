@@ -100,6 +100,7 @@ const SIMPLE_FIELDS = {
   fixVersion: 'fix_version',
   reproducibility: 'reproducibility',
   decision: 'decision',
+  carryOver: 'carry_over',
 } as const;
 
 const SILENT_VALUE_FIELDS = new Set([
@@ -130,9 +131,9 @@ const INSERT_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, recurrence,
-                     escalate_from, escalate_to, escalate_since, decision, card_type_id)
+                     escalate_from, escalate_to, escalate_since, decision, card_type_id, carry_over)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, CASE WHEN $14 THEN now() END, $15, $16, $17, $18, $19, $20, $21, $22,
-          $23, $24, $25, $26, $27, $28, $29, $30, $31, $32)
+          $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
   RETURNING id`;
 const INSERT_LABELS =
   'INSERT INTO task_labels (task_id, label_id) SELECT $1, unnest($2::uuid[]) ON CONFLICT DO NOTHING';
@@ -159,11 +160,11 @@ const DUPLICATE_TASK = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, completed_at, is_blocked, blocked_reason, position, steps_to_reproduce, expected_behavior,
                      actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-                     recurrence, escalate_from, escalate_to, escalate_since, decision, card_type_id)
+                     recurrence, escalate_from, escalate_to, escalate_since, decision, card_type_id, carry_over)
   SELECT project_id, $2, parent_id, type, left(title || ' (copy)', 300), description, status_id, priority, severity, assignee_id, $3,
          start_date, due_date, CASE WHEN completed_at IS NOT NULL THEN now() END, is_blocked, blocked_reason, $4, steps_to_reproduce,
          expected_behavior, actual_behavior, env_os, env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total,
-         recurrence, escalate_from, escalate_to, escalate_since, decision, card_type_id
+         recurrence, escalate_from, escalate_to, escalate_since, decision, card_type_id, carry_over
   FROM tasks WHERE id = $1
   RETURNING id`;
 const COPY_LABELS =
@@ -196,12 +197,12 @@ const SPAWN_RECURRENCES = `
   INSERT INTO tasks (project_id, number, parent_id, type, title, description, status_id, priority, severity, assignee_id, reporter_id,
                      start_date, due_date, recurrence, position, steps_to_reproduce, expected_behavior, actual_behavior, env_os,
                      env_browser, env_app_version, found_in_version, fix_version, reproducibility, checklist_total, escalate_from,
-                     escalate_to, escalate_since, card_type_id)
+                     escalate_to, escalate_since, card_type_id, carry_over)
   SELECT t.project_id, x.number, t.parent_id, t.type, t.title, t.description, x.status_id, t.priority, t.severity, x.assignee_id,
          t.reporter_id, x.start_date, x.due_date, t.recurrence, x.position, t.steps_to_reproduce, t.expected_behavior,
          t.actual_behavior, t.env_os, t.env_browser, t.env_app_version, t.found_in_version, t.fix_version, t.reproducibility,
          t.checklist_total, t.escalate_from, t.escalate_to, CASE WHEN t.escalate_from IS NOT NULL THEN $8::date END,
-         t.card_type_id
+         t.card_type_id, t.carry_over
   FROM unnest($1::uuid[], $2::int[], $3::uuid[], $4::uuid[], $5::date[], $6::date[], $7::text[])
     AS x(source_id, number, status_id, assignee_id, start_date, due_date, position)
   JOIN tasks t ON t.id = x.source_id
@@ -502,6 +503,7 @@ export const createTask = (project: ProjectContext, input: CreateTaskInput, acto
         input.escalation ? await actorToday(db, actorId) : null,
         input.decision ?? '',
         cardType?.id ?? null,
+        input.carryOver ?? (project.module === 'household' && type === 'chore'),
       ],
       db,
     );

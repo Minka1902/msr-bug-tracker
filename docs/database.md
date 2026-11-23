@@ -164,6 +164,8 @@ Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | tod
 - It copies the labels and checklist (unticked).
 - It clears `recurrence` on the finished task, so reopening and finishing it again never creates a second copy.
 
+`carry_over` (boolean, migration 027) keeps an unfinished household task on today's list. A task created without the flag gets it when it's a household `chore`. The hourly `carryOverTasks()` (`tasks/carryOver.ts`) is one statement: every unfinished household task with `carry_over` whose due date is before today moves to today, its start date shifts by the same number of days, and a `carried_over` activity row records the move. "Today" is taken in the assignee's time zone, else the reporter's, else UTC. The overdue bot alert skips these tasks. Recurring copies and duplicates keep the flag.
+
 | Column                                                                                                                                      | Type                                         | Notes                                                                      |
 | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
 | `project_id`, `number`                                                                                                                      | uuid FK (cascade), int                       | Unique together. The identifier is `KEY-number`                            |

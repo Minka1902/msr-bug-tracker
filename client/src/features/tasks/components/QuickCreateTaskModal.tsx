@@ -32,6 +32,7 @@ interface QuickCreateTaskModalProps {
 }
 
 const EMPTY_PROJECT = {
+  module: 'software' as const,
   statuses: [],
   labels: [],
   memberList: [],
@@ -74,6 +75,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
         assigneeId: fields.assigneeId,
         dueDate: fields.dueDate,
         recurrence: fields.recurrence,
+        carryOver: fields.carryOver ?? undefined,
         labelIds: fields.labelIds,
         severity: type === 'bug' ? fields.severity : null,
         attachmentIds,
@@ -243,6 +245,7 @@ export function QuickCreateTaskModal({ open, defaults, onOpenChange }: QuickCrea
             'assignee',
             'dueDate',
             'recurrence',
+            'carryOver',
             'labels',
             'severity',
           ]}

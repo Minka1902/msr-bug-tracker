@@ -51,6 +51,7 @@ const taskFields = {
   escalation: escalationSchema.nullable(),
   decision: longText,
   cardTypeId: uuidSchema.nullable(),
+  carryOver: z.boolean(),
 };
 
 const datesInOrder = (value: { startDate?: string | null; dueDate?: string | null }) =>

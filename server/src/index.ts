@@ -7,6 +7,7 @@ import { purgeDoneAttachments, purgePendingAttachments } from './modules/attachm
 import { syncStaleConnections } from './modules/calendar/sync';
 import { purgeExpiredGrants } from './modules/connector/service';
 import { escalatePriorities } from './modules/tasks/escalation';
+import { carryOverTasks } from './modules/tasks/carryOver';
 import { discordEnabled } from './modules/bots/discord/api';
 import { startGateway } from './modules/bots/discord/gateway';
 import { handleDiscordMessage, type DiscordMessage } from './modules/bots/discord/messages';
@@ -23,7 +24,9 @@ const purge = () =>
     logger.error({ err }, 'Hourly cleanup failed'),
   );
 const schedulePriorities = () =>
-  escalatePriorities(null, true).catch((err) => logger.error({ err }, 'Priority schedule failed'));
+  carryOverTasks()
+    .then(() => escalatePriorities(null, true))
+    .catch((err) => logger.error({ err }, 'Carry over or priority schedule failed'));
 void purge();
 void schedulePriorities();
 setInterval(purge, HOUR).unref();

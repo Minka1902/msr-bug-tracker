@@ -165,6 +165,7 @@ export interface TaskCard {
   startDate: string | null;
   dueDate: string | null;
   recurrence: TaskRecurrence | null;
+  carryOver: boolean;
   escalation: TaskEscalation | null;
   isBlocked: boolean;
   position: string;

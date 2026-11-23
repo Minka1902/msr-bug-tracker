@@ -23,6 +23,7 @@ export interface CardRow {
   start_date: string | null;
   due_date: string | null;
   recurrence: TaskRecurrence | null;
+  carry_over: boolean;
   escalate_from: Priority | null;
   escalate_to: Priority | null;
   escalate_since: string | null;
@@ -66,7 +67,7 @@ export interface DetailRow extends CardRow {
 const CARD_COLUMNS = `
   t.id, t.project_id, p.key::text AS project_key, t.number, t.parent_id, t.type, t.title, t.status_id, s.category AS status_category,
   t.card_type_id, ct.name AS card_type_name, ct.icon AS card_type_icon, ct.color AS card_type_color,
-  t.priority, t.severity, t.reporter_id, t.start_date, t.due_date, t.recurrence,
+  t.priority, t.severity, t.reporter_id, t.start_date, t.due_date, t.recurrence, t.carry_over,
   t.escalate_from, t.escalate_to, t.escalate_since, t.is_blocked, t.position,
   t.comment_count, t.attachment_count, t.checklist_total, t.checklist_done, t.subtask_total, t.subtask_done,
   t.created_at, t.updated_at, t.completed_at,
@@ -131,6 +132,7 @@ export const toCard = (row: CardRow): TaskCard => ({
   startDate: row.start_date,
   dueDate: row.due_date,
   recurrence: row.recurrence,
+  carryOver: row.carry_over,
   escalation: row.escalate_from
     ? { from: row.escalate_from, to: row.escalate_to!, since: row.escalate_since! }
     : null,

@@ -143,7 +143,7 @@ const CLAIM_OUTBOX = `
 const CLAIM_OVERDUE = `
   UPDATE tasks t SET overdue_alerted_for = t.due_date
   FROM projects p
-  WHERE p.id = t.project_id AND t.completed_at IS NULL
+  WHERE p.id = t.project_id AND t.completed_at IS NULL AND NOT (t.carry_over AND p.module = 'household')
     AND t.due_date < (now() AT TIME ZONE 'UTC')::date + 1
     AND t.overdue_alerted_for IS DISTINCT FROM t.due_date
     AND t.due_date < (now() AT TIME ZONE coalesce(

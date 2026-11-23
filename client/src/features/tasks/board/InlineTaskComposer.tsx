@@ -37,6 +37,7 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
         assigneeId: fields.assigneeId,
         dueDate: fields.dueDate,
         recurrence: fields.recurrence,
+        carryOver: fields.carryOver ?? undefined,
         labelIds: fields.labelIds,
         severity: fields.type === 'bug' ? fields.severity : null,
       },
@@ -100,7 +101,7 @@ export function InlineTaskComposer({ project, defaults, types }: InlineTaskCompo
         project={project}
         values={fields}
         onChange={(patch) => setFields((current) => ({ ...current, ...patch }))}
-        fields={['type', 'priority', 'assignee', 'dueDate', 'recurrence', 'labels', 'severity']}
+        fields={['type', 'priority', 'assignee', 'dueDate', 'recurrence', 'carryOver', 'labels', 'severity']}
         types={types}
       />
       <div className="flex justify-end gap-1.5">

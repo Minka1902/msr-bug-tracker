@@ -115,6 +115,7 @@ const task = (
   startDate: null,
   dueDate: day((number % 9) - 3),
   recurrence: null,
+  carryOver: false,
   escalation: null,
   isBlocked: false,
   position: 'a0',

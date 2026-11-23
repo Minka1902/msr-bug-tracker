@@ -79,6 +79,19 @@ export function TaskProperties({ task, project }: TaskPropertiesProps) {
           />
         </PropertyRow>
       )}
+      {project.module === 'household' && task.dueDate && (
+        <PropertyRow label="Carry over">
+          <div className="flex h-9 items-center px-2.5">
+            <Switch
+              size="sm"
+              aria-label="Carry over until done"
+              checked={task.carryOver}
+              onCheckedChange={(carryOver) => save({ carryOver })}
+              disabled={!canEdit}
+            />
+          </div>
+        </PropertyRow>
+      )}
       <PropertyRow label="Repeat">
         <RecurrencePicker
           value={task.recurrence}

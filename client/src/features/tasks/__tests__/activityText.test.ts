@@ -16,6 +16,17 @@ const entry = (overrides: Partial<ActivityEntry>): ActivityEntry => ({
 });
 
 describe('activityText', () => {
+  it('explains a due date that carried over, and the switch itself', () => {
+    expect(
+      activityText(
+        entry({ action: 'carried_over', field: 'dueDate', oldValue: '2030-05-10', newValue: '2030-05-11' }),
+      ),
+    ).toBe("moved the due date from 2030-05-10 to 2030-05-11 because it isn't done yet");
+    expect(activityText(entry({ field: 'carryOver', oldValue: true, newValue: false }))).toBe(
+      'changed carry over from yes to no',
+    );
+  });
+
   it('says which way the priority schedule moved the priority', () => {
     expect(
       activityText(entry({ action: 'escalated', field: 'priority', oldValue: 'low', newValue: 'high' })),

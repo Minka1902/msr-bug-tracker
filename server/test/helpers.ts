@@ -129,7 +129,9 @@ export interface TaskResponse {
   completedAt: string | null;
   subtaskTotal: number;
   subtaskDone: number;
+  startDate: string | null;
   dueDate: string | null;
+  carryOver: boolean;
   isBlocked: boolean;
 }
 
