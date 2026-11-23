@@ -126,6 +126,8 @@ test('phones keep the project tabs under the top bar and can collapse them', asy
   const { key } = await createProject(page, 'Sticky Tabs');
   for (let index = 1; index <= 30; index++) await createTask(page, key, { title: `Task ${index}` });
   await page.goto(`/p/${key}/list`);
+  await expect(page.getByText('Task 1', { exact: true })).toBeAttached();
+  await expect(page.getByText('Task 30', { exact: true })).toBeAttached();
 
   const tabs = page.getByRole('navigation', { name: 'Project views' });
   const banner = page.getByRole('banner');
