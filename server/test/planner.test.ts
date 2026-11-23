@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pool } from '../src/db/pool';
+import { logger } from '../src/lib/logger';
 import { saveApiKey } from '../src/modules/aiKeys/service';
-import { agentFor, createProject, registerUser, resetDb, setupTeam, type Agent } from './helpers';
+import { agentFor, createProject, registerUser, resetDb, setupTeam, subscribe, type Agent } from './helpers';
 import { connect } from './mcpHelpers';
 
 beforeEach(resetDb);
@@ -170,6 +171,57 @@ describe('AI planner', () => {
     expect(body.tasks[4].dueDate).toBe(day(2));
   });
 
+  it('drafts features and decisions, and leaves features out where the module has none', async () => {
+    const { agent, id } = await signUp();
+    await saveApiKey(id, 'openai', 'sk-proj-test-key-0000');
+    const answer = {
+      tasks: PLAN.tasks.slice(0, 1),
+      features: [
+        { title: 'Gaze detection', summary: 'Know which screen you look at.', phase: 'mvp' },
+        { title: '  ', summary: '', phase: 'mvp' },
+        { title: 'Team licences', summary: 'x'.repeat(2500), phase: 'later' },
+      ],
+      decisions: [
+        {
+          title: 'Which camera first?',
+          context: 'Hardware drives cost.',
+          options: ['Built-in webcam', 'Tobii', 'Both', 'Neither', 'Later', 'Extra'],
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockImplementation(async () => openAiAnswer(JSON.stringify(answer)));
+    vi.stubGlobal('fetch', fetchMock);
+    const startup = { module: 'startup', name: 'Screen eye tracker', description: 'Focus follows your eyes' };
+    const { body } = await agent
+      .post('/api/planner/plan')
+      .send({ ...startup, answers: [] })
+      .expect(200);
+    const prompt = JSON.parse(fetchMock.mock.calls[0]![1].body).messages[1].content as string;
+    expect(prompt).toContain('features:');
+    expect(prompt).toContain('decisions:');
+    expect(body.features).toEqual([
+      { title: 'Gaze detection', summary: 'Know which screen you look at.', phase: 'mvp' },
+      { title: 'Team licences', summary: 'x'.repeat(2000), phase: 'later' },
+    ]);
+    expect(body.decisions).toEqual([
+      {
+        title: 'Which camera first?',
+        context: 'Hardware drives cost.',
+        options: ['Built-in webcam', 'Tobii', 'Both', 'Neither', 'Later'],
+      },
+    ]);
+
+    const household = await agent
+      .post('/api/planner/plan')
+      .send({ module: 'household', name: 'Move house', description: '', answers: [] })
+      .expect(200);
+    expect(JSON.parse(fetchMock.mock.calls[1]![1].body).messages[1].content).toContain(
+      'Return an empty features list',
+    );
+    expect(household.body.features).toEqual([]);
+    expect(household.body.decisions).toHaveLength(1);
+  });
+
   it('spaces deadlines by the pace', async () => {
     const { agent, id } = await signUp();
     await saveApiKey(id, 'xai', 'xai-test-key-0000');
@@ -187,7 +239,8 @@ describe('AI planner', () => {
     expect(dates).toEqual([day(0), day(7), day(14)]);
   });
 
-  it('reports bad answers, rejected keys and timeouts clearly', async () => {
+  it('reports bad answers, rejected keys and timeouts clearly, and logs them without the key', async () => {
+    const warn = vi.spyOn(logger, 'warn');
     const { agent, id } = await signUp();
     await saveApiKey(id, 'openai', 'sk-proj-test-key-0000');
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(openAiAnswer('not json')));
@@ -202,6 +255,15 @@ describe('AI planner', () => {
     );
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new DOMException('slow', 'TimeoutError')));
     await agent.post('/api/planner/questions').send(IDEA).expect(504);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'google', status: 400 }),
+      'AI request failed',
+    );
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'google', status: 504 }),
+      'AI request failed',
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('AIza-test-key-0000');
   });
 
   it('reads Gemini answers', async () => {
@@ -317,6 +379,86 @@ describe('committing a plan', () => {
     );
   });
 
+  it('opens feature cards and a discussion per decision', async () => {
+    const owner = agentFor();
+    const { user } = await registerUser(owner);
+    await subscribe(owner, 'pro');
+    const project = await createProject(owner, { key: 'EYE', name: 'Eye tracker', module: 'startup' });
+    const { body } = await owner
+      .post(`/api/projects/${project.key}/plan`)
+      .send({
+        tasks: [],
+        features: [
+          { title: 'Gaze detection', summary: 'Know which screen you look at.', phase: 'mvp' },
+          { title: 'Team licences', summary: '', phase: 'later' },
+        ],
+        decisions: [
+          {
+            title: 'Which camera first?',
+            context: 'Hardware drives cost.',
+            options: ['Built-in webcam', 'Tobii'],
+          },
+        ],
+        agentId: null,
+      })
+      .expect(201);
+    expect(body).toMatchObject({ created: 3 });
+    const list = (await owner.get(`/api/projects/${project.key}/tasks`).query({ sort: 'number', dir: 'asc' }))
+      .body.items as {
+      id: string;
+      title: string;
+      type: string;
+      assignee: { id: string } | null;
+      labels: { name: string }[];
+    }[];
+    expect(
+      list.map((task) => [task.title, task.type, task.assignee?.id ?? null, task.labels.map((l) => l.name)]),
+    ).toEqual([
+      ['Gaze detection', 'feature', null, ['MVP']],
+      ['Team licences', 'feature', null, ['Later']],
+      ['Which camera first?', 'discussion', user.id, []],
+    ]);
+    const discussion = (await owner.get(`/api/tasks/${list[2]!.id}`)).body.task;
+    expect(discussion.description).toContain('Hardware drives cost.');
+    expect(discussion.description).toContain('- Built-in webcam\n- Tobii');
+  });
+
+  it('hands the planning to the AI worker as one card when there is no working key', async () => {
+    const owner = agentFor();
+    await registerUser(owner, { name: 'Michael Owner' });
+    await subscribe(owner, 'pro');
+    const project = await createProject(owner, {
+      key: 'EYE',
+      name: 'Eye tracker',
+      module: 'startup',
+      description: 'Focus follows your eyes',
+    });
+    const workerId = await hire(owner);
+    const { body } = await owner
+      .post(`/api/projects/${project.key}/plan/handoff`)
+      .send({ agentId: workerId, answers: [{ question: 'Budget?', answer: 'Low' }] })
+      .expect(201);
+    const card = (await owner.get(`/api/tasks/${body.task.id}`)).body.task;
+    expect(card).toMatchObject({ title: 'Plan this project: steps, features and decisions', type: 'task' });
+    expect(card.assignee.id).toBe(workerId);
+    expect(card.labels.map((label: { name: string }) => label.name)).toEqual(['AI']);
+    for (const text of [
+      'Eye tracker',
+      'Focus follows your eyes',
+      'Budget? Low',
+      'create_task',
+      'discussion',
+      'Michael Owner',
+    ])
+      expect(card.description).toContain(text);
+
+    const { viewer, project: other } = await setupTeam();
+    await viewer.agent
+      .post(`/api/projects/${other.key}/plan/handoff`)
+      .send({ agentId: workerId, answers: [] })
+      .expect(403);
+  });
+
   it('makes human tasks chores in a household and needs task.create', async () => {
     const { owner, project, viewer } = await setupTeam();
     await owner
@@ -332,9 +474,9 @@ describe('committing a plan', () => {
     const home = await createProject(owner, { key: 'HOME', name: 'Home', module: 'household' });
     await owner
       .post(`/api/projects/${home.key}/plan`)
-      .send({ tasks: [tasks[0]], agentId: null })
+      .send({ tasks: [tasks[0]], features: [{ title: 'Recipes', summary: '', phase: 'mvp' }], agentId: null })
       .expect(201);
-    const [chore] = (await owner.get(`/api/projects/${home.key}/tasks`)).body.items;
-    expect(chore.type).toBe('chore');
+    const items = (await owner.get(`/api/projects/${home.key}/tasks`)).body.items;
+    expect(items.map((item: { type: string }) => item.type)).toEqual(['chore']);
   });
 });

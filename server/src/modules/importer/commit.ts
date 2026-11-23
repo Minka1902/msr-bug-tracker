@@ -207,7 +207,7 @@ export const commitImport = (
       options,
       db,
     );
-    if (!resolved.length) return { created: 0, skipped, warnings: countWarnings(warnings) };
+    if (!resolved.length) return { created: 0, skipped, warnings: countWarnings(warnings), ids: [] };
 
     const newLabels = [
       ...new Map(
@@ -416,5 +416,5 @@ export const commitImport = (
     );
     await query(REFRESH_COUNTERS, [ids], db);
     if (newLabels.length) warn(`Created labels: ${newLabels.map((label) => label.name).join(', ')}`);
-    return { created: resolved.length, skipped, warnings: countWarnings(warnings) };
+    return { created: resolved.length, skipped, warnings: countWarnings(warnings), ids };
   });

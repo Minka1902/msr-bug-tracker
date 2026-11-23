@@ -25,6 +25,7 @@ const FIELD_LABELS: Record<string, string> = {
   fixVersion: 'fix version',
   reproducibility: 'reproducibility',
   decision: 'decision',
+  carryOver: 'carry over',
 };
 
 const show = (value: unknown) => {
@@ -46,6 +47,8 @@ export const activityText = (entry: ActivityEntry) => {
   if (entry.action === 'attachment_removed') return `removed attachment ${show(entry.oldValue)}`;
   if (entry.action === 'relation_added') return `linked ${show(entry.newValue)}`;
   if (entry.action === 'relation_removed') return `unlinked ${show(entry.oldValue)}`;
+  if (entry.action === 'carried_over')
+    return `moved the due date from ${show(entry.oldValue)} to ${show(entry.newValue)} because it isn't done yet`;
   if (entry.action === 'escalated')
     return `${PRIORITY_RANK[entry.newValue as Priority] < PRIORITY_RANK[entry.oldValue as Priority] ? 'raised' : 'lowered'} the priority from ${show(entry.oldValue)} to ${show(entry.newValue)}`;
   const field = FIELD_LABELS[entry.field ?? ''] ?? entry.field ?? 'something';

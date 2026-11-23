@@ -42,11 +42,31 @@ test('a child can only finish their own chores, and everyone can use the shoppin
   await kidPage.getByRole('checkbox', { name: 'Check off Fish food' }).click();
   await expect(kidPage.getByRole('checkbox', { name: 'Uncheck Fish food' })).toBeChecked();
 
-  const { lists } = await apiGet<{ lists: { items: { name: string; isChecked: boolean }[] }[] }>(
-    page,
-    `/projects/${home.key}/lists`,
-  );
-  expect(lists[0]!.items).toEqual([expect.objectContaining({ name: 'Fish food', isChecked: true })]);
+  await expect
+    .poll(async () => {
+      const { lists } = await apiGet<{ lists: { items: { name: string; isChecked: boolean }[] }[] }>(
+        page,
+        `/projects/${home.key}/lists`,
+      );
+      return lists[0]!.items;
+    })
+    .toEqual([expect.objectContaining({ name: 'Fish food', isChecked: true })]);
   await kidPage.context().close();
   await siblingPage.context().close();
+});
+
+test('households lead the sidebar and the main household comes first', async ({ page }) => {
+  await signUp(page, 'Hana Home');
+  await createProject(page, 'Work Stuff');
+  await createProject(page, 'First Home', undefined, 'household');
+  const cabin = await createProject(page, 'Lake Cabin', undefined, 'household');
+  await page.goto(`/p/${cabin.key}/home`);
+
+  const projectLinks = page.getByRole('navigation', { name: 'Main' }).locator('a[href^="/p/"]');
+  await expect(projectLinks).toHaveText(['First Home', 'Lake Cabin', 'Work Stuff']);
+  await page.getByRole('button', { name: 'Make main household' }).click();
+  await expect(projectLinks).toHaveText(['Lake Cabin', 'First Home', 'Work Stuff']);
+  await expect(page.getByRole('button', { name: 'Main household' })).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await expect(projectLinks).toHaveText(['Lake Cabin', 'First Home', 'Work Stuff']);
 });

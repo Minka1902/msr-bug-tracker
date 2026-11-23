@@ -1,12 +1,10 @@
 import { MailWarning } from 'lucide-react';
-import { toast } from 'sonner';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
-import { errorMessage } from '../../../lib/api';
-import { useResendVerification } from '../api';
+import { useSendVerificationLink } from '../useSendVerificationLink';
 
 export function VerifyEmailBanner({ email }: { email: string }) {
-  const resend = useResendVerification();
+  const sendLink = useSendVerificationLink();
 
   return (
     <Banner
@@ -16,16 +14,11 @@ export function VerifyEmailBanner({ email }: { email: string }) {
         <Button
           size="xs"
           variant="soft"
-          loading={resend.isPending}
-          disabled={resend.isSuccess}
-          onClick={() =>
-            resend.mutate(undefined, {
-              onSuccess: () => toast.success(`Verification email sent to ${email}`),
-              onError: (error) => toast.error(errorMessage(error)),
-            })
-          }
+          loading={sendLink.isPending}
+          disabled={sendLink.isSuccess}
+          onClick={() => sendLink.mutate(email)}
         >
-          {resend.isSuccess ? 'Sent' : 'Resend link'}
+          {sendLink.isSuccess ? 'Sent' : 'Send link'}
         </Button>
       }
     >

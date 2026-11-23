@@ -232,6 +232,15 @@ export const useBulkUpdate = (projectKey: string) => {
   });
 };
 
+export const useBulkMove = (projectKey: string) => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { ids: string[]; projectKey: string }) =>
+      api(`/projects/${projectKey}/tasks/bulk-move`, { method: 'POST', body: input }),
+    onSettled: () => invalidateTaskData(client),
+  });
+};
+
 export const useBulkDelete = (projectKey: string) => {
   const client = useQueryClient();
   return useMutation({

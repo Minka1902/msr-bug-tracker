@@ -1,6 +1,7 @@
 import type { ProjectMember } from '@msr/shared/types';
 import { query, queryOne, transaction, type Db } from '../../db/pool';
 import { avatarUrl } from '../users/service';
+import { claimMainHousehold } from '../projects/mainHousehold';
 
 interface MemberRow {
   id: string;
@@ -58,7 +59,10 @@ export const getMember = (projectId: string, userId: string, db?: Db) =>
   queryOne<MemberRow>(GET_MEMBER, [projectId, userId], db);
 
 export const addMember = async (projectId: string, userId: string, roleId: string) => {
-  await query(INSERT_MEMBER, [projectId, userId, roleId]);
+  await transaction(async (db) => {
+    await query(INSERT_MEMBER, [projectId, userId, roleId], db);
+    await claimMainHousehold(db, projectId, userId);
+  });
   return toMember((await getMember(projectId, userId))!);
 };
 

@@ -17,6 +17,8 @@ import { createTask, getTaskDetail, updateTask } from '../tasks/service';
 import { DEFAULT_PREFERENCES, type UserRow } from '../users/service';
 import { parseCommand, type Command, type When } from './commands';
 import { formatDay, formatTime, localToday, type Formatter } from './format';
+import { detectLanguage, type BotLanguage } from './language';
+import { BOT_TEXT, type BotTexts } from './texts';
 import { PLATFORMS } from './platforms';
 import {
   consumeLinkCode,
@@ -26,6 +28,7 @@ import {
   linkUser,
   openTasks,
   selectProject,
+  setChatLanguage,
   statusName,
   type ChatRef,
   type ChatRow,
@@ -47,6 +50,8 @@ interface Context {
   sender: UserRow;
   timezone: string;
   f: Formatter;
+  language: BotLanguage;
+  t: BotTexts;
 }
 
 const APPOINTMENT_DAYS = 14;
@@ -65,11 +70,12 @@ const singularOrPlural = (a: string, b: string) =>
 const realDate = (day: string) =>
   !Number.isNaN(Date.parse(day)) && new Date(`${day}T00:00:00Z`).toISOString().startsWith(day);
 
-const dueDateOf = (when: When | null, timezone: string) => {
+const dueDateOf = (when: When | null, timezone: string, t: BotTexts) => {
   if (!when) return null;
   const today = localToday(timezone);
   if (when.kind === 'today') return today;
   if (when.kind === 'tomorrow') return addDays(today, 1);
+  if (when.kind === 'days') return addDays(today, when.days);
   if (when.kind === 'weekday') {
     const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
     return addDays(today, (when.day - weekday + 7) % 7);
@@ -77,75 +83,56 @@ const dueDateOf = (when: When | null, timezone: string) => {
   const year = Number(today.slice(0, 4));
   const candidate = `${year}-${String(when.month).padStart(2, '0')}-${String(when.day).padStart(2, '0')}`;
   const day = candidate < today ? `${year + 1}${candidate.slice(4)}` : candidate;
-  if (!realDate(day)) throw badRequest('That date does not exist');
+  if (!realDate(day)) throw badRequest(t.noDate);
   return day;
 };
 
 const listNames = (f: Formatter, lists: ShoppingList[]) =>
   lists.map((list) => `"${f.text(list.name)}"`).join(', ');
 
-const describeList = (f: Formatter, list: ShoppingList) => {
+const describeList = (f: Formatter, t: BotTexts, list: ShoppingList) => {
   const open = list.items.filter((item) => !item.isChecked);
   return `${f.bold(list.name)}: ${
     open.length
       ? open.map((item) => f.text(item.quantity ? `${item.name} (${item.quantity})` : item.name)).join(', ')
-      : 'nothing to buy'
+      : t.nothingToBuy
   }`;
 };
 
-export const helpText = (f: Formatter, household: boolean) =>
-  [
-    f.bold('What I understand'),
-    ...(household
-      ? [
-          `• ${f.code('apples, milk')} or ${f.code('add apples to store list')}: add to a shopping list`,
-          `• ${f.code('i bought apples and cheese')}: tick them off`,
-          `• ${f.code('?')} or ${f.code('groceries?')}: what is on the lists`,
-          `• ${f.code('open groceries list page')}: a link to a list`,
-          `• ${f.code('appointments?')}: the next two weeks`,
-        ]
-      : []),
-    `• ${f.code(household ? 'chores?' : 'tasks?')} / ${f.code('mine?')}: open work by person / yours`,
-    `• ${f.code('michael needs to wash the car today')}: add a task for someone`,
-    `• ${f.code('KEY-12?')} / ${f.code('done KEY-12')}: look up or finish a task`,
-    `• ${f.code('done KEY-12: we chose X')}: close a discussion with its decision`,
-    `• ${f.code('open project page')} · ${f.code('use KEY')}: switch project`,
-  ].join('\n');
-
 const householdOnly = (context: Context) => {
-  if (context.project.module !== 'household') throw badRequest(helpText(context.f, false));
+  if (context.project.module !== 'household') throw badRequest(context.t.help(context.f, false));
 };
 
-const pickList = (f: Formatter, lists: ShoppingList[], name: string | null, chat: ChatRow) => {
+const pickList = (context: Context, lists: ShoppingList[], name: string | null) => {
+  const { f, t, chat } = context;
   const list = name
     ? lists.find((item) => same(item.name, name) || same(item.name, `${name} list`))
     : (lists.find((item) => item.id === chat.default_list_id) ?? lists[0]);
-  if (!list)
-    throw badRequest(
-      lists.length
-        ? `No list called "${f.text(name!)}". Lists: ${listNames(f, lists)}`
-        : 'This household has no shopping lists yet',
-    );
+  if (!list) throw badRequest(lists.length ? t.noList(f.text(name!), listNames(f, lists)) : t.noListsYet);
   return list;
 };
 
-const addToList = async (context: Context, items: string[], listName: string | null) => {
-  const { f } = context;
+const addToList = async (
+  context: Context,
+  items: { name: string; url?: string }[],
+  listName: string | null,
+) => {
+  const { f, t } = context;
   householdOnly(context);
-  if (!items.length) return helpText(f, true);
+  if (!items.length) return t.help(f, true);
   assertCanWrite(context.project, 'lists.edit');
-  const list = pickList(f, await listLists(context.project.id), listName, context.chat);
+  const list = pickList(context, await listLists(context.project.id), listName);
   await addItems(
     list.id,
-    items.map((name) => createItemSchema.parse({ name })),
+    items.map((item) => createItemSchema.parse(item)),
     context.sender.id,
     { platform: context.chat.platform, chatId: context.chat.chat_id },
   );
-  return `Added ${items.map(f.text).join(', ')} to ${f.bold(list.name)}.`;
+  return t.added(items.map((item) => f.text(item.name)).join(', '), f.bold(list.name));
 };
 
 const tickItems = async (context: Context, items: string[]) => {
-  const { f } = context;
+  const { f, t } = context;
   householdOnly(context);
   assertCanWrite(context.project, 'lists.edit');
   const open = (await listLists(context.project.id)).flatMap((list) =>
@@ -171,20 +158,20 @@ const tickItems = async (context: Context, items: string[]) => {
       context.sender.id,
     );
   return [
-    ticked.length && `Ticked off ${ticked.map((item) => f.text(item.name)).join(', ')}.`,
-    missing.length && `Not on your lists: ${missing.map(f.text).join(', ')}.`,
+    ticked.length && t.ticked(ticked.map((item) => f.text(item.name)).join(', ')),
+    missing.length && t.notOnLists(missing.map(f.text).join(', ')),
   ]
     .filter(Boolean)
     .join('\n');
 };
 
 const showList = async (context: Context, name: string) => {
-  const { f } = context;
+  const { f, t } = context;
   householdOnly(context);
   const lists = await listLists(context.project.id);
   const list = lists.find((item) => same(item.name, name));
-  if (!list) return `No list called "${f.text(name)}". Lists: ${listNames(f, lists)}`;
-  return describeList(f, list);
+  if (!list) return t.noList(f.text(name), listNames(f, lists));
+  return describeList(f, t, list);
 };
 
 const viewerOf = (context: Context) => (context.chat.is_group ? null : context.sender.id);
@@ -196,19 +183,19 @@ const findVisibleTask = async (context: Context, identifier: string) => {
 };
 
 const showTasks = async (context: Context, mine: boolean) => {
-  const { f } = context;
+  const { f, t, timezone, language } = context;
   const rows = await openTasks(
     context.project.id,
     mine ? context.sender.id : null,
     TASKS_LIMIT,
     viewerOf(context),
   );
-  if (!rows.length) return mine ? 'Nothing open for you. 🎉' : 'Nothing open. 🎉';
+  if (!rows.length) return t.nothingOpen(mine);
   const groups = new Map<string, string[]>();
   for (const row of rows) {
-    const who = row.assignee ?? 'Anyone';
+    const who = row.assignee ?? t.anyone;
     const line = `• ${f.link(`/t/${formatIdentifier(context.chat.key, row.number)}`, row.title)}${
-      row.due_date ? ` · ${formatDay(row.due_date, context.timezone)}` : ''
+      row.due_date ? ` · ${formatDay(row.due_date, timezone, language)}` : ''
     }`;
     groups.set(who, [...(groups.get(who) ?? []), line]);
   }
@@ -216,60 +203,61 @@ const showTasks = async (context: Context, mine: boolean) => {
 };
 
 const showTask = async (context: Context, identifier: string) => {
-  const { f } = context;
+  const { f, t, timezone, language } = context;
   const { task } = await findVisibleTask(context, identifier);
   const detail = await getTaskDetail(task.id);
   return [
     `${f.bold(detail.identifier)} ${f.link(`/t/${detail.identifier}`, detail.title)}`,
-    `${f.text((await statusName(detail.statusId)) ?? detail.statusCategory)} · ${f.text(detail.assignee?.name ?? 'Anyone')}${
-      detail.dueDate ? ` · due ${formatDay(detail.dueDate, context.timezone)}` : ''
+    `${f.text((await statusName(detail.statusId)) ?? detail.statusCategory)} · ${f.text(detail.assignee?.name ?? t.anyone)}${
+      detail.dueDate ? ` · ${t.due(formatDay(detail.dueDate, timezone, language))}` : ''
     }`,
   ].join('\n');
 };
 
 const finishTask = async (context: Context, identifier: string, decision: string | null) => {
-  const { f } = context;
+  const { f, t } = context;
   const { project, task } = await findVisibleTask(context, identifier);
   const detail = await getTaskDetail(task.id);
   if (detail.type === 'discussion' && !decision && !detail.decision.trim())
-    return `${f.text(detail.identifier)} is a discussion. Close it with its decision: ${f.code(`done ${detail.identifier}: what you decided`)}`;
+    return t.needsDecision(f.text(detail.identifier), f.code(t.decisionExample(detail.identifier)));
   const patch = {
     statusId: resolveStatus(await loadRefs(project.id), 'done', detail.type),
     ...(detail.type === 'discussion' && decision && { decision }),
   };
   assertCanPatchTask(project, task, patch, context.sender.id);
   await updateTask(project, task.id, patch, context.sender.id);
-  return `Done: ${f.link(`/t/${detail.identifier}`, detail.title)} ✅`;
+  return t.finished(f.link(`/t/${detail.identifier}`, detail.title));
 };
 
 const assignTask = async (context: Context, command: Extract<Command, { kind: 'assign' }>) => {
-  const { f } = context;
+  const { f, t, timezone, language } = context;
   assertCanWrite(context.project, 'task.create');
   const refs = await loadRefs(context.project.id);
   const wanted = command.person.toLowerCase();
-  const matches = ['i', 'me'].includes(wanted)
+  const matches = [...BOT_TEXT.en.me, ...t.me].includes(wanted)
     ? refs.members.filter((member) => member.id === context.sender.id)
     : refs.members.filter((member) => member.name.toLowerCase().startsWith(wanted));
   if (!matches.length)
-    return `No one called "${f.text(command.person)}" here. Members: ${refs.members.map((member) => f.text(member.name)).join(', ')}`;
-  if (matches.length > 1)
-    return `Who do you mean: ${matches.map((member) => f.text(member.name)).join(', ')}?`;
+    return t.noOne(f.text(command.person), refs.members.map((member) => f.text(member.name)).join(', '));
+  if (matches.length > 1) return t.whoDoYouMean(matches.map((member) => f.text(member.name)).join(', '));
   const assignee = matches[0]!;
   const input = createTaskSchema.parse({
     title: command.title,
     type: MODULE_META[context.project.module].taskTypes[0],
     assigneeId: assignee.id,
-    dueDate: dueDateOf(command.when, context.timezone),
+    dueDate: dueDateOf(command.when, timezone, t),
   });
   assertCanAssignOnCreate(context.project, input.assigneeId, context.sender.id);
   const task = await createTask(context.project, input, context.sender.id);
-  return `Added ${f.link(`/t/${task.identifier}`, task.title)} for ${f.text(assignee.name)}${
-    task.dueDate ? `, due ${formatDay(task.dueDate, context.timezone)}` : ''
-  }.`;
+  return t.addedFor(
+    f.link(`/t/${task.identifier}`, task.title),
+    f.text(assignee.name),
+    task.dueDate && formatDay(task.dueDate, timezone, language),
+  );
 };
 
 const showAppointments = async (context: Context) => {
-  const { f } = context;
+  const { f, t, timezone, language } = context;
   householdOnly(context);
   const today = localToday(context.timezone);
   const items = (
@@ -281,11 +269,11 @@ const showAppointments = async (context: Context) => {
       false,
     )
   ).filter((item) => item.appointment && Date.parse(item.endsAt) > Date.now());
-  if (!items.length) return 'No appointments in the next two weeks.';
+  if (!items.length) return t.noAppointments;
   return items
     .map((item) => {
       const minutes = Math.round((Date.parse(item.endsAt) - Date.parse(item.startsAt)) / 60_000);
-      return `• ${f.bold(item.title)} · ${formatTime(item.startsAt, context.timezone)} · ${minutes} min${
+      return `• ${f.bold(item.title)} · ${formatTime(item.startsAt, timezone, language)} · ${t.duration(minutes)}${
         item.location ? ` · ${f.text(item.location)}` : ''
       }`;
     })
@@ -293,29 +281,35 @@ const showAppointments = async (context: Context) => {
 };
 
 const switchProject = async (context: Context, key: string) => {
-  const { f } = context;
+  const { f, t } = context;
   const project = await findProjectContext(key, context.sender.id);
   if (!(await selectProject({ platform: context.chat.platform, chatId: context.chat.chat_id }, project.key)))
-    return `This chat isn't connected to ${f.text(key)}. Connect it from that project's Settings → Bots.`;
-  return `Now working in ${f.bold(project.key)}.`;
+    return t.notConnectedTo(f.text(key));
+  return t.nowIn(f.bold(project.key));
 };
 
 const run = (context: Context, command: Command): Promise<string> | string => {
-  const { f } = context;
+  const { f, t } = context;
   switch (command.kind) {
     case 'help':
     case 'start':
-      return helpText(f, context.project.module === 'household');
+      return t.help(f, context.project.module === 'household');
     case 'use':
       return switchProject(context, command.key);
     case 'add':
-      return addToList(context, command.items, command.list);
+      return addToList(
+        context,
+        command.items.map((name) => ({ name })),
+        command.list,
+      );
+    case 'add_link':
+      return addToList(context, [{ name: command.name, url: command.url }], command.list);
     case 'bought':
       return tickItems(context, command.items);
     case 'lists':
       householdOnly(context);
       return listLists(context.project.id).then(
-        (lists) => lists.map((list) => describeList(f, list)).join('\n') || 'No lists yet.',
+        (lists) => lists.map((list) => describeList(f, t, list)).join('\n') || t.noLists,
       );
     case 'list':
       return showList(context, command.name);
@@ -323,12 +317,12 @@ const run = (context: Context, command: Command): Promise<string> | string => {
       householdOnly(context);
       return command.name
         ? listLists(context.project.id).then((lists) => {
-            const list = pickList(f, lists, command.name, context.chat);
-            return f.link(`/p/${context.chat.key}/shopping?list=${list.id}`, `Open ${list.name}`);
+            const list = pickList(context, lists, command.name);
+            return f.link(`/p/${context.chat.key}/shopping?list=${list.id}`, t.open(list.name));
           })
-        : f.link(`/p/${context.chat.key}/shopping`, 'Open the shopping lists');
+        : f.link(`/p/${context.chat.key}/shopping`, t.openLists);
     case 'open_project':
-      return f.link(`/p/${context.chat.key}`, `Open ${context.chat.name}`);
+      return f.link(`/p/${context.chat.key}`, t.open(context.chat.name));
     case 'tasks':
     case 'mine':
       return showTasks(context, command.kind === 'mine');
@@ -363,30 +357,35 @@ export const handleMessage = async (message: BotMessage): Promise<string | null>
   const text = message.text.trim();
   if (!text) return null;
   const f = PLATFORMS[message.platform].format;
-  const command = parseCommand(text);
+  const ref = { platform: message.platform, chatId: message.chatId };
+  const detected = detectLanguage(text);
+  let t = BOT_TEXT[detected ?? 'en'];
   try {
+    const chat = await currentChat(ref);
+    const language = detected ?? chat?.language ?? 'en';
+    t = BOT_TEXT[language];
+    const command = parseCommand(text, language);
     if (command.kind === 'start') return await linkWithCode(message, f, command.code);
-    const chat = await currentChat({ platform: message.platform, chatId: message.chatId });
-    if (!chat)
-      return message.quietWhenUnlinked
-        ? null
-        : 'This chat is not connected yet. In MSR open a project → Settings → Bots.';
+    if (!chat) return message.quietWhenUnlinked ? null : t.chatNotConnected;
+    if (detected && detected !== chat.language) await setChatLanguage(ref, detected);
     const sender = await findSender(message.platform, message.senderId);
-    if (!sender)
-      return `Connect your account first: MSR → ${f.text(chat.name)} → Settings → Bots → Connect me.`;
+    if (!sender) return t.connectFirst(f.text(chat.name));
     const project = await findProjectContext(chat.key, sender.id).catch(() => null);
-    if (!project) return `You are not a member of ${f.text(chat.name)}.`;
+    if (!project) return t.notMember(f.text(chat.name));
     const { tier } = await currentPlan(chat.owner_id);
     if (!botAllowed(tier, project.module))
-      return `This project's ${BOT_PLATFORM_META[message.platform].label} bot needs the ${PLAN_META[minimumBotPlan(project.module)].label} plan.`;
+      return t.needsPlan(
+        BOT_PLATFORM_META[message.platform].label,
+        PLAN_META[minimumBotPlan(project.module)].label,
+      );
     const timezone = sender.preferences.timezone ?? DEFAULT_PREFERENCES.timezone;
-    return await run({ chat, project, sender, timezone, f }, command);
+    return await run({ chat, project, sender, timezone, f, language, t }, command);
   } catch (error) {
     if (error instanceof HttpError) {
       const missing = (error.details as { missing?: string[] } | undefined)?.missing;
-      return missing ? `${error.message} (missing permission: ${missing.join(', ')})` : error.message;
+      return missing ? t.missingPermission(error.message, missing.join(', ')) : error.message;
     }
     logger.error({ err: error, platform: message.platform }, 'Bot command failed');
-    return 'Something went wrong. Try again in a moment.';
+    return t.failed;
   }
 };

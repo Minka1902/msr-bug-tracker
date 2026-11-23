@@ -157,6 +157,45 @@ describe('Telegram webhook', () => {
     expect(await reply(GROUP, PARENT_TG, 'home-99?')).toBe('Task not found');
   });
 
+  it('answers in Hebrew and Russian, and keeps the chat language for messages without words', async () => {
+    await setupFamily();
+    expect(await reply(GROUP, PARENT_TG, 'חלב, לחם')).toBe('הוספתי חלב, לחם ל<b>Groceries</b>.');
+    expect(await reply(GROUP, PARENT_TG, 'קניתי חלב, לחם, גבינה')).toBe(
+      'סימנתי שנקנו: חלב, לחם.\nלא ברשימות: גבינה.',
+    );
+    expect(await reply(GROUP, PARENT_TG, '?')).toBe('<b>Groceries</b>: אין מה לקנות');
+    expect(await reply(GROUP, PARENT_TG, 'Mia צריכה להאכיל את החתול מחר')).toMatch(
+      /^הוספתי <a href=".+\/t\/HOME-1">להאכיל את החתול<\/a> עבור Mia Levi, עד .+\.$/,
+    );
+    expect(await reply(GROUP, PARENT_TG, 'זד צריך לסדר')).toMatch(/^אין כאן מישהו בשם "זד"\. חברים: /);
+    expect(await reply(GROUP, PARENT_TG, 'HOME-1?')).toContain(' · עד ');
+    expect(await reply(GROUP, PARENT_TG, 'סגור home-1')).toMatch(/^בוצע: .+להאכיל את החתול.+ ✅$/);
+    expect(await reply(GROUP, PARENT_TG, 'עזרה')).toContain('<b>מה אני מבין</b>');
+
+    expect(await reply(GROUP, PARENT_TG, 'хлеб и сыр')).toBe('Добавлено в <b>Groceries</b>: хлеб, сыр.');
+    expect(await reply(GROUP, PARENT_TG, 'Mike должен убрать комнату')).toMatch(
+      /^Добавлено .+ для Mike Levi\.$/,
+    );
+    expect(await reply(GROUP, PARENT_TG, 'помощь')).toContain('<b>Что я понимаю</b>');
+    expect(await reply(GROUP, PARENT_TG, 'help')).toContain('<b>What I understand</b>');
+  });
+
+  it('adds a shared product link to the shopping list', async () => {
+    const { parent } = await setupFamily();
+    expect(
+      await reply(
+        GROUP,
+        PARENT_TG,
+        'I just found this on AliExpress: US $12.34 | Garden Hose 30m https://a.aliexpress.com/_mKxyz12',
+      ),
+    ).toBe('Added Garden Hose 30m to <b>Groceries</b>.');
+    const [groceries] = (await parent.get('/api/projects/HOME/lists').expect(200)).body.lists;
+    expect(groceries.items[0]).toMatchObject({
+      name: 'Garden Hose 30m',
+      url: 'https://a.aliexpress.com/_mKxyz12',
+    });
+  });
+
   it('closes a discussion only with its decision', async () => {
     const { parent } = await setupFamily();
     const { body } = await parent

@@ -64,12 +64,12 @@ export const PERMISSION_GROUPS: {
     ],
   },
   {
-    label: 'Lists',
+    label: 'Lists and places',
     items: [
       {
         key: 'lists.edit',
-        label: 'Edit lists',
-        description: 'Add, check off and remove shopping list items',
+        label: 'Edit lists and places',
+        description: 'Add, check off and remove shopping list items, and edit household places',
       },
     ],
   },

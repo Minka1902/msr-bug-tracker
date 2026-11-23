@@ -2,15 +2,17 @@ import { Router } from 'express';
 import {
   boardQuerySchema,
   bulkDeleteSchema,
+  bulkMoveSchema,
   bulkUpdateSchema,
   createTaskSchema,
   taskFilterSchema,
 } from '@msr/shared/schemas/task';
+import { badRequest } from '../../lib/httpError';
 import { removeUnreferenced } from '../attachments/service';
 import { assertCanWrite, projectOf } from '../projects/access';
 import { timezoneOf } from '../projects/routes';
-import { assertCanAssignOnCreate } from './access';
-import { bulkUpdateTasks, createTask, deleteTasks, getBoard, listTasks } from './service';
+import { assertCanAssignOnCreate, loadMoveTarget } from './access';
+import { bulkUpdateTasks, createTask, deleteTasks, getBoard, listTasks, moveTasks } from './service';
 
 export const createProjectTasksRouter = () => {
   const router = Router({ mergeParams: true });
@@ -38,6 +40,15 @@ export const createProjectTasksRouter = () => {
     assertCanWrite(project);
     const { ids, patch } = bulkUpdateSchema.parse(req.body);
     res.json({ tasks: await bulkUpdateTasks(project, ids, patch, req.user!.id) });
+  });
+
+  router.post('/tasks/bulk-move', async (req, res) => {
+    const source = projectOf(req);
+    const { ids, projectKey } = bulkMoveSchema.parse(req.body);
+    const target = await loadMoveTarget(source, projectKey, req.user!.id);
+    if (target.id === source.id) throw badRequest('These tasks are already in this project');
+    await moveTasks(source, target, ids, req.user!.id);
+    res.status(204).end();
   });
 
   router.post('/tasks/bulk-delete', async (req, res) => {

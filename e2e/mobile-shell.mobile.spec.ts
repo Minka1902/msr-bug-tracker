@@ -120,6 +120,43 @@ test('phones show the project name and its actions in the top bar', async ({ pag
   await expect(banner.getByRole('heading', { name: 'Top Bar' })).toHaveCount(0);
 });
 
+test('phones keep the project tabs under the top bar and can collapse them', async ({ page }) => {
+  test.skip(isTablet(page), 'Tablets keep the plain tab row');
+  await signUp(page, 'Tab Keeper');
+  const { key } = await createProject(page, 'Sticky Tabs');
+  for (let index = 1; index <= 30; index++) await createTask(page, key, { title: `Task ${index}` });
+  await page.goto(`/p/${key}/list`);
+  await expect(page.getByText('Task 1', { exact: true })).toBeAttached();
+  await expect(page.getByText('Task 30', { exact: true })).toBeAttached();
+
+  const tabs = page.getByRole('navigation', { name: 'Project views' });
+  const banner = page.getByRole('banner');
+  await expect(tabs).toBeInViewport();
+  await page.mouse.move(150, 400);
+  await page.mouse.wheel(0, 900);
+  await expect(banner).not.toBeInViewport();
+  await expect(tabs).not.toBeInViewport();
+  await page.mouse.wheel(0, -200);
+  await expect(banner).toBeInViewport();
+  await expect(tabs).toBeInViewport();
+  expect(await page.evaluate(() => scrollY)).toBeGreaterThan(300);
+  await expect
+    .poll(async () => {
+      const [tabsBox, bannerBox] = [(await tabs.boundingBox())!, (await banner.boundingBox())!];
+      return Math.round(tabsBox.y - bannerBox.y - bannerBox.height);
+    })
+    .toBe(0);
+
+  await page.getByRole('button', { name: 'Hide tabs' }).click();
+  await expect(tabs).toHaveCount(0);
+  const show = page.getByRole('button', { name: 'Show tabs' });
+  await expect(show).toContainText('List');
+  await page.reload();
+  await expect(show).toBeVisible();
+  await show.click();
+  await expect(tabs.getByRole('link', { name: 'Board' })).toBeVisible();
+});
+
 test('a swipe toward the palm finishes a task and the board moves cards onto status pills', async ({
   page,
 }) => {

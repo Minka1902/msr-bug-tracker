@@ -1,12 +1,16 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { z } from 'zod';
 import type { AiProvider } from '@msr/shared/enums';
 import { query } from '../../db/pool';
-import { badRequest } from '../../lib/httpError';
+import { generateJson } from '../../lib/ai';
+import { HttpError, badRequest } from '../../lib/httpError';
 import { openSecret, sealSecret } from '../../lib/secretBox';
 
-export type KeyCheck = 'valid' | 'invalid' | 'unreachable';
+export type KeyCheck = 'valid' | 'invalid' | 'unreachable' | { failed: string };
 
 const CHECK_TIMEOUT_MS = 10_000;
+const TRIAL_MAX_TOKENS = 2000;
+const TRIAL_WIRE = z.object({ ok: z.boolean() });
 const REJECTED_STATUSES = new Set([400, 401, 403]);
 
 const HTTP_CHECKS: Record<
@@ -56,8 +60,27 @@ const checkOverHttp = async (provider: keyof typeof HTTP_CHECKS, key: string): P
   }
 };
 
-export const checkApiKey = (provider: AiProvider, key: string) =>
-  provider === 'anthropic' ? checkAnthropic(key) : checkOverHttp(provider, key);
+const tryGenerating = (provider: AiProvider, apiKey: string): Promise<KeyCheck> =>
+  generateJson({
+    provider,
+    apiKey,
+    name: 'key_check',
+    system: 'You check that an API key works.',
+    prompt: 'Answer with ok set to true.',
+    schema: TRIAL_WIRE,
+    maxTokens: TRIAL_MAX_TOKENS,
+  }).then(
+    (): KeyCheck => 'valid',
+    (error): KeyCheck => {
+      if (!(error instanceof HttpError)) throw error;
+      return error.status === 400 ? 'invalid' : { failed: error.message };
+    },
+  );
+
+export const checkApiKey = async (provider: AiProvider, key: string) => {
+  const listed = await (provider === 'anthropic' ? checkAnthropic(key) : checkOverHttp(provider, key));
+  return listed === 'valid' ? tryGenerating(provider, key) : listed;
+};
 
 export const listApiKeys = (userId: string) =>
   query<{ provider: AiProvider; last4: string; verified_at: Date }>(LIST_KEYS, [userId]).then((rows) =>

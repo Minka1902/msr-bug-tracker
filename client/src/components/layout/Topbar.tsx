@@ -1,5 +1,5 @@
 import { Plus, Search } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useScrollHidden } from '../../hooks/useScrollHidden';
 import { cn } from '../../lib/cn';
 import { Button } from '../ui/Button';
@@ -17,10 +17,15 @@ interface TopbarProps {
 export function Topbar({ actions, phone, phoneTitle }: TopbarProps) {
   const hidden = useScrollHidden(phone);
 
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-topbar-hidden', hidden);
+    return () => document.documentElement.removeAttribute('data-topbar-hidden');
+  }, [hidden]);
+
   return (
     <header
       className={cn(
-        'sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 px-4 pt-safe transition-transform duration-200 max-md:glass max-md:h-[calc(3.25rem+env(safe-area-inset-top))] max-md:border-b max-md:border-border md:px-6',
+        'sticky top-0 z-30 flex h-16 shrink-0 items-center gap-2 px-4 pt-safe transition-transform duration-200 max-md:glass max-md:h-(--topbar-h) max-md:border-b max-md:border-border md:px-6',
         hidden && '-translate-y-full',
       )}
     >

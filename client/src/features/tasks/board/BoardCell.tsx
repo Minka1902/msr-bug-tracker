@@ -5,6 +5,7 @@ import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { cn } from '../../../lib/cn';
 import type { TaskCreateValues } from '../components/TaskCreateFields';
+import type { TaskSelection } from '../hooks/useTaskSelection';
 import { InlineTaskComposer } from './InlineTaskComposer';
 import { SortableTaskCard } from './SortableTaskCard';
 
@@ -20,6 +21,7 @@ interface BoardCellProps {
   composerTypes: readonly TaskType[];
   canDrag?: (task: TaskCard) => boolean;
   swipe?: boolean;
+  selection?: TaskSelection;
   onOpen: (task: TaskCard) => void;
 }
 
@@ -35,6 +37,7 @@ export function BoardCell({
   composerTypes,
   canDrag,
   swipe,
+  selection,
   onOpen,
 }: BoardCellProps) {
   const { setNodeRef, isOver } = useDroppable({ id, data: { containerId: id } });
@@ -57,6 +60,13 @@ export function BoardCell({
             containerId={id}
             disabled={canDrag ? !canDrag(task) : false}
             swipe={swipe}
+            selecting={selection?.selecting}
+            selected={selection?.ids.has(task.id)}
+            onSelect={
+              selection &&
+              ((picked, range) =>
+                selection.toggle(picked.id, range ? tasks.map((item) => item.id) : undefined))
+            }
             onOpen={onOpen}
           />
         ))}

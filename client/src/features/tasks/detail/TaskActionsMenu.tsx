@@ -115,7 +115,9 @@ export function TaskActionsMenu({
     <>
       <Menu title={task.identifier} trigger={trigger} items={items} />
       <MoveTaskModal
-        task={moving ? task : null}
+        open={moving}
+        title={`Move ${task.identifier}`}
+        sourceKey={task.projectKey}
         loading={move.isPending}
         onCancel={() => setMoving(false)}
         onConfirm={(projectKey) =>

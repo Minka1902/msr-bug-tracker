@@ -206,6 +206,23 @@ describe('Telegram notifications', () => {
     expect(textFor(await run(), GROUP.id)).toHaveLength(1);
   });
 
+  it('writes notifications in the language the chat last used', async () => {
+    const { parent } = await setupFamily();
+    await notifyChat(parent, GROUP.id, { notify: ['overdue'] });
+    await reply(GROUP, PARENT_TG, 'מטלות?');
+    await createTask(parent, 'HOME', { title: 'Renew passport', dueDate: localDay('UTC', -1) });
+    expect(textFor(await run(), GROUP.id)).toEqual([
+      expect.stringMatching(/^<b>HOME · Home<\/b>\n⏰ .+HOME-1 Renew passport<\/a> — היעד היה .+$/),
+    ]);
+  });
+
+  it('never calls a chore that carries over overdue', async () => {
+    const { parent } = await setupFamily();
+    await notifyChat(parent, GROUP.id, { notify: ['overdue'] });
+    await createTask(parent, 'HOME', { title: 'Dishes', type: 'chore', dueDate: localDay('UTC', -1) });
+    expect(textFor(await run(), GROUP.id)).toEqual([]);
+  });
+
   it('reminds attendees once, with only the closest reminder, and again after a move', async () => {
     const { parent, child, sibling } = await setupFamily();
     await connect(child.agent, 'HOME', dm(CHILD_TG), CHILD_TG);

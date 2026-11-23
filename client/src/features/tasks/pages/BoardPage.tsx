@@ -9,6 +9,8 @@ import { useProjectContext } from '../../projects/useProjectContext';
 import { TaskBoardView } from '../board/TaskBoardView';
 import type { GroupBy } from '../board/groupTasks';
 import { BoardToolbar } from '../components/BoardToolbar';
+import { SelectToggle } from '../components/SelectToggle';
+import { useTaskSelection } from '../hooks/useTaskSelection';
 import { taskFilterDefs } from '../taskFilterDefs';
 import { useTaskOptions } from '../useTaskOptions';
 import { useTaskPeek } from '../useTaskPeek';
@@ -26,6 +28,7 @@ export function BoardPage() {
   const options = useTaskOptions(project);
   const [params, setParams] = useSearchParams();
   const { filters, update, clear } = useUrlFilters();
+  const selection = useTaskSelection();
   const household = project.kind === 'household';
   const [groupBy, setGroupBy] = useLocalState<GroupBy>(
     `msr-board-group-${project.key}`,
@@ -47,12 +50,14 @@ export function BoardPage() {
           groupBy={groupBy}
           onGroupByChange={setGroupBy}
         />
+        <SelectToggle selection={selection} label="Select cards" />
       </FilterBar>
       <TaskBoardView
         project={project}
         workflow={workflow}
         filters={filters}
         groupBy={groupBy}
+        selection={selection}
         onOpen={(task) => peek.open(task.identifier)}
       />
     </div>

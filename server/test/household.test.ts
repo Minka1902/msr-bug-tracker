@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { pool } from '../src/db/pool';
+import { carryOverTasks } from '../src/modules/tasks/carryOver';
 import {
   addMember,
   agentFor,
@@ -195,5 +196,176 @@ describe('shopping lists', () => {
       .post(`/api/projects/HOME/lists/${second.body.list.id}/items`)
       .send({ name: 'Nails' })
       .expect(404);
+  });
+
+  it('keeps a product link on an item, trims a very long one and refuses other schemes', async () => {
+    const { parent } = await setupHousehold();
+    const [groceries] = (await parent.get('/api/projects/HOME/lists').expect(200)).body.lists;
+    const base = `/api/projects/HOME/lists/${groceries.id}/items`;
+    const url = 'https://a.aliexpress.com/_mKxyz12';
+    const added = await parent.post(base).send({ name: 'Garden hose', url }).expect(201);
+    const hose = added.body.list.items.find((item: { name: string }) => item.name === 'Garden hose');
+    expect(hose.url).toBe(url);
+
+    const long = `https://www.amazon.com/x/dp/B01?${'a'.repeat(2100)}`;
+    const trimmed = await parent.post(base).send({ name: 'Charger', url: long }).expect(201);
+    expect(trimmed.body.list.items.find((item: { name: string }) => item.name === 'Charger').url).toBe(
+      'https://www.amazon.com/x/dp/B01',
+    );
+    await parent.post(base).send({ name: 'Bad', url: 'javascript:alert(1)' }).expect(400);
+    const plain = await parent.post(base).send({ name: 'Milk' }).expect(201);
+    expect(plain.body.list.items.find((item: { name: string }) => item.name === 'Milk').url).toBeNull();
+
+    const edited = await parent.patch(`${base}/${hose.id}`).send({ url: null }).expect(200);
+    expect(
+      edited.body.list.items.find((item: { name: string }) => item.name === 'Garden hose').url,
+    ).toBeNull();
+  });
+});
+
+describe('carry over until done', () => {
+  const taskById = async (agent: Awaited<ReturnType<typeof setupHousehold>>['parent'], id: string) =>
+    (await agent.get(`/api/tasks/${id}`).expect(200)).body.task as Awaited<ReturnType<typeof createTask>>;
+
+  it('turns carry over on for new household chores only, unless asked otherwise', async () => {
+    const { parent, project } = await setupHousehold();
+    const chore = await createTask(parent, project.key, { title: 'Dishes', type: 'chore' });
+    const errand = await createTask(parent, project.key, { title: 'Post office', type: 'errand' });
+    const optedOut = await createTask(parent, project.key, {
+      title: 'Plants',
+      type: 'chore',
+      carryOver: false,
+    });
+    const optedIn = await createTask(parent, project.key, { title: 'Bank', type: 'errand', carryOver: true });
+    expect([chore, errand, optedOut, optedIn].map((task) => task.carryOver)).toEqual([
+      true,
+      false,
+      false,
+      true,
+    ]);
+
+    await parent.patch(`/api/tasks/${chore.id}`).send({ carryOver: false }).expect(200);
+    expect((await taskById(parent, chore.id)).carryOver).toBe(false);
+  });
+
+  it('moves unfinished carried tasks to today and keeps the gap from the start date', async () => {
+    const { parent, project } = await setupHousehold();
+    const late = await createTask(parent, project.key, {
+      title: 'Laundry',
+      type: 'chore',
+      startDate: '2030-05-08',
+      dueDate: '2030-05-10',
+    });
+    const done = await createTask(parent, project.key, {
+      title: 'Dusting',
+      type: 'chore',
+      dueDate: '2030-05-10',
+      statusId: statusOf(project, 'task', 'Done'),
+    });
+    const fixed = await createTask(parent, project.key, {
+      title: 'Bins',
+      type: 'errand',
+      dueDate: '2030-05-10',
+    });
+    const onTime = await createTask(parent, project.key, {
+      title: 'Cook',
+      type: 'chore',
+      dueDate: '2030-05-11',
+    });
+    await createProject(parent, { key: 'SOFT', name: 'Software' });
+    const software = await createTask(parent, 'SOFT', {
+      title: 'Ship',
+      carryOver: true,
+      dueDate: '2030-05-10',
+    });
+
+    const archived = await createProject(parent, { key: 'CABIN', name: 'Cabin', module: 'household' });
+    const shelved = await createTask(parent, archived.key, {
+      title: 'Chop wood',
+      type: 'chore',
+      dueDate: '2030-05-10',
+    });
+    await parent.post(`/api/projects/${archived.key}/archive`).expect(200);
+
+    await carryOverTasks(new Date('2030-05-11T12:00:00Z'));
+
+    expect((await taskById(parent, shelved.id)).dueDate).toBe('2030-05-10');
+    const moved = await taskById(parent, late.id);
+    expect([moved.startDate, moved.dueDate]).toEqual(['2030-05-09', '2030-05-11']);
+    expect((await taskById(parent, done.id)).dueDate).toBe('2030-05-10');
+    expect((await taskById(parent, fixed.id)).dueDate).toBe('2030-05-10');
+    expect((await taskById(parent, onTime.id)).dueDate).toBe('2030-05-11');
+    expect((await taskById(parent, software.id)).dueDate).toBe('2030-05-10');
+    const { body } = await parent.get(`/api/tasks/${late.id}/activity`).expect(200);
+    expect(body.activity).toContainEqual(
+      expect.objectContaining({
+        action: 'carried_over',
+        field: 'dueDate',
+        oldValue: '2030-05-10',
+        newValue: '2030-05-11',
+      }),
+    );
+  });
+
+  it('keeps a recurring chore on its own schedule after carrying it, unless its due date is changed by hand', async () => {
+    const { parent, project } = await setupHousehold();
+    const done = statusOf(project, 'task', 'Done');
+    const weekly = { freq: 'weekly' as const, interval: 1 };
+    const trash = await createTask(parent, project.key, {
+      title: 'Trash',
+      type: 'chore',
+      dueDate: '2030-05-06',
+      recurrence: weekly,
+    });
+    const plants = await createTask(parent, project.key, {
+      title: 'Plants',
+      type: 'chore',
+      dueDate: '2030-05-06',
+      recurrence: weekly,
+    });
+
+    await carryOverTasks(new Date('2030-05-07T12:00:00Z'));
+    await carryOverTasks(new Date('2030-05-08T12:00:00Z'));
+    expect((await taskById(parent, trash.id)).dueDate).toBe('2030-05-08');
+    await parent.patch(`/api/tasks/${plants.id}`).send({ dueDate: '2030-05-09' }).expect(200);
+    await parent.patch(`/api/tasks/${trash.id}`).send({ statusId: done }).expect(200);
+    await parent.patch(`/api/tasks/${plants.id}`).send({ statusId: done }).expect(200);
+
+    const { body } = await parent.get(`/api/projects/${project.key}/tasks`).expect(200);
+    const next = (title: string) =>
+      body.items.find(
+        (task: { title: string; id: string }) =>
+          task.title === title && ![trash.id, plants.id].includes(task.id),
+      );
+    expect(next('Trash').dueDate).toBe('2030-05-13');
+    expect(next('Plants').dueDate).toBe('2030-05-16');
+  });
+
+  it("uses the assignee's time zone, then the reporter's, to decide the day has ended", async () => {
+    const { parent, project, child } = await setupHousehold();
+    await child.agent
+      .patch('/api/me')
+      .send({ preferences: { timezone: 'Asia/Jerusalem' } })
+      .expect(200);
+    await parent
+      .patch('/api/me')
+      .send({ preferences: { timezone: 'America/New_York' } })
+      .expect(200);
+    const childs = await createTask(parent, project.key, {
+      title: 'Homework',
+      type: 'chore',
+      assigneeId: child.id,
+      dueDate: '2030-05-10',
+    });
+    const unassigned = await createTask(parent, project.key, {
+      title: 'Garden',
+      type: 'chore',
+      dueDate: '2030-05-10',
+    });
+
+    await carryOverTasks(new Date('2030-05-10T23:30:00Z'));
+
+    expect((await taskById(parent, childs.id)).dueDate).toBe('2030-05-11');
+    expect((await taskById(parent, unassigned.id)).dueDate).toBe('2030-05-10');
   });
 });

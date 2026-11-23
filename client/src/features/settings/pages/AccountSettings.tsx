@@ -11,6 +11,7 @@ import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
 import { useChangeEmail, useChangePassword } from '../../auth/api';
 import { PasswordInput } from '../../auth/components/PasswordInput';
+import { useSendVerificationLink } from '../../auth/useSendVerificationLink';
 import { SettingsSection } from '../components/SettingsSection';
 
 const passwordFormSchema = z
@@ -32,9 +33,9 @@ export function AccountSettings() {
           emailForm.reset({ email: values.email, password: '' });
           if (verificationSent) toast.success(`Email changed. Check ${values.email} to verify it.`);
           else
-            toast.warning(
-              `Email changed, but we couldn't email ${values.email}. Use Resend link in the banner to try again.`,
-            );
+            toast.info(`Email changed. Verify ${values.email} to keep your account secure.`, {
+              action: { label: 'Send link', onClick: () => sendLink.mutate(values.email) },
+            });
         },
         onError: (error) => toast.error(errorMessage(error)),
       }),
@@ -57,6 +58,7 @@ export function AccountSettings() {
   const user = useCurrentUser();
   const changeEmail = useChangeEmail();
   const changePassword = useChangePassword();
+  const sendLink = useSendVerificationLink();
   const emailForm = useZodForm(changeEmailSchema, { email: user.email, password: '' });
   const passwordForm = useZodForm(passwordFormSchema, { currentPassword: '', newPassword: '', confirm: '' });
 

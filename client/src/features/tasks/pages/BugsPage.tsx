@@ -8,7 +8,9 @@ import { useProjectContext } from '../../projects/useProjectContext';
 import { TaskBoardView } from '../board/TaskBoardView';
 import type { GroupBy } from '../board/groupTasks';
 import { BoardToolbar } from '../components/BoardToolbar';
+import { SelectToggle } from '../components/SelectToggle';
 import { TaskListView } from '../components/TaskListView';
+import { useTaskSelection } from '../hooks/useTaskSelection';
 import { taskFilterDefs } from '../taskFilterDefs';
 import { useTaskOptions } from '../useTaskOptions';
 import { useTaskPeek } from '../useTaskPeek';
@@ -18,6 +20,7 @@ export function BugsPage() {
   const peek = useTaskPeek();
   const options = useTaskOptions(project);
   const { filters, update, clear } = useUrlFilters();
+  const selection = useTaskSelection();
   const [mode, setMode] = useLocalState<'list' | 'board'>('msr-bugs-mode', 'list');
   const [groupBy, setGroupBy] = useLocalState<GroupBy>(`msr-bugs-group-${project.key}`, 'none');
   const defs = useMemo(
@@ -49,9 +52,11 @@ export function BugsPage() {
     <div className="flex flex-col gap-3">
       <FilterBar defs={defs} values={filters} onChange={update} onClear={clear}>
         <BoardToolbar groupBy={groupBy} onGroupByChange={setGroupBy} />
+        <SelectToggle selection={selection} label="Select cards" />
         {switcher}
       </FilterBar>
       <TaskBoardView
+        selection={selection}
         project={project}
         workflow="bug"
         filters={filters}

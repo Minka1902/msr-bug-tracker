@@ -18,6 +18,7 @@ import type {
   Workflow,
 } from './enums';
 import type { PlanTier, ProjectModule } from './modules';
+import type { PlaceCategory } from './places';
 import type { Motivation } from './schemas/planner';
 import type { BotPlatform, NotifyKind } from './bots';
 
@@ -68,6 +69,7 @@ export interface ProjectSummary {
   liveUrl: string | null;
   repoUrl: string | null;
   isFavorite: boolean;
+  isMain: boolean;
   isArchived: boolean;
   isDemo: boolean;
   isOwner: boolean;
@@ -164,6 +166,7 @@ export interface TaskCard {
   startDate: string | null;
   dueDate: string | null;
   recurrence: TaskRecurrence | null;
+  carryOver: boolean;
   escalation: TaskEscalation | null;
   isBlocked: boolean;
   position: string;
@@ -370,10 +373,29 @@ export interface ShoppingItem {
   id: string;
   name: string;
   quantity: string;
+  url: string | null;
   isChecked: boolean;
   checkedBy: UserRef | null;
   addedBy: string | null;
   position: string;
+}
+
+export interface Place {
+  id: string;
+  name: string;
+  category: PlaceCategory;
+  contactName: string;
+  phone: string;
+  phoneAlt: string;
+  email: string;
+  website: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  openingHours: string;
+  notes: string;
+  isFavorite: boolean;
+  updatedAt: string;
 }
 
 export interface ShoppingList {

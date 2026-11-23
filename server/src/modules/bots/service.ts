@@ -5,6 +5,7 @@ import { query, queryOne, transaction } from '../../db/pool';
 import { hashToken } from '../../lib/tokens';
 import { visibleTo } from '../cardTypes/visibility';
 import { USER_COLUMNS, type UserRow } from '../users/service';
+import type { BotLanguage } from './language';
 
 export interface ChatRow {
   platform: BotPlatform;
@@ -16,6 +17,7 @@ export interface ChatRow {
   notify: NotifyKind[];
   only_mine: boolean;
   default_list_id: string | null;
+  language: BotLanguage;
   key: string;
   name: string;
   module: ProjectModule;
@@ -47,7 +49,7 @@ const LINK_CHAT = `
   ON CONFLICT (platform, chat_id, project_id)
   DO UPDATE SET title = EXCLUDED.title, linked_by = EXCLUDED.linked_by, selected_at = now()`;
 const CHAT_COLUMNS = `
-  c.platform, c.chat_id, c.project_id, c.title, c.is_group, c.linked_by, c.notify, c.only_mine, c.default_list_id,
+  c.platform, c.chat_id, c.project_id, c.title, c.is_group, c.linked_by, c.notify, c.only_mine, c.default_list_id, c.language,
   p.key::text AS key, p.name, p.module, p.owner_id`;
 const CURRENT_CHAT = `
   SELECT ${CHAT_COLUMNS} FROM bot_chats c JOIN projects p ON p.id = c.project_id
@@ -68,6 +70,7 @@ const UPDATE_CHAT = `
 const DELETE_CHAT =
   'DELETE FROM bot_chats WHERE platform = $1 AND chat_id = $2 AND project_id = $3 RETURNING chat_id';
 const DROP_CHAT = 'DELETE FROM bot_chats WHERE platform = $1 AND chat_id = $2';
+const SET_LANGUAGE = 'UPDATE bot_chats SET language = $3 WHERE platform = $1 AND chat_id = $2';
 const MIGRATE_CHAT = 'UPDATE bot_chats SET chat_id = $3 WHERE platform = $1 AND chat_id = $2';
 const QUEUE_NOTIFICATION = `
   INSERT INTO bot_outbox (project_id, kind, payload, actor_id)
@@ -170,3 +173,6 @@ export const openTasks = (
 
 export const statusName = (statusId: string) =>
   queryOne<{ name: string }>(STATUS_NAME, [statusId]).then((row) => row?.name ?? null);
+
+export const setChatLanguage = (chat: ChatRef, language: BotLanguage) =>
+  query(SET_LANGUAGE, [chat.platform, chat.chatId, language]);

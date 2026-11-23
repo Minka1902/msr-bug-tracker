@@ -1,4 +1,6 @@
 import { config } from '../../config';
+import { LOCALES, type BotLanguage } from './language';
+import { BOT_TEXT } from './texts';
 
 export interface Formatter {
   text: (value: string) => string;
@@ -30,16 +32,17 @@ export const discordFormat: Formatter = {
 export const localToday = (timezone: string, at = new Date()) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(at);
 
-export const formatDay = (day: string, timezone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
+export const formatDay = (day: string, timezone: string, language: BotLanguage) =>
+  new Intl.DateTimeFormat(LOCALES[language], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
     timeZone: 'UTC',
-  }).format(new Date(`${day}T00:00:00Z`)) + (day === localToday(timezone) ? ' (today)' : '');
+  }).format(new Date(`${day}T00:00:00Z`)) +
+  (day === localToday(timezone) ? ` (${BOT_TEXT[language].today})` : '');
 
-export const formatTime = (instant: string | Date, timezone: string) =>
-  new Intl.DateTimeFormat('en-GB', {
+export const formatTime = (instant: string | Date, timezone: string, language: BotLanguage) =>
+  new Intl.DateTimeFormat(LOCALES[language], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

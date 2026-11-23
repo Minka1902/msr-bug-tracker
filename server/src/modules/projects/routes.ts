@@ -14,6 +14,7 @@ import { createProjectImportRouter } from '../importer/routes';
 import { createProjectInvitesRouter } from '../invites/routes';
 import { createMembersRouter } from '../members/routes';
 import { createRolesRouter } from '../roles/routes';
+import { createPlacesRouter } from '../places/routes';
 import { createShoppingRouter } from '../shopping/routes';
 import { createStatusesRouter } from '../statuses/routes';
 import { createProjectTasksRouter } from '../tasks/projectRoutes';
@@ -22,6 +23,7 @@ import { createProjectPlanRouter } from '../planner/routes';
 import { createProjectBotsRouter } from '../bots/routes';
 import { DEFAULT_PREFERENCES } from '../users/service';
 import { assertCan, assertCanWrite, assertOwner, loadProject, projectOf } from './access';
+import { setMainHousehold } from './mainHousehold';
 import {
   createProject,
   deleteProject,
@@ -100,6 +102,11 @@ export const createProjectsRouter = () => {
     res.status(204).end();
   });
 
+  scoped.put('/main', async (req, res) => {
+    await setMainHousehold(projectOf(req), req.user!.id);
+    res.status(204).end();
+  });
+
   scoped.use('/statuses', createStatusesRouter());
   scoped.use('/labels', createLabelsRouter());
   scoped.use('/card-types', createCardTypesRouter());
@@ -107,6 +114,7 @@ export const createProjectsRouter = () => {
   scoped.use('/members', createMembersRouter());
   scoped.use('/invites', createProjectInvitesRouter());
   scoped.use('/lists', createShoppingRouter());
+  scoped.use('/places', createPlacesRouter());
   scoped.use('/plan', createProjectPlanRouter());
   scoped.use('/bots', createProjectBotsRouter());
   scoped.use(createProjectImportRouter());

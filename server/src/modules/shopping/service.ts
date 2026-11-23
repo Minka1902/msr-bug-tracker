@@ -14,6 +14,7 @@ interface ListRow {
     id: string;
     name: string;
     quantity: string;
+    url: string | null;
     is_checked: boolean;
     checked_by: string | null;
     checked_by_name: string | null;
@@ -25,7 +26,7 @@ interface ListRow {
 
 const LIST_LISTS = `
   SELECT l.id, l.name, l.position,
-         coalesce((SELECT json_agg(json_build_object('id', i.id, 'name', i.name, 'quantity', i.quantity, 'is_checked', i.is_checked,
+         coalesce((SELECT json_agg(json_build_object('id', i.id, 'name', i.name, 'quantity', i.quantity, 'url', i.url, 'is_checked', i.is_checked,
                                                      'checked_by', i.checked_by, 'checked_by_name', u.name,
                                                      'checked_by_avatar', u.avatar_key, 'added_by', i.added_by, 'position', i.position)
                              ORDER BY i.is_checked, i.position)
@@ -47,8 +48,9 @@ const BOTS_LISTEN = `
   EXISTS (SELECT 1 FROM bot_chats c WHERE c.project_id = l.project_id AND 'shopping_changes' = ANY(c.notify))`;
 const INSERT_ITEMS = `
   WITH added AS (
-    INSERT INTO shopping_items (list_id, name, quantity, added_by, position)
-    SELECT $1, name, quantity, $2, position FROM unnest($3::text[], $4::text[], $5::text[]) AS i(name, quantity, position)
+    INSERT INTO shopping_items (list_id, name, quantity, url, added_by, position)
+    SELECT $1, name, quantity, url, $2, position
+    FROM unnest($3::text[], $4::text[], $5::text[], $8::text[]) AS i(name, quantity, position, url)
   )
   INSERT INTO bot_outbox (project_id, kind, payload, actor_id, source_platform, source_chat_id)
   SELECT l.project_id, 'shopping_changes', jsonb_build_object('list', l.name, 'added', to_jsonb($3::text[])), $2, $6, $7
@@ -56,6 +58,7 @@ const INSERT_ITEMS = `
 const UPDATE_ITEM = `
   UPDATE shopping_items i
   SET name = coalesce($3, i.name), quantity = coalesce($4, i.quantity), position = coalesce($6, i.position),
+      url = CASE WHEN $9 THEN $10 ELSE i.url END,
       is_checked = coalesce($5, i.is_checked),
       checked_by = CASE WHEN $5 IS NULL THEN i.checked_by WHEN $5 THEN $7 END,
       checked_at = CASE WHEN $5 IS NULL THEN i.checked_at WHEN $5 THEN now() END
@@ -91,6 +94,7 @@ const toList = (row: ListRow): ShoppingList => ({
     id: item.id,
     name: item.name,
     quantity: item.quantity,
+    url: item.url,
     isChecked: item.is_checked,
     checkedBy: item.checked_by
       ? {
@@ -143,6 +147,7 @@ export const addItems = async (
     generateNKeysBetween(null, first?.position ?? null, items.length),
     source?.platform ?? null,
     source?.chatId ?? null,
+    items.map((item) => item.url ?? null),
   ]);
 };
 
@@ -162,6 +167,8 @@ export const updateItem = (
     input.position ?? null,
     userId,
     projectId,
+    input.url !== undefined,
+    input.url ?? null,
   ]);
 
 export const checkItems = (projectId: string, itemIds: string[], isChecked: boolean, userId: string) =>

@@ -5,6 +5,7 @@ import type { ProjectDetail, TaskRecurrence } from '@msr/shared/types';
 import { DatePicker } from '../../../components/ui/DatePicker';
 import { Field } from '../../../components/ui/Field';
 import { OptionPicker } from '../../../components/ui/OptionPicker';
+import { Switch } from '../../../components/ui/Switch';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { cn } from '../../../lib/cn';
 import { typeChange } from '../taskMeta';
@@ -12,7 +13,15 @@ import { UNASSIGNED, useTaskOptions } from '../useTaskOptions';
 import { RecurrencePicker } from './RecurrencePicker';
 
 export type TaskCreateField =
-  'type' | 'status' | 'priority' | 'assignee' | 'dueDate' | 'recurrence' | 'labels' | 'severity';
+  | 'type'
+  | 'status'
+  | 'priority'
+  | 'assignee'
+  | 'dueDate'
+  | 'recurrence'
+  | 'carryOver'
+  | 'labels'
+  | 'severity';
 
 export interface TaskCreateValues {
   type: TaskType;
@@ -22,6 +31,7 @@ export interface TaskCreateValues {
   assigneeId: string | null;
   dueDate: string | null;
   recurrence: TaskRecurrence | null;
+  carryOver: boolean | null;
   labelIds: string[];
   severity: Severity | null;
 }
@@ -37,6 +47,7 @@ export const taskCreateValues = (
   assigneeId: null,
   dueDate: null,
   recurrence: null,
+  carryOver: null,
   labelIds: [],
   severity: null,
   ...presets,
@@ -45,7 +56,7 @@ export const taskCreateValues = (
 interface TaskCreateFieldsProps {
   project: Pick<
     ProjectDetail,
-    'statuses' | 'labels' | 'memberList' | 'permissions' | 'cardTypes' | 'isOwner'
+    'module' | 'statuses' | 'labels' | 'memberList' | 'permissions' | 'cardTypes' | 'isOwner'
   >;
   values: TaskCreateValues;
   onChange: (patch: Partial<TaskCreateValues>) => void;
@@ -62,6 +73,7 @@ const ALL_FIELDS: TaskCreateField[] = [
   'assignee',
   'dueDate',
   'recurrence',
+  'carryOver',
   'labels',
   'severity',
 ];
@@ -72,6 +84,7 @@ const LABELS: Record<TaskCreateField, string> = {
   assignee: 'Assignee',
   dueDate: 'Due date',
   recurrence: 'Repeat',
+  carryOver: 'Carry over',
   labels: 'Labels',
   severity: 'Severity',
 };
@@ -114,7 +127,9 @@ export function TaskCreateFields({
   ];
   const visible = fields.filter(
     (field) =>
-      (field !== 'severity' || values.type === 'bug') && (field !== 'type' || typeOptions.length > 1),
+      (field !== 'severity' || values.type === 'bug') &&
+      (field !== 'type' || typeOptions.length > 1) &&
+      (field !== 'carryOver' || (project.module === 'household' && !!values.dueDate)),
   );
 
   const renderers: Record<TaskCreateField, () => ReactNode> = {
@@ -172,6 +187,16 @@ export function TaskCreateFields({
         members={project.memberList}
         placeholder={layout === 'grid' ? "Doesn't repeat" : 'Repeat'}
         className={controlClass}
+      />
+    ),
+    carryOver: () => (
+      <Switch
+        aria-label="Carry over until done"
+        label={layout === 'compact' ? LABELS.carryOver : undefined}
+        size={layout === 'compact' ? 'sm' : 'md'}
+        checked={values.carryOver ?? values.type === 'chore'}
+        onCheckedChange={(carryOver) => onChange({ carryOver })}
+        className={layout === 'grid' ? 'h-9.5' : undefined}
       />
     ),
     labels: () => (

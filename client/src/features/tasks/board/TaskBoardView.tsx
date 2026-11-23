@@ -36,7 +36,9 @@ import { cn } from '../../../lib/cn';
 import { PHONE } from '../../../lib/media';
 import { useProjectPermissions } from '../../projects/useProjectPermissions';
 import { fetchBoardColumn, taskKeys, useBoard, useUpdateTask } from '../api';
+import { BulkActionBar } from '../components/BulkActionBar';
 import { TaskCardView } from '../components/TaskCardView';
+import type { TaskSelection } from '../hooks/useTaskSelection';
 import { BoardCell } from './BoardCell';
 import { BoardColumnPager } from './BoardColumnPager';
 import { PILL_PREFIX } from './BoardColumnPill';
@@ -48,6 +50,7 @@ interface TaskBoardViewProps {
   workflow: Workflow;
   filters: FilterValues;
   groupBy: GroupBy;
+  selection: TaskSelection;
   onOpen: (task: TaskCard) => void;
 }
 
@@ -81,7 +84,14 @@ const positionBetween = (previous: string | null, next: string | null) => {
   }
 };
 
-export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: TaskBoardViewProps) {
+export function TaskBoardView({
+  project,
+  workflow,
+  filters,
+  groupBy,
+  selection,
+  onOpen,
+}: TaskBoardViewProps) {
   const findContainer = (containers: Containers, id: string) =>
     id in containers ? id : Object.keys(containers).find((key) => containers[key]!.includes(id));
 
@@ -245,6 +255,7 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           onLoadMore={column ? () => loadMore(column) : undefined}
           canDrag={canDrag}
           swipe={phone}
+          selection={selection}
           onOpen={onOpen}
           composer={canCreate ? { statusId: status.id, type: composerTypes[0], ...lane.defaults } : null}
           composerTypes={composerTypes}
@@ -401,6 +412,11 @@ export function TaskBoardView({ project, workflow, filters, groupBy, onOpen }: T
           onChange={setPickedStatus}
         />
       )}
+      <BulkActionBar
+        project={project}
+        selected={[...selection.ids].flatMap((id) => taskById.get(id) ?? [])}
+        onClear={selection.clear}
+      />
       <DragOverlay>
         {activeId && taskById.get(activeId) ? (
           <TaskCardView task={taskById.get(activeId)!} dragging className="w-72 cursor-grabbing" />

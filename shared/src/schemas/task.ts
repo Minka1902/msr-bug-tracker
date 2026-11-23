@@ -51,6 +51,7 @@ const taskFields = {
   escalation: escalationSchema.nullable(),
   decision: longText,
   cardTypeId: uuidSchema.nullable(),
+  carryOver: z.boolean(),
 };
 
 const datesInOrder = (value: { startDate?: string | null; dueDate?: string | null }) =>
@@ -90,12 +91,23 @@ export const bulkUpdateSchema = z.object({
       assigneeId: uuidSchema.nullable(),
       addLabelIds: z.array(uuidSchema).max(30),
       removeLabelIds: z.array(uuidSchema).max(30),
+      dueDate: isoDateSchema.nullable(),
+      type: z.enum(TASK_TYPES),
+      cardTypeId: uuidSchema.nullable(),
     })
     .partial()
     .strict()
     .refine((value) => Object.keys(value).length > 0, 'Nothing to update')
-    .refine((value) => !(value.statusId && value.statusCategory), 'Choose a status or a category, not both'),
+    .refine((value) => !(value.statusId && value.statusCategory), 'Choose a status or a category, not both')
+    .refine((value) => value.cardTypeId !== null || !!value.type, 'Pick the type for plain cards')
+    .refine(
+      (value) =>
+        !((value.type || value.cardTypeId !== undefined) && (value.statusId || value.statusCategory)),
+      'Change the type on its own',
+    ),
 });
+
+export const bulkMoveSchema = z.object({ ids: idList, projectKey: projectKeySchema });
 
 export const bulkDeleteSchema = z.object({ ids: idList });
 export const moveTaskSchema = z.object({ projectKey: projectKeySchema });

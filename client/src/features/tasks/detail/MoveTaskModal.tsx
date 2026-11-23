@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { can } from '@msr/shared/permissions';
-import type { TaskDetail } from '@msr/shared/types';
 import { Banner } from '../../../components/ui/Banner';
 import { Button } from '../../../components/ui/Button';
 import { Field } from '../../../components/ui/Field';
@@ -10,17 +9,28 @@ import { ProjectAvatar } from '../../../components/ui/ProjectAvatar';
 import { useProjects } from '../../projects/api';
 
 interface MoveTaskModalProps {
-  task: TaskDetail | null;
+  open: boolean;
+  title: string;
+  sourceKey: string;
+  confirmLabel?: string;
   loading?: boolean;
   onCancel: () => void;
   onConfirm: (projectKey: string) => void;
 }
 
-export function MoveTaskModal({ task, loading, onCancel, onConfirm }: MoveTaskModalProps) {
+export function MoveTaskModal({
+  open,
+  title,
+  sourceKey,
+  confirmLabel = 'Move task',
+  loading,
+  onCancel,
+  onConfirm,
+}: MoveTaskModalProps) {
   const projects = useProjects();
   const [target, setTarget] = useState<string | null>(null);
   const options = (projects.data ?? [])
-    .filter((project) => project.key !== task?.projectKey && can(project.permissions, 'task.create'))
+    .filter((project) => project.key !== sourceKey && can(project.permissions, 'task.create'))
     .map((project) => ({
       value: project.key,
       label: project.name,
@@ -30,10 +40,10 @@ export function MoveTaskModal({ task, loading, onCancel, onConfirm }: MoveTaskMo
 
   return (
     <Modal
-      open={!!task}
-      onOpenChange={(open) => !open && onCancel()}
+      open={open}
+      onOpenChange={(next) => !next && onCancel()}
       size="sm"
-      title={`Move ${task?.identifier}`}
+      title={title}
       description="It gets a new ID in the target project. Old links keep working."
       footer={
         <>
@@ -41,7 +51,7 @@ export function MoveTaskModal({ task, loading, onCancel, onConfirm }: MoveTaskMo
             Cancel
           </Button>
           <Button disabled={!target} loading={loading} onClick={() => target && onConfirm(target)}>
-            Move task
+            {confirmLabel}
           </Button>
         </>
       }

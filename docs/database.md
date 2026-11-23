@@ -47,6 +47,7 @@ erDiagram
   calendar_events ||--o{ calendar_event_attendees : invites
   projects ||--o{ shopping_lists : has
   shopping_lists ||--o{ shopping_items : holds
+  projects ||--o{ household_places : keeps
   oauth_clients ||--o{ oauth_codes : issues
   oauth_clients ||--o{ oauth_grants : holds
   users ||--o{ oauth_grants : authorizes
@@ -148,7 +149,7 @@ Households reuse the four system keys under family names: **Owner**, **Parent** 
 
 ### `project_members` — migration 002
 
-PK `(project_id, user_id)`. `role_id` uses `ON DELETE RESTRICT`, so deleting a role first moves its members to another role in the same transaction. `is_favorite` and `last_opened_at` are per user and drive sidebar ordering. Indexed on `user_id` (for "my projects") and on `role_id`.
+PK `(project_id, user_id)`. `role_id` uses `ON DELETE RESTRICT`, so deleting a role first moves its members to another role in the same transaction. `is_favorite`, `is_main` and `last_opened_at` are per user and drive sidebar ordering: the main household first, then other households, then favorites, then the most recently opened. `is_main` marks the user's main household; the partial unique index `project_members_one_main` allows one per user. The first household a user creates or joins becomes main (`projects/mainHousehold.ts`, serialized per user with an advisory lock). Indexed on `user_id` (for "my projects") and on `role_id`.
 
 ### `project_statuses` and `labels` — migration 002
 
@@ -163,6 +164,8 @@ Statuses belong to a `workflow` (task/bug) and have a `category` (`backlog | tod
 - It inserts the next occurrence: the due date comes from `nextOccurrence()` in `shared/src/recurrence.ts`, the assignee is the next person in `rotate`, and the task starts in the first `todo` status.
 - It copies the labels and checklist (unticked).
 - It clears `recurrence` on the finished task, so reopening and finishing it again never creates a second copy.
+
+`carry_over` (boolean, migration 027) keeps an unfinished household task on today's list. A task created without the flag gets it when it's a household `chore`. The hourly `carryOverTasks()` (`tasks/carryOver.ts`) is one statement: every unfinished household task with `carry_over` whose due date is before today moves to today, its start date shifts by the same number of days, and a `carried_over` activity row records the move. "Today" is taken in the assignee's time zone, else the reporter's, else UTC. Archived projects are skipped. The first move stores the original due date in `carried_from` (migration 031), and the next copy of a recurring task is scheduled from it, so a weekly chore keeps its weekday. Changing the due date by hand clears `carried_from`. The overdue bot alert skips these tasks. Recurring copies and duplicates keep the flag.
 
 | Column                                                                                                                                      | Type                                         | Notes                                                                      |
 | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
@@ -237,10 +240,11 @@ Task deadlines are not stored here. They are read from `tasks.due_date` and belo
 
 ### Shopping lists — migration 010
 
-| Table            | Key columns                                                                                                    | Notes                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `shopping_lists` | `project_id`, `name` (1–60), `position`                                                                        | Every new household gets a "Groceries" list                                            |
-| `shopping_items` | `list_id`, `name` (1–120), `quantity` (≤ 40), `is_checked`, `checked_by`, `checked_at`, `added_by`, `position` | Read sorted by `(is_checked, position)`. New items go to the top of the unchecked ones |
+| Table              | Key columns                                                                                                                                                                                                                                                                                                           | Notes                                                                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shopping_lists`   | `project_id`, `name` (1–60), `position`                                                                                                                                                                                                                                                                               | Every new household gets a "Groceries" list                                                                                                                                 |
+| `shopping_items`   | `list_id`, `name` (1–120), `quantity` (≤ 40), `is_checked`, `checked_by`, `checked_at`, `added_by`, `position`, `url` (≤ 2000, migration 030)                                                                                                                                                                         | Read sorted by `(is_checked, position)`. New items go to the top of the unchecked ones. `url` is an optional product link (http/https); a longer one loses its query string |
+| `household_places` | `project_id`, `name` (1–120, the only required field), `category` (medical, school, shops, food, services, government, family, friends, emergency, other), `contact_name`, `phone`, `phone_alt`, `email`, `website`, `address`, `city`, `postal_code`, `opening_hours`, `notes` (≤ 4000), `is_favorite`, `created_by` | Migration 028. Read sorted by `(is_favorite DESC, lower(name))`. Only household projects have places                                                                        |
 
 ### Connector — migration 011
 
@@ -309,13 +313,13 @@ Migration 025 turns these into the shared bot tables below.
 
 `bot_platform` enum (`telegram`, `discord`). The Telegram tables are renamed and get a `platform`; ids become `text`, because Discord snowflakes don't fit in a JS number.
 
-| Table            | Key columns                                                                                                                                     | Notes                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `bot_accounts`   | PK `(platform, external_id)`, unique `(platform, user_id)`                                                                                      | Who a Telegram or Discord sender is in MSR. Replaces `users.telegram_user_id` (rows copied)     |
-| `bot_chats`      | PK `(platform, chat_id, project_id)`, `is_group`, `linked_by`, `notify` text[], `only_mine`, `default_list_id`, `digest_sent_on`, `selected_at` | Was `telegram_chats`. A Discord server channel is a group                                       |
-| `bot_link_codes` | `code_hash` PK, `platform`, `user_id`, `project_id`, `is_group`, `expires_at`                                                                   | Was `telegram_link_codes`. A code only works on the platform it was made for                    |
-| `bot_state`      | one row, `activity_cursor`                                                                                                                      | Was `telegram_state`. One cursor for both platforms                                             |
-| `bot_outbox`     | `project_id`, `kind`, `payload` jsonb, `actor_id`, `source_platform`, `source_chat_id` text                                                     | Was `telegram_outbox`. The source chat stops a bot change echoing back to the chat it came from |
+| Table            | Key columns                                                                                                                                                                                     | Notes                                                                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bot_accounts`   | PK `(platform, external_id)`, unique `(platform, user_id)`                                                                                                                                      | Who a Telegram or Discord sender is in MSR. Replaces `users.telegram_user_id` (rows copied)                                                                    |
+| `bot_chats`      | PK `(platform, chat_id, project_id)`, `is_group`, `linked_by`, `notify` text[], `only_mine`, `default_list_id`, `digest_sent_on`, `selected_at`, `language` (`en`, `he` or `ru`, migration 029) | Was `telegram_chats`. A Discord server channel is a group. `language` is the language of the last message with words, and every reply and notification uses it |
+| `bot_link_codes` | `code_hash` PK, `platform`, `user_id`, `project_id`, `is_group`, `expires_at`                                                                                                                   | Was `telegram_link_codes`. A code only works on the platform it was made for                                                                                   |
+| `bot_state`      | one row, `activity_cursor`                                                                                                                                                                      | Was `telegram_state`. One cursor for both platforms                                                                                                            |
+| `bot_outbox`     | `project_id`, `kind`, `payload` jsonb, `actor_id`, `source_platform`, `source_chat_id` text                                                                                                     | Was `telegram_outbox`. The source chat stops a bot change echoing back to the chat it came from                                                                |
 
 ## Invariants
 

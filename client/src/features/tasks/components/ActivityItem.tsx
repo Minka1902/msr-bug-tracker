@@ -8,21 +8,24 @@ interface ActivityItemProps {
   showTask?: boolean;
 }
 
+const AUTOMATIC_ACTORS: Record<string, string> = {
+  escalated: 'Priority schedule',
+  carried_over: 'Carry over',
+};
+
 export function ActivityItem({ entry, showTask }: ActivityItemProps) {
-  const automatic = !entry.actor && entry.action === 'escalated';
+  const automatic = entry.actor ? undefined : AUTOMATIC_ACTORS[entry.action];
 
   return (
     <div className="flex items-start gap-2.5 text-sm">
       <Avatar
-        name={entry.actor?.name ?? (automatic ? 'Priority schedule' : 'Deleted user')}
+        name={entry.actor?.name ?? automatic ?? 'Deleted user'}
         src={entry.actor?.avatarUrl}
         size="sm"
         className="mt-0.5"
       />
       <p className="min-w-0 flex-1 leading-relaxed text-muted">
-        <span className="font-medium text-text">
-          {entry.actor?.name ?? (automatic ? 'Priority schedule' : 'Someone')}
-        </span>{' '}
+        <span className="font-medium text-text">{entry.actor?.name ?? automatic ?? 'Someone'}</span>{' '}
         {activityText(entry)}
         {showTask && entry.task && (
           <>

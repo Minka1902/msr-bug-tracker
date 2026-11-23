@@ -1,5 +1,6 @@
 import { ListTodo, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Checkbox } from '../../../components/ui/Checkbox';
 import type { ProjectDetail, TaskCard } from '@msr/shared/types';
 import { Button } from '../../../components/ui/Button';
 import { DataTable } from '../../../components/ui/DataTable';
@@ -16,7 +17,9 @@ import { COLUMN_BY_SORT, SORT_BY_COLUMN, taskColumns } from '../taskColumns';
 import { taskFilterDefs } from '../taskFilterDefs';
 import { useTaskOptions } from '../useTaskOptions';
 import { useTaskPeek } from '../useTaskPeek';
+import { useTaskSelection } from '../hooks/useTaskSelection';
 import { BulkActionBar } from './BulkActionBar';
+import { SelectToggle } from './SelectToggle';
 import { TaskRowCard } from './TaskRowCard';
 import { TaskSwipeRow } from './TaskSwipeRow';
 
@@ -40,14 +43,14 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
   const permissions = useProjectPermissions(project);
   const options = useTaskOptions(project);
   const [search, setSearch] = useState(filters.q ?? '');
-  const [selectedIds, setSelectedIds] = useState(new Set<string>());
+  const selection = useTaskSelection();
   const debouncedSearch = useDebouncedValue(search, 250);
   const query = useMemo(() => ({ ...filters, ...(bugsOnly && { type: 'bug' }) }), [filters, bugsOnly]);
   const list = useTaskList({ projectKey: project.key }, query);
   const tasks = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   const columns = useMemo(() => taskColumns(project, { bugsOnly }), [project, bugsOnly]);
   const defs = useMemo(() => taskFilterDefs(options, { bugsOnly }), [options, bugsOnly]);
-  const selected = tasks.filter((task) => selectedIds.has(task.id));
+  const selected = tasks.filter((task) => selection.ids.has(task.id));
 
   useEffect(() => {
     if ((filters.q ?? '') !== debouncedSearch) update({ q: debouncedSearch });
@@ -69,6 +72,7 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
         }}
       >
         <ImportExportMenu project={project} filters={query} canImport={permissions.can('task.create')} />
+        <SelectToggle selection={selection} label="Select tasks" className="md:hidden" />
       </FilterBar>
       <DataTable
         label={bugsOnly ? 'Bugs' : 'Tasks'}
@@ -79,8 +83,8 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
         loading={list.isPending}
         activeRowId={tasks.find((task) => task.identifier === peek.identifier)?.id}
         onRowClick={onOpen}
-        selected={selectedIds}
-        onSelectedChange={setSelectedIds}
+        selected={selection.ids}
+        onSelectedChange={selection.set}
         sort={
           filters.sort ? { id: COLUMN_BY_SORT[filters.sort] ?? 'updated', desc: filters.dir !== 'asc' } : null
         }
@@ -90,15 +94,31 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
             dir: sort ? (sort.desc ? 'desc' : 'asc') : 'desc',
           })
         }
-        renderMobile={(task) => (
-          <TaskSwipeRow task={task}>
-            <TaskRowCard
-              task={task}
-              status={project.statuses.find((status) => status.id === task.statusId)}
-              onOpen={onOpen}
-            />
-          </TaskSwipeRow>
-        )}
+        renderMobile={(task) =>
+          selection.selecting ? (
+            <div className="flex items-center gap-3 pl-3">
+              <Checkbox
+                checked={selection.ids.has(task.id)}
+                onCheckedChange={() => selection.toggle(task.id)}
+                aria-label={`Select ${task.identifier} ${task.title}`}
+              />
+              <TaskRowCard
+                task={task}
+                status={project.statuses.find((status) => status.id === task.statusId)}
+                onOpen={() => selection.toggle(task.id)}
+                className="min-w-0 flex-1"
+              />
+            </div>
+          ) : (
+            <TaskSwipeRow task={task}>
+              <TaskRowCard
+                task={task}
+                status={project.statuses.find((status) => status.id === task.statusId)}
+                onOpen={onOpen}
+              />
+            </TaskSwipeRow>
+          )
+        }
         empty={
           <EmptyState
             icon={<ListTodo />}
@@ -136,7 +156,7 @@ export function TaskListView({ project, bugsOnly = false, onOpen }: TaskListView
           )
         }
       />
-      <BulkActionBar project={project} selected={selected} onClear={() => setSelectedIds(new Set())} />
+      <BulkActionBar project={project} selected={selected} onClear={selection.clear} />
     </div>
   );
 }
