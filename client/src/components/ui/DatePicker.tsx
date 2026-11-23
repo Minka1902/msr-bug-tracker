@@ -16,6 +16,8 @@ interface DatePickerProps {
   renderTrigger?: (value: string | null) => ReactNode;
   min?: string | null;
   max?: string | null;
+  clearable?: boolean;
+  clearLabel?: string;
   className?: string;
   'aria-label'?: string;
 }
@@ -28,6 +30,8 @@ export function DatePicker({
   renderTrigger,
   min,
   max,
+  clearable = !!value,
+  clearLabel = 'Clear',
   className,
   ...aria
 }: DatePickerProps) {
@@ -74,9 +78,9 @@ export function DatePicker({
         <Button size="xs" variant="ghost" onClick={() => select(new Date())}>
           Today
         </Button>
-        {value && (
+        {clearable && (
           <Button size="xs" variant="danger-ghost" leftIcon={<X />} onClick={() => select(undefined)}>
-            Clear
+            {clearLabel}
           </Button>
         )}
       </div>
