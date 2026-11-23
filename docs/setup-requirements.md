@@ -83,7 +83,7 @@ Without this, verification, password-reset and invite emails are never sent. The
    - `MAIL_FROM`: for example `MSR Tracker <no-reply@mail.yourdomain.com>`. The address must be on the verified domain.
 6. Check it worked: register a test account. Its verification email should arrive within a minute. If not, the Render log shows the Resend error.
 
-Accounts that registered before this can verify from the yellow banner (**Resend link**) once Resend is live. You can also open the links already printed in your Render logs.
+Accounts that registered before this can verify from the yellow banner (**Send link**) once Resend is live. You can also open the links already printed in your Render logs.
 
 ## 5. Google Calendar (optional)
 

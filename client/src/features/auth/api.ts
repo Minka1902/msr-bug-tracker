@@ -105,9 +105,6 @@ export const useRemoveAvatar = () => {
   });
 };
 
-export const useResendVerification = () =>
-  useMutation({ mutationFn: () => api('/auth/resend-verification', { method: 'POST' }) });
-
 export const useForgotPassword = () =>
   useMutation({
     mutationFn: (email: string) => api('/auth/forgot-password', { method: 'POST', body: { email } }),

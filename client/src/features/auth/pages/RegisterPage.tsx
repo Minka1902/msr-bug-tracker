@@ -13,6 +13,7 @@ import { safeNextPath } from '../../../lib/safeNextPath';
 import { useRegister } from '../api';
 import { AuthLayout } from '../components/AuthLayout';
 import { PasswordInput } from '../components/PasswordInput';
+import { useSendVerificationLink } from '../useSendVerificationLink';
 
 const TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -24,9 +25,9 @@ export function RegisterPage() {
         {
           onSuccess: ({ verificationSent }) => {
             if (!verificationSent)
-              toast.warning(
-                "We couldn't send your verification email. Use Resend link in the banner to try again.",
-              );
+              toast.info('Welcome! Verify your email to keep your account secure.', {
+                action: { label: 'Send link', onClick: () => sendLink.mutate(values.email) },
+              });
             navigate(safeNextPath(next), { replace: true });
           },
         },
@@ -36,6 +37,7 @@ export function RegisterPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const registerUser = useRegister();
+  const sendLink = useSendVerificationLink();
   const next = params.get('next');
   const form = useZodForm(registerSchema, { name: '', email: params.get('email') ?? '', password: '' });
   const { errors } = form.formState;
