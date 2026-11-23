@@ -1,4 +1,4 @@
-import { Check, CircleAlert, Lock, Sparkles, X } from 'lucide-react';
+import { Bot, Check, CircleAlert, Lock, Sparkles, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
@@ -10,8 +10,8 @@ import {
   minimumPlan,
   type ProjectModule,
 } from '@msr/shared/modules';
-import type { PlanQuestion, PlanTask } from '@msr/shared/schemas/planner';
-import { createProjectSchema } from '@msr/shared/schemas/project';
+import type { PlanDraft, PlanQuestion } from '@msr/shared/schemas/planner';
+import { createProjectSchema, type CreateProjectInput } from '@msr/shared/schemas/project';
 import type { ProjectDetail } from '@msr/shared/types';
 import { Badge } from '../../../components/ui/Badge';
 import { Banner } from '../../../components/ui/Banner';
@@ -30,9 +30,9 @@ import { useDebouncedValue } from '../../../hooks/useDebouncedValue';
 import { useZodForm } from '../../../hooks/useZodForm';
 import { errorMessage } from '../../../lib/api';
 import { useWorkers } from '../../agents/api';
-import { useCommitPlan, useDraftPlan, useAskQuestions } from '../../planner/api';
+import { useAskQuestions, useCommitPlan, useDraftPlan, useHandoffPlan } from '../../planner/api';
 import { IdeaQuestions } from '../../planner/components/IdeaQuestions';
-import { PlanPreview } from '../../planner/components/PlanPreview';
+import { PlanPreview, type PlanSelection } from '../../planner/components/PlanPreview';
 import { useAiKeys } from '../../settings/aiKeysApi';
 import { useRefreshShop, useShop } from '../../shop/api';
 import { moduleAccess, packLeft } from '../../shop/moduleAccess';
@@ -64,6 +64,8 @@ const DESCRIPTIONS: Record<Step, string> = {
 };
 
 const NO_WORKER = '__none__';
+const EMPTY_DRAFT: PlanDraft = { tasks: [], features: [], decisions: [] };
+const EMPTY_SELECTION: PlanSelection = { tasks: [], features: [], decisions: [] };
 
 const defaultsFor = (module: ProjectModule) => ({
   module,
@@ -84,6 +86,8 @@ export function CreateProjectModal({
 }: CreateProjectModalProps) {
   const submit = (event: FormEvent) =>
     form.handleSubmit((values) => {
+      if (step === 'details' && newIdea && !hasAiKey)
+        return created ? handOff(created) : createThen(handOff)(values);
       if (step === 'details' && newIdea)
         return askQuestions.mutate(
           { module: values.module, name: values.name, description: values.description },
@@ -113,28 +117,60 @@ export function CreateProjectModal({
         module: project.module,
         name: project.name,
         description: project.description,
-        answers: questions.map((item, index) => ({ question: item.question, answer: answers[index] ?? '' })),
+        answers: answered(),
       },
       {
-        onSuccess: (tasks) => {
-          setPlan(tasks);
-          setSelected(tasks.map(() => true));
+        onSuccess: (next) => {
+          setPlan(next);
+          setSelected({
+            tasks: next.tasks.map(() => true),
+            features: next.features.map(() => true),
+            decisions: next.decisions.map(() => true),
+          });
           setStep('plan');
         },
       },
     );
+
+  const answered = () =>
+    questions.map((item, index) => ({ question: item.question, answer: answers[index] ?? '' }));
+
+  const createThen = (next: (project: ProjectDetail) => void) => (values: CreateProjectInput) =>
+    createProject.mutate(values, {
+      onSuccess: (project) => {
+        refreshShop();
+        setCreated(project);
+        next(project);
+      },
+    });
+
+  const handOff = (project: ProjectDetail) =>
+    planWorker &&
+    handoffPlan.mutate(
+      { projectKey: project.key, agentId: planWorker.id, answers: answered() },
+      {
+        onSuccess: () => {
+          toast.success(`${planWorker.name} will plan ${project.name} the next time it runs`);
+          finish(project);
+        },
+      },
+    );
+
+  const handOffNow = () => (created ? handOff(created) : form.handleSubmit(createThen(handOff))());
 
   const addTasks = () =>
     created &&
     commitPlan.mutate(
       {
         projectKey: created.key,
-        tasks: plan.filter((_, index) => selected[index]),
+        tasks: plan.tasks.filter((_, index) => selected.tasks[index]),
+        features: plan.features.filter((_, index) => selected.features[index]),
+        decisions: plan.decisions.filter((_, index) => selected.decisions[index]),
         agentId: plannedWorker === NO_WORKER ? null : plannedWorker,
       },
       {
         onSuccess: ({ created: count }) => {
-          toast.success(`${count} tasks added to ${created.name}`);
+          toast.success(`${count} items added to ${created.name}`);
           finish(created);
         },
       },
@@ -166,12 +202,13 @@ export function CreateProjectModal({
     form.reset(defaultsFor(initialModule));
     setKeyTouched(false);
     setStep('details');
-    setNewIdea(false);
+    setNewIdea(null);
     setCreated(null);
     createProject.reset();
     askQuestions.reset();
     draftPlan.reset();
     commitPlan.reset();
+    handoffPlan.reset();
   };
 
   const navigate = useNavigate();
@@ -179,6 +216,7 @@ export function CreateProjectModal({
   const askQuestions = useAskQuestions();
   const draftPlan = useDraftPlan();
   const commitPlan = useCommitPlan();
+  const handoffPlan = useHandoffPlan();
   const aiKeys = useAiKeys();
   const workers = useWorkers();
   const shop = useShop();
@@ -186,12 +224,12 @@ export function CreateProjectModal({
   const form = useZodForm(createProjectSchema, defaultsFor(initialModule));
   const [keyTouched, setKeyTouched] = useState(false);
   const [step, setStep] = useState<Step>('details');
-  const [newIdea, setNewIdea] = useState(false);
+  const [newIdeaChoice, setNewIdea] = useState<boolean | null>(null);
   const [questions, setQuestions] = useState<PlanQuestion[]>([]);
   const [answers, setAnswers] = useState<string[]>([]);
   const [created, setCreated] = useState<ProjectDetail | null>(null);
-  const [plan, setPlan] = useState<PlanTask[]>([]);
-  const [selected, setSelected] = useState<boolean[]>([]);
+  const [plan, setPlan] = useState<PlanDraft>(EMPTY_DRAFT);
+  const [selected, setSelected] = useState<PlanSelection>(EMPTY_SELECTION);
   const [workerId, setWorkerId] = useState<string | null>(null);
   const appearance = useAppearanceField(form);
   const [watchedModule, name, key, icon] = form.watch(['module', 'name', 'key', 'icon']);
@@ -203,9 +241,14 @@ export function CreateProjectModal({
   const hasAiKey = !!aiKeys.data?.length;
   const connectedWorkers = (workers.data ?? []).filter((worker) => worker.connection);
   const plannedWorker = workerId ?? connectedWorkers[0]?.id ?? NO_WORKER;
-  const keptCount = selected.filter(Boolean).length;
-  const needsWorker = plan.some((task, index) => selected[index] && task.doer !== 'human');
-  const error = createProject.error ?? askQuestions.error ?? draftPlan.error ?? commitPlan.error;
+  const planWorker = connectedWorkers.find((worker) => worker.id === plannedWorker) ?? connectedWorkers[0];
+  const canPlan = hasAiKey || !!planWorker;
+  const newIdea = canPlan && (newIdeaChoice ?? module === 'startup');
+  const keptCount = Object.values(selected).flat().filter(Boolean).length;
+  const needsWorker = plan.tasks.some((task, index) => selected.tasks[index] && task.doer !== 'human');
+  const planFailed = askQuestions.error ?? draftPlan.error;
+  const error =
+    createProject.error ?? askQuestions.error ?? draftPlan.error ?? commitPlan.error ?? handoffPlan.error;
   const { errors } = form.formState;
 
   useEffect(() => {
@@ -246,10 +289,10 @@ export function CreateProjectModal({
               type="submit"
               form="create-project"
               leftIcon={newIdea ? <Sparkles /> : undefined}
-              loading={createProject.isPending || askQuestions.isPending}
+              loading={createProject.isPending || askQuestions.isPending || handoffPlan.isPending}
               disabled={availability.data?.available === false || locked}
             >
-              {newIdea ? 'Generate' : 'Create project'}
+              {newIdea ? (hasAiKey ? 'Generate' : 'Create & plan') : 'Create project'}
             </Button>
           </>
         ) : step === 'questions' ? (
@@ -278,14 +321,32 @@ export function CreateProjectModal({
               Skip the plan
             </Button>
             <Button onClick={addTasks} loading={commitPlan.isPending} disabled={!keptCount}>
-              Add {keptCount} tasks
+              Add {keptCount} items
             </Button>
           </>
         )
       }
     >
       {error && (
-        <Banner tone="danger" icon={<CircleAlert />} className="mb-4">
+        <Banner
+          tone="danger"
+          icon={<CircleAlert />}
+          className="mb-4"
+          action={
+            planFailed &&
+            planWorker && (
+              <Button
+                size="xs"
+                variant="soft"
+                leftIcon={<Bot />}
+                loading={handoffPlan.isPending || createProject.isPending}
+                onClick={handOffNow}
+              >
+                Let my AI worker plan it
+              </Button>
+            )
+          }
+        >
           {errorMessage(error)}
           {!hasAiKey && askQuestions.error && (
             <>
@@ -325,10 +386,13 @@ export function CreateProjectModal({
             </Field>
           )}
           <PlanPreview
-            tasks={plan}
+            draft={plan}
             selected={selected}
-            onToggle={(index) =>
-              setSelected((current) => current.map((value, at) => (at === index ? !value : value)))
+            onToggle={(group, index) =>
+              setSelected((current) => ({
+                ...current,
+                [group]: current[group].map((value, at) => (at === index ? !value : value)),
+              }))
             }
           />
         </div>
@@ -406,12 +470,18 @@ export function CreateProjectModal({
             <Checkbox
               checked={newIdea}
               onCheckedChange={setNewIdea}
-              disabled={!hasAiKey}
-              label="This is a new idea, plan it with AI"
+              disabled={!canPlan}
+              label={
+                module === 'startup'
+                  ? 'Plan it for me: steps, features and decisions'
+                  : 'This is a new idea, plan it with AI'
+              }
             />
             <p className="pl-7 text-xs text-muted">
               {hasAiKey ? (
-                'Your AI asks a few questions, then breaks the idea into small steps with deadlines.'
+                'Your AI asks a few questions, then breaks the idea into small steps with deadlines, the features and the decisions to make.'
+              ) : planWorker ? (
+                `There's no AI key, so ${planWorker.name} plans it the next time it runs.`
               ) : (
                 <>
                   Add a Claude, ChatGPT, Gemini or Grok key in{' '}
@@ -422,7 +492,7 @@ export function CreateProjectModal({
                   >
                     Settings → AI
                   </Link>{' '}
-                  to use this.
+                  or connect an AI worker to use this.
                 </>
               )}
             </p>
