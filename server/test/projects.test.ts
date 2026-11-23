@@ -1,6 +1,16 @@
 import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from '@msr/shared/permissions';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { agentFor, createProject, projectInput, registerUser, resetDb, setupTeam } from './helpers';
+import {
+  addMember,
+  agentFor,
+  createHousehold,
+  createProject,
+  projectInput,
+  registerUser,
+  resetDb,
+  roleId,
+  setupTeam,
+} from './helpers';
 
 beforeEach(resetDb);
 
@@ -205,5 +215,60 @@ describe('editing projects', () => {
     await owner.delete(`/api/projects/${project.key}`).expect(204);
     await owner.get(`/api/projects/${project.key}`).expect(404);
     expect((await admin.agent.get('/api/projects')).body.projects).toHaveLength(0);
+  });
+});
+
+describe('household order and the main household', () => {
+  const keysOf = (body: { projects: { key: string }[] }) => body.projects.map((project) => project.key);
+  const mainsOf = (body: { projects: { key: string; isMain: boolean }[] }) =>
+    body.projects.filter((project) => project.isMain).map((project) => project.key);
+
+  const householder = async () => {
+    const agent = agentFor();
+    const account = await registerUser(agent);
+    await createProject(agent, { key: 'AAA', name: 'Alpha' });
+    await createHousehold(agent, { key: 'HOME', name: 'Home' });
+    await createProject(agent, { key: 'CABIN', name: 'Cabin', icon: 'house', module: 'household' });
+    await createProject(agent, { key: 'BBB', name: 'Beta' });
+    await agent.put('/api/projects/AAA/favorite').send({ favorite: true }).expect(204);
+    return { agent, account };
+  };
+
+  it('lists households first with the first household as main, then favorites, then the rest', async () => {
+    const { agent } = await householder();
+    const { body } = await agent.get('/api/projects').expect(200);
+    expect(keysOf(body)).toEqual(['HOME', 'CABIN', 'AAA', 'BBB']);
+    expect(mainsOf(body)).toEqual(['HOME']);
+  });
+
+  it('switches the main household and keeps exactly one', async () => {
+    const { agent } = await householder();
+    await agent.put('/api/projects/CABIN/main').expect(204);
+    const { body } = await agent.get('/api/projects').expect(200);
+    expect(keysOf(body)).toEqual(['CABIN', 'HOME', 'AAA', 'BBB']);
+    expect(mainsOf(body)).toEqual(['CABIN']);
+  });
+
+  it('refuses to make a non-household project main', async () => {
+    const { agent } = await householder();
+    const { body } = await agent.put('/api/projects/AAA/main').expect(400);
+    expect(body.error).toBe('Only a household can be your main project');
+  });
+
+  it('makes a joined household main only when the member has none', async () => {
+    const owner = agentFor();
+    await registerUser(owner);
+    const home = await createHousehold(owner, { key: 'HOME', name: 'Home' });
+
+    const settled = agentFor();
+    const settledAccount = await registerUser(settled);
+    await createHousehold(settled, { key: 'NEST', name: 'Nest' });
+    await addMember(owner, 'HOME', settledAccount.email, roleId(home, 'member'));
+    expect(mainsOf((await settled.get('/api/projects')).body)).toEqual(['NEST']);
+
+    const newcomer = agentFor();
+    const newcomerAccount = await registerUser(newcomer);
+    await addMember(owner, 'HOME', newcomerAccount.email, roleId(home, 'member'));
+    expect(mainsOf((await newcomer.get('/api/projects')).body)).toEqual(['HOME']);
   });
 });

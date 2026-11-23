@@ -62,6 +62,7 @@ const project = (
   liveUrl: null,
   repoUrl: null,
   isFavorite: false,
+  isMain: false,
   isArchived: false,
   isDemo: false,
   isOwner: true,

@@ -68,6 +68,7 @@ export interface ProjectSummary {
   liveUrl: string | null;
   repoUrl: string | null;
   isFavorite: boolean;
+  isMain: boolean;
   isArchived: boolean;
   isDemo: boolean;
   isOwner: boolean;

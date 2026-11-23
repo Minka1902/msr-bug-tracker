@@ -25,6 +25,7 @@ import { listMembers } from '../members/service';
 import { listRoles } from '../roles/service';
 import { activeSubscription, claimProjectSlot, recordCreation } from '../shop/service';
 import { listStatuses } from '../statuses/service';
+import { claimMainHousehold } from './mainHousehold';
 
 export type ArchivedFilter = 'active' | 'archived' | 'all';
 
@@ -53,6 +54,7 @@ interface SummaryRow {
   created_at: Date;
   updated_at: Date;
   is_favorite: boolean;
+  is_main: boolean;
   role_name: string;
   permissions: number;
   total: number;
@@ -67,7 +69,7 @@ interface SummaryRow {
 
 const SUMMARY_SQL = `
   SELECT p.id, p.key, p.kind, p.module, p.name, p.description, p.color, p.icon, p.emblem, p.live_url, p.repo_url, p.owner_id, p.archived_at, p.is_demo, p.created_at, p.updated_at,
-         my.is_favorite, r.name AS role_name, r.permissions,
+         my.is_favorite, my.is_main, r.name AS role_name, r.permissions,
          st.total, st.completed, st.active, st.overdue, st.next_due, st.last_task_update, mc.member_count, mem.members
   FROM project_members my
   JOIN projects p ON p.id = my.project_id
@@ -94,7 +96,7 @@ const SUMMARY_SQL = `
 
 const LIST_PROJECTS = `${SUMMARY_SQL}
   AND CASE $3::text WHEN 'active' THEN p.archived_at IS NULL WHEN 'archived' THEN p.archived_at IS NOT NULL ELSE true END
-  ORDER BY my.is_favorite DESC, coalesce(my.last_opened_at, my.joined_at) DESC, p.name`;
+  ORDER BY my.is_main DESC, p.kind = 'household' DESC, my.is_favorite DESC, coalesce(my.last_opened_at, my.joined_at) DESC, p.name`;
 const PROJECT_SUMMARY = `${SUMMARY_SQL} AND p.id = $3`;
 const TOUCH_OPENED = `
   UPDATE project_members SET last_opened_at = now()
@@ -166,6 +168,7 @@ const toSummary = (row: SummaryRow, userId: string): ProjectSummary => ({
   liveUrl: row.live_url,
   repoUrl: row.repo_url,
   isFavorite: row.is_favorite,
+  isMain: row.is_main,
   isArchived: row.archived_at !== null,
   isDemo: row.is_demo,
   isOwner: row.owner_id === userId,
@@ -268,6 +271,7 @@ export const createProject = (input: CreateProjectInput, ownerId: string) =>
       [project!.id, ownerId, roles.find((role) => role.system_key === 'owner')!.id],
       db,
     );
+    if (kind === 'household') await claimMainHousehold(db, project!.id, ownerId);
     const statuses = WORKFLOWS.flatMap((workflow) => {
       const positions = generateNKeysBetween(null, null, setup.statuses[workflow].length);
       return setup.statuses[workflow].map((status, index) => ({

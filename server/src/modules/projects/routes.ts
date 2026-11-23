@@ -22,6 +22,7 @@ import { createProjectPlanRouter } from '../planner/routes';
 import { createProjectBotsRouter } from '../bots/routes';
 import { DEFAULT_PREFERENCES } from '../users/service';
 import { assertCan, assertCanWrite, assertOwner, loadProject, projectOf } from './access';
+import { setMainHousehold } from './mainHousehold';
 import {
   createProject,
   deleteProject,
@@ -97,6 +98,11 @@ export const createProjectsRouter = () => {
 
   scoped.put('/favorite', async (req, res) => {
     await setFavorite(projectOf(req).id, req.user!.id, favoriteSchema.parse(req.body).favorite);
+    res.status(204).end();
+  });
+
+  scoped.put('/main', async (req, res) => {
+    await setMainHousehold(projectOf(req), req.user!.id);
     res.status(204).end();
   });
 

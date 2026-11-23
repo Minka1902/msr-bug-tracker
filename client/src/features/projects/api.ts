@@ -95,6 +95,20 @@ export const useToggleFavorite = () => {
   });
 };
 
+export const useSetMainHousehold = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (key: string) => api(`/projects/${key}/main`, { method: 'PUT' }),
+    onMutate: async (key) => {
+      await client.cancelQueries({ queryKey: projectKeys.all });
+      client.setQueriesData<ProjectSummary[]>({ queryKey: ['projects', 'list'] }, (projects) =>
+        projects?.map((project) => ({ ...project, isMain: project.key === key })),
+      );
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: projectKeys.all }),
+  });
+};
+
 export const useCreateStatus = (key: string) =>
   useProjectMutation((input: { workflow: Workflow; name: string; color: string; category: StatusCategory }) =>
     api<{ status: ProjectStatus }>(`/projects/${key}/statuses`, { method: 'POST', body: input }),

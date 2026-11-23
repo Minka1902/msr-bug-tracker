@@ -10,6 +10,7 @@ export interface ShellProject {
   icon: string;
   emblem: Emblem | null;
   isFavorite: boolean;
+  isMain: boolean;
 }
 
 export interface ShellUser {

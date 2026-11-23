@@ -30,7 +30,7 @@ import { ApiError, errorMessage } from '../../../lib/api';
 import { cn } from '../../../lib/cn';
 import { PHONE } from '../../../lib/media';
 import { NotFoundPage } from '../../../pages/NotFoundPage';
-import { useArchiveProject, useProject, useToggleFavorite } from '../api';
+import { useArchiveProject, useProject, useSetMainHousehold, useToggleFavorite } from '../api';
 import { ProjectLinks } from '../components/ProjectLinks';
 import { ProjectSwitcher } from '../components/ProjectSwitcher';
 import { ProjectTabsBar } from '../components/ProjectTabsBar';
@@ -71,6 +71,7 @@ export function ProjectLayout() {
   const phone = useMediaQuery(PHONE);
   const project = useProject(key);
   const favorite = useToggleFavorite();
+  const mainHousehold = useSetMainHousehold();
   const archive = useArchiveProject(key);
   const permissions = useProjectPermissions(project.data);
 
@@ -106,6 +107,14 @@ export function ProjectLayout() {
             label={data.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
             onClick={() => favorite.mutate({ key: data.key, favorite: !data.isFavorite })}
           />
+          {data.kind === 'household' && (
+            <IconButton
+              icon={<House className={cn(data.isMain && 'text-accent-text')} />}
+              label={data.isMain ? 'Main household' : 'Make main household'}
+              aria-pressed={data.isMain}
+              onClick={() => mainHousehold.mutate(data.key)}
+            />
+          )}
           <ProjectLinks project={data} />
           <div className="flex-1" />
           {permissions.can('task.create') && (

@@ -1,8 +1,11 @@
-import { Plus, Star } from 'lucide-react';
+import { House, Plus, Star } from 'lucide-react';
 import { NavLink } from 'react-router';
 import { cn } from '../../lib/cn';
 import { ProjectAvatar } from '../ui/ProjectAvatar';
 import type { ShellProject } from './shellTypes';
+
+const rankOf = (project: ShellProject) =>
+  project.isMain ? 0 : project.kind === 'household' ? 1 : project.isFavorite ? 2 : 3;
 
 interface ProjectNavListProps {
   projects: ShellProject[];
@@ -19,10 +22,7 @@ export function ProjectNavList({
   limit = 12,
   className,
 }: ProjectNavListProps) {
-  const sorted = [
-    ...projects.filter((project) => project.isFavorite),
-    ...projects.filter((project) => !project.isFavorite),
-  ].slice(0, limit);
+  const sorted = projects.toSorted((a, b) => rankOf(a) - rankOf(b)).slice(0, limit);
 
   return (
     <div className={cn('flex flex-col gap-0.5', className)}>
@@ -35,6 +35,7 @@ export function ProjectNavList({
         >
           <ProjectAvatar appearance={project} size="xs" />
           <span className="flex-1 truncate">{project.name}</span>
+          {project.isMain && <House aria-label="Main household" className="size-3.5 text-accent-text" />}
           {project.isFavorite && <Star className="size-3.5 fill-current text-warning" />}
         </NavLink>
       ))}

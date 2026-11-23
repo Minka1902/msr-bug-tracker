@@ -1,4 +1,4 @@
-import { FolderGit2, Globe, Link2, MoreHorizontal, Settings, Star, UserPlus } from 'lucide-react';
+import { FolderGit2, Globe, House, Link2, MoreHorizontal, Settings, Star, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { can } from '@msr/shared/permissions';
@@ -7,7 +7,7 @@ import { IconButton } from '../../../components/ui/IconButton';
 import { Menu, type MenuItem } from '../../../components/ui/Menu';
 import { useShell } from '../../../hooks/useShell';
 import { copyText } from '../../../lib/clipboard';
-import { useToggleFavorite } from '../api';
+import { useSetMainHousehold, useToggleFavorite } from '../api';
 
 interface ProjectActionsMenuProps {
   project: ProjectDetail;
@@ -22,6 +22,7 @@ export function ProjectActionsMenu({ project, trigger, extraItems = [], align }:
   const navigate = useNavigate();
   const { openInvite } = useShell();
   const favorite = useToggleFavorite();
+  const mainHousehold = useSetMainHousehold();
   const base = `/p/${project.key}`;
 
   return (
@@ -34,6 +35,14 @@ export function ProjectActionsMenu({ project, trigger, extraItems = [], align }:
           label: project.isFavorite ? 'Remove from favorites' : 'Add to favorites',
           icon: <Star />,
           onSelect: () => favorite.mutate({ key: project.key, favorite: !project.isFavorite }),
+        },
+        {
+          label: project.isMain ? 'Main household' : 'Make main household',
+          icon: <House />,
+          checked: project.isMain,
+          disabled: project.isMain,
+          hidden: project.kind !== 'household',
+          onSelect: () => mainHousehold.mutate(project.key),
         },
         {
           label: 'Copy link',

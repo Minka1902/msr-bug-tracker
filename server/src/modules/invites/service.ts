@@ -4,6 +4,7 @@ import { query, queryOne, transaction } from '../../db/pool';
 import { config } from '../../config';
 import { sendMail } from '../../lib/mailer';
 import { hashToken, randomToken } from '../../lib/tokens';
+import { claimMainHousehold } from '../projects/mainHousehold';
 
 interface InviteRow {
   id: string;
@@ -146,6 +147,7 @@ export const acceptInvite = (token: string, user: { id: string; email: string })
       ? !!(await queryOne(JOIN_PROJECT, [invite.project_id, user.id, invite.role_id], db))
       : true;
     if (joined) await query(USE_INVITE, [invite.id], db);
+    if (joined && invite.project_id) await claimMainHousehold(db, invite.project_id, user.id);
     if (invite.email) await query(VERIFY_INVITED_EMAIL, [user.id, invite.email], db);
     return { projectKey: invite.key, joined };
   });

@@ -148,7 +148,7 @@ Households reuse the four system keys under family names: **Owner**, **Parent** 
 
 ### `project_members` — migration 002
 
-PK `(project_id, user_id)`. `role_id` uses `ON DELETE RESTRICT`, so deleting a role first moves its members to another role in the same transaction. `is_favorite` and `last_opened_at` are per user and drive sidebar ordering. Indexed on `user_id` (for "my projects") and on `role_id`.
+PK `(project_id, user_id)`. `role_id` uses `ON DELETE RESTRICT`, so deleting a role first moves its members to another role in the same transaction. `is_favorite`, `is_main` and `last_opened_at` are per user and drive sidebar ordering: the main household first, then other households, then favorites, then the most recently opened. `is_main` marks the user's main household; the partial unique index `project_members_one_main` allows one per user. The first household a user creates or joins becomes main (`projects/mainHousehold.ts`, serialized per user with an advisory lock). Indexed on `user_id` (for "my projects") and on `role_id`.
 
 ### `project_statuses` and `labels` — migration 002
 
