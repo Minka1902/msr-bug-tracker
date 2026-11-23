@@ -3,6 +3,7 @@ import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { AI_PROVIDER_META, type AiProvider } from '@msr/shared/enums';
 import { z } from 'zod';
 import { HttpError, badGateway, badRequest } from './httpError';
+import { logger } from './logger';
 
 interface GenerateOptions<T> {
   provider: AiProvider;
@@ -163,8 +164,16 @@ const viaGemini = async <T>({ apiKey, system, prompt, schema, maxTokens }: Gener
 };
 
 export const generateJson = <T>(options: GenerateOptions<T>): Promise<T> =>
-  options.provider === 'anthropic'
+  (options.provider === 'anthropic'
     ? viaClaude(options)
     : options.provider === 'google'
       ? viaGemini(options)
-      : viaChatCompletions(options);
+      : viaChatCompletions(options)
+  ).catch((error: unknown) => {
+    if (error instanceof HttpError)
+      logger.warn(
+        { provider: options.provider, status: error.status, message: error.message },
+        'AI request failed',
+      );
+    throw error;
+  });

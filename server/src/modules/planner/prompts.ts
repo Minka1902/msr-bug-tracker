@@ -1,4 +1,4 @@
-import type { ProjectModule } from '@msr/shared/modules';
+import { typesFor, type ProjectModule } from '@msr/shared/modules';
 import type { AiShare, Motivation, Pace, TaskSize } from '@msr/shared/schemas/planner';
 
 export const BASE_RULES = `You are the planning coach inside MSR Tracker, a task tracker.
@@ -49,6 +49,20 @@ Each task has:
 - skill: for "skill" tasks, the skill or slash command to run, like "/brainstorming"; otherwise null
 - prompt: for "ai" and "skill" tasks, the full instruction to give the AI; otherwise null`;
 
+const FEATURE_RULES = `Also describe the product in features: 4 to 12 of them.
+Each feature has:
+- title: the feature's name, like "Gaze-based window focus"
+- summary: one or two sentences on what it does for the user
+- phase: "mvp" for the smallest product that proves the idea, "later" for everything else`;
+
+const NO_FEATURES = 'Return an empty features list.';
+
+const DECISION_RULES = `Also list every choice the person has to make themselves, as decisions: up to 10.
+Each decision has:
+- title: the question, like "Which camera should we support first?"
+- context: one or two sentences on why it matters and what depends on it
+- options: 2 to 5 short, realistic answers`;
+
 const ideaText = (module: ProjectModule, name: string, description: string) =>
   `${MODULE_PROMPTS[module]}\n\nIdea: ${name}${description ? `\nDescription: ${description}` : ''}`;
 
@@ -69,6 +83,25 @@ export const planPrompt = (
       : '',
     `Work at ${PACE_TEXT[motivation.pace]}. ${SIZE_TEXT[motivation.taskSize]} ${SHARE_TEXT[motivation.aiShare]}`,
     PLAN_RULES,
+    typesFor(module).includes('feature') ? FEATURE_RULES : NO_FEATURES,
+    DECISION_RULES,
   ]
     .filter(Boolean)
     .join('\n\n');
+
+export const handoffBrief = (
+  module: ProjectModule,
+  name: string,
+  description: string,
+  answers: { question: string; answer: string }[],
+  motivation: Motivation,
+  ownerName: string,
+) =>
+  [
+    `${ownerName} asked MSR to plan this project, and you are planning it through the MSR connector.`,
+    planPrompt(module, name, description, answers, motivation),
+    `Create everything in this project with the MSR tools:
+- Each task: create_task with type "task". Human tasks go to "${ownerName}" with their steps as a checklist (add_checklist_items) and a due date; "ai" and "skill" tasks go to "me" with the label "AI" and the prompt in the description.
+${typesFor(module).includes('feature') ? '- Each feature: create_task with type "feature", no assignee, the label "MVP" or "Later", and the summary as its description.\n' : ''}- Each decision: create_task with type "discussion", assigned to "${ownerName}", with the context and the options as a bullet list in the description.
+When you are done, add a comment here with a short summary and move this card to Done.`,
+  ].join('\n\n');

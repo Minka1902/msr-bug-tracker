@@ -6,6 +6,10 @@ export const PACES = ['relaxed', 'steady', 'intense'] as const;
 export const TASK_SIZES = ['tiny', 'small', 'medium'] as const;
 export const AI_SHARES = ['max', 'balanced', 'human'] as const;
 export const PLAN_TASKS_MAX = 60;
+export const PLAN_FEATURES_MAX = 20;
+export const PLAN_DECISIONS_MAX = 15;
+export const DECISION_OPTIONS_MAX = 5;
+export const FEATURE_PHASES = ['mvp', 'later'] as const;
 
 export const motivationSchema = z.object({
   pace: z.enum(PACES),
@@ -40,9 +44,33 @@ export const planTaskSchema = z.object({
   dueDate: z.iso.date().nullable(),
 });
 
-export const commitPlanSchema = z.object({
-  tasks: z.array(planTaskSchema).min(1, 'Keep at least one task').max(PLAN_TASKS_MAX),
-  agentId: z.uuid().nullable().default(null),
+export const planFeatureSchema = z.object({
+  title: z.string().trim().min(1).max(300),
+  summary: z.string().trim().max(2000),
+  phase: z.enum(FEATURE_PHASES),
+});
+
+export const planDecisionSchema = z.object({
+  title: z.string().trim().min(1).max(300),
+  context: z.string().trim().max(2000),
+  options: z.array(z.string().trim().min(1).max(200)).max(DECISION_OPTIONS_MAX),
+});
+
+export const commitPlanSchema = z
+  .object({
+    tasks: z.array(planTaskSchema).max(PLAN_TASKS_MAX),
+    features: z.array(planFeatureSchema).max(PLAN_FEATURES_MAX).default([]),
+    decisions: z.array(planDecisionSchema).max(PLAN_DECISIONS_MAX).default([]),
+    agentId: z.uuid().nullable().default(null),
+  })
+  .refine(
+    (value) => value.tasks.length + value.features.length + value.decisions.length > 0,
+    'Keep at least one item',
+  );
+
+export const handoffPlanSchema = z.object({
+  agentId: z.uuid(),
+  answers: planRequestSchema.shape.answers.default([]),
 });
 
 export type Doer = (typeof DOERS)[number];
@@ -54,3 +82,7 @@ export type IdeaInput = z.infer<typeof ideaSchema>;
 export type PlanQuestion = z.infer<typeof planQuestionSchema>;
 export type PlanRequest = z.infer<typeof planRequestSchema>;
 export type PlanTask = z.infer<typeof planTaskSchema>;
+export type PlanFeature = z.infer<typeof planFeatureSchema>;
+export type PlanDecision = z.infer<typeof planDecisionSchema>;
+export type PlanDraft = { tasks: PlanTask[]; features: PlanFeature[]; decisions: PlanDecision[] };
+export type PlanAnswer = PlanRequest['answers'][number];
